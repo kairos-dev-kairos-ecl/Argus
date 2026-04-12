@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/argusxdr/argus/internal/storage"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

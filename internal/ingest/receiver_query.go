@@ -43,11 +43,51 @@ func NewQueryHandler(ch *storage.ClickHouse, httpMetrics *metrics.HTTP, log *zap
 
 // RegisterRoutes mounts query API routes onto the chi mux.
 func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
+	// Tier 1: Core signal query routes
 	mux.Get("/v1/signals", h.handleGetSignals)
 	mux.Get("/v1/schema/signals", h.HandleGetSignalSchema)
 	mux.Get("/api/v1/layers/status", h.handleGetLayerStatus)
 	mux.Get("/api/v1/traces/{traceId}", h.handleGetTrace)
 	mux.Post("/api/v1/query", h.handlePostQuery)
+
+	// Tier 2: Rules
+	mux.Get("/api/v1/rules", h.handleListRules)
+	mux.Post("/api/v1/rules", h.handleCreateRule)
+	mux.Get("/api/v1/rules/{id}", h.handleGetRule)
+	mux.Put("/api/v1/rules/{id}", h.handleUpdateRule)
+	mux.Delete("/api/v1/rules/{id}", h.handleDeleteRule)
+	mux.Post("/api/v1/rules/validate", h.handleValidateRule)
+	mux.Post("/api/v1/rules/test", h.handleTestRule)
+
+	// Tier 2: Alerts
+	mux.Get("/api/v1/alerts", h.handleListAlerts)
+	mux.Get("/api/v1/alerts/{id}", h.handleGetAlert)
+	mux.Post("/api/v1/alerts/{id}/acknowledge", h.handleAcknowledgeAlert)
+
+	// Tier 2: Incidents
+	mux.Get("/api/v1/incidents", h.handleListIncidents)
+	mux.Get("/api/v1/incidents/{id}", h.handleGetIncident)
+	mux.Post("/api/v1/incidents/{id}/acknowledge", h.handleAcknowledgeIncident)
+	mux.Post("/api/v1/incidents/{id}/resolve", h.handleResolveIncident)
+
+	// Tier 3: Auth
+	mux.Post("/api/v1/auth/login", h.handleLogin)
+	mux.Post("/api/v1/auth/refresh", h.handleRefreshToken)
+	mux.Post("/api/v1/auth/logout", h.handleLogout)
+	mux.Post("/api/v1/auth/setup", h.handleSetup)
+
+	// Tier 3: Users
+	mux.Get("/api/v1/users", h.handleListUsers)
+	mux.Post("/api/v1/users", h.handleCreateUser)
+
+	// Tier 3: Apps
+	mux.Get("/api/v1/apps", h.handleListApps)
+	mux.Post("/api/v1/apps", h.handleCreateApp)
+	mux.Get("/api/v1/apps/{id}/key", h.handleGetAppKey)
+	mux.Post("/api/v1/apps/{id}/key/rotate", h.handleRotateAppKey)
+
+	// Tier 3: Audit
+	mux.Get("/api/v1/audit", h.handleListAuditLog)
 }
 
 // QueryResponse is the JSON response for GET /v1/signals.

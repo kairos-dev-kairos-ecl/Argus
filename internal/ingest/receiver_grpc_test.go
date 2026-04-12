@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/argusxdr/argus/gen/go/argus/v1"
-	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -242,15 +242,15 @@ func (m *mockIngestStream) SendAndClose(resp *v1.IngestResponse) error {
 	return m.sendError
 }
 
-func (m *mockIngestStream) SetHeader(interface{}) error {
+func (m *mockIngestStream) SetHeader(metadata.MD) error {
 	return nil
 }
 
-func (m *mockIngestStream) SendHeader(interface{}) error {
+func (m *mockIngestStream) SendHeader(metadata.MD) error {
 	return nil
 }
 
-func (m *mockIngestStream) SetTrailer(interface{}) {
+func (m *mockIngestStream) SetTrailer(metadata.MD) {
 }
 
 func (m *mockIngestStream) Context() context.Context {

@@ -2,7 +2,6 @@ package ingest
 
 import (
 	"bytes"
-	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestOTLPReceiverMapSpanWithLayerAttribute(t *testing.T) {
@@ -43,7 +42,7 @@ func TestOTLPReceiverMapSpanWithLayerAttribute(t *testing.T) {
 		},
 	}
 
-	resource := &commonpb.Resource{
+	resource := &resourcepb.Resource{
 		Attributes: []*commonpb.KeyValue{
 			{
 				Key: "service.name",
@@ -113,7 +112,7 @@ func TestOTLPReceiverMapSpanLayerInference(t *testing.T) {
 				StartTimeUnixNano: 1234567890000000000,
 			}
 
-			resource := &commonpb.Resource{
+			resource := &resourcepb.Resource{
 				Attributes: []*commonpb.KeyValue{
 					{
 						Key: "service.name",
@@ -146,7 +145,7 @@ func TestOTLPReceiverMapSpanErrorSeverity(t *testing.T) {
 		},
 	}
 
-	resource := &commonpb.Resource{
+	resource := &resourcepb.Resource{
 		Attributes: []*commonpb.KeyValue{
 			{
 				Key: "service.name",
@@ -176,7 +175,7 @@ func TestOTLPReceiverMapSpanDuration(t *testing.T) {
 		EndTimeUnixNano:   1100000000,   // 1.1 seconds = 100ms duration
 	}
 
-	resource := &commonpb.Resource{
+	resource := &resourcepb.Resource{
 		Attributes: []*commonpb.KeyValue{
 			{
 				Key: "service.name",
@@ -207,7 +206,7 @@ func TestOTLPReceiverHandleTracesBinary(t *testing.T) {
 	traceReq := &collectortrace.ExportTraceServiceRequest{
 		ResourceSpans: []*tracepb.ResourceSpans{
 			{
-				Resource: &commonpb.Resource{
+				Resource: &resourcepb.Resource{
 					Attributes: []*commonpb.KeyValue{
 						{
 							Key: "service.name",
@@ -268,7 +267,7 @@ func TestOTLPReceiverHandleTracesJSON(t *testing.T) {
 	traceReq := &collectortrace.ExportTraceServiceRequest{
 		ResourceSpans: []*tracepb.ResourceSpans{
 			{
-				Resource: &commonpb.Resource{
+				Resource: &resourcepb.Resource{
 					Attributes: []*commonpb.KeyValue{
 						{
 							Key: "service.name",
@@ -351,7 +350,7 @@ func TestOTLPReceiverMapSpanMissingTraceID(t *testing.T) {
 		StartTimeUnixNano: 1234567890000000000,
 	}
 
-	resource := &commonpb.Resource{}
+	resource := &resourcepb.Resource{}
 
 	signal := receiver.mapSpanToSignal(span, resource)
 
