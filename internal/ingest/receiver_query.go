@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/argusxdr/argus/gen/go/argus/v1"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -261,163 +262,12 @@ func (h *QueryHandler) handleGetSignals(w http.ResponseWriter, r *http.Request) 
 	// Unmarshal rows into ArgusSignal structs
 	signals := []*v1.ArgusSignal{}
 	for rows.Next() {
-		// Scan variables for all columns in SELECT order
-		var (
-			// Identity
-			signalID, traceID, spanID string
-			parentSpanID sql.NullString
-
-			// Classification
-			layer, severity uint8
-			category string
-
-			// Temporal
-			timestamp time.Time
-			durationMs sql.NullFloat64
-			ingestedAt time.Time
-
-			// Source/App info
-			appID, appVersion, sdkVersion string
-			environment, hostID sql.NullString
-
-			// Provider
-			providerName, providerModel sql.NullString
-
-			// Related signals
-			relatedSignalsStr []string
-
-			// Relationships
-			incidentID, sessionID, conversationID, userID sql.NullString
-
-			// Data classification
-			dataClassification uint8
-			retentionPolicy string
-			piiDetected uint8
-
-			// Layer contexts (not yet fully implemented in proto, just scan and ignore)
-			ctxL1CPU, ctxL1Memory, ctxL1GPU sql.NullFloat64
-			ctxL2ModelID, ctxL2ModelHash, ctxL2Quantization sql.NullString
-			ctxL3InputTokens, ctxL3OutputTokens, ctxL3Truncated sql.NullInt64
-			ctxL4AttentionEntropy, ctxL4KVCacheHitRate sql.NullFloat64
-			ctxL5MeanLogprob, ctxL5TopLogprob sql.NullFloat64
-			ctxL5FinishReason sql.NullString
-			ctxL6SafetyScore sql.NullFloat64
-			ctxL6PolicyViolated, ctxL6ActionTaken sql.NullString
-			ctxL7QueryText sql.NullString
-			ctxL7RetrievedCount sql.NullInt64
-			ctxL7TopScore sql.NullFloat64
-			ctxL7CollectionName sql.NullString
-			ctxL8ToolName, ctxL8ToolInputHash sql.NullString
-			ctxL8AgentStep sql.NullInt64
-			ctxL9Method, ctxL9Path, ctxL9StatusCode sql.NullString
-			ctxL9LatencyMs sql.NullFloat64
-			ctxL10EventType, ctxL10Component sql.NullString
-
-			// Enrichment
-			enrichBaselineDeviation sql.NullFloat64
-			enrichGeoipCountry, enrichGeoipCity sql.NullString
-			enrichThreatIntelHit sql.NullInt64
-		)
-
-		// Scan all columns in the same order as SELECT statement
-		err := rows.Scan(
-			&signalID, &traceID, &spanID, &parentSpanID,
-			&layer, &category, &severity,
-			&timestamp, &durationMs, &ingestedAt,
-			&appID, &appVersion, &sdkVersion, &environment, &hostID,
-			&providerName, &providerModel,
-			&relatedSignalsStr, &incidentID, &sessionID, &conversationID, &userID,
-			&dataClassification, &retentionPolicy, &piiDetected,
-			&ctxL1CPU, &ctxL1Memory, &ctxL1GPU,
-			&ctxL2ModelID, &ctxL2ModelHash, &ctxL2Quantization,
-			&ctxL3InputTokens, &ctxL3OutputTokens, &ctxL3Truncated,
-			&ctxL4AttentionEntropy, &ctxL4KVCacheHitRate,
-			&ctxL5MeanLogprob, &ctxL5TopLogprob, &ctxL5FinishReason,
-			&ctxL6SafetyScore, &ctxL6PolicyViolated, &ctxL6ActionTaken,
-			&ctxL7QueryText, &ctxL7RetrievedCount, &ctxL7TopScore, &ctxL7CollectionName,
-			&ctxL8ToolName, &ctxL8ToolInputHash, &ctxL8AgentStep,
-			&ctxL9Method, &ctxL9Path, &ctxL9StatusCode, &ctxL9LatencyMs,
-			&ctxL10EventType, &ctxL10Component,
-			&enrichBaselineDeviation, &enrichGeoipCountry, &enrichGeoipCity, &enrichThreatIntelHit,
-		)
+		sig, err := scanSignalRow(rows)
 		if err != nil {
 			h.log.Error("failed to scan signal row", zap.Error(err))
 			continue
 		}
-
-		// Build ArgusSignal from scanned values
-		// Note: Some schema columns don't map to proto fields yet (layer contexts, detailed enrichment).
-		// This basic implementation returns core signal data; enrichment mapping requires proto updates.
-
-		// Create Source message
-		src := &v1.Source{
-			AppId:      appID,
-			AppVersion: appVersion,
-			SdkVersion: sdkVersion,
-			Environment: environment.String,
-			InstanceId: hostID.String,
-		}
-
-		// Create Provider message if present
-		var prov *v1.Provider
-		if providerName.Valid || providerModel.Valid {
-			prov = &v1.Provider{
-				Name:  providerName.String,
-				Model: providerModel.String,
-			}
-		}
-
-		// Create Enrichment message if present
-		var enrich *v1.Enrichment
-		if enrichBaselineDeviation.Valid || enrichGeoipCountry.Valid || enrichGeoipCity.Valid || enrichThreatIntelHit.Valid {
-			enrich = &v1.Enrichment{
-				BaselineDeviation: func() *float32 { if enrichBaselineDeviation.Valid { v := float32(enrichBaselineDeviation.Float64); return &v }; return nil }(),
-				RiskScore: nil, // Not available in schema yet
-				ThreatIntel: nil, // Would require separate query/parsing
-			}
-			if enrichGeoipCountry.Valid || enrichGeoipCity.Valid {
-				enrich.Geo = &v1.GeoData{
-					Country: func() *string { if enrichGeoipCountry.Valid { return &enrichGeoipCountry.String }; return nil }(),
-					City: func() *string { if enrichGeoipCity.Valid { return &enrichGeoipCity.String }; return nil }(),
-				}
-			}
-		}
-
-		// Create ArgusSignal
-		signal := &v1.ArgusSignal{
-			SignalId:     signalID,
-			TraceId:      traceID,
-			SpanId:       spanID,
-			ParentSpanId: func() *string { if parentSpanID.Valid { return &parentSpanID.String }; return nil }(),
-			Source:       src,
-			Layer:        v1.Layer(layer),
-			Category:     category,
-			Severity:     v1.Severity(severity),
-			Timestamp:    timestamppb.New(timestamp),
-			IngestedAt:   timestamppb.New(ingestedAt),
-			RelatedSignals: relatedSignalsStr,
-			IncidentId:   func() *string { if incidentID.Valid { return &incidentID.String }; return nil }(),
-			SessionId:    func() *string { if sessionID.Valid { return &sessionID.String }; return nil }(),
-			ConversationId: func() *string { if conversationID.Valid { return &conversationID.String }; return nil }(),
-			UserId:       func() *string { if userID.Valid { return &userID.String }; return nil }(),
-			Provider:     prov,
-			Enrichment:   enrich,
-			DataClassification: v1.DataClassification(dataClassification),
-			RetentionPolicy: retentionPolicy,
-			PiiDetected: piiDetected != 0,
-		}
-
-		// Set optional duration
-		if durationMs.Valid {
-			v := float32(durationMs.Float64)
-			signal.DurationMs = &v
-		}
-
-		// TODO: Layer contexts (L1-L10) are defined in schema but not yet implemented in proto.
-		// Once proto context messages are fully defined, add mapping logic here.
-		// Scanned values: ctxL1-L10 fields above
-
-		signals = append(signals, signal)
+		signals = append(signals, sig)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -638,13 +488,254 @@ func (h *QueryHandler) handleGetLayerStatus(w http.ResponseWriter, r *http.Reque
 	json.NewEncoder(w).Encode(resp)
 }
 
+// TraceResponse is the JSON response for GET /api/v1/traces/{traceId}.
+type TraceResponse struct {
+	TraceID string            `json:"trace_id"`
+	Signals []*v1.ArgusSignal `json:"signals"`
+}
+
 // handleGetTrace handles GET /api/v1/traces/{traceId}.
 // Returns all signals for a trace ordered by timestamp.
 func (h *QueryHandler) handleGetTrace(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: implement in Step 1.4 — Tier 1 handlers
-	w.WriteHeader(http.StatusNotImplemented)
-	json.NewEncoder(w).Encode(ErrorResponse{Error: "not implemented"})
+
+	if h.ch == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "storage unavailable"})
+		return
+	}
+
+	traceID := chi.URLParam(r, "traceId")
+	if traceID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "traceId is required"})
+		return
+	}
+
+	ctx := r.Context()
+	const traceQuery = `
+SELECT
+    signal_id, trace_id, span_id, parent_span_id,
+    layer, category, severity,
+    timestamp, duration_ms, ingested_at,
+    app_id, app_version, sdk_version, environment, host_id,
+    provider_name, provider_model,
+    related_signals, incident_id, session_id, conversation_id, user_id,
+    data_classification, retention_policy, pii_detected,
+    ctx_l1_cpu_percent, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
+    ctx_l2_model_id, ctx_l2_model_hash, ctx_l2_quantization,
+    ctx_l3_input_token_count, ctx_l3_output_token_count, ctx_l3_truncated,
+    ctx_l4_attention_entropy, ctx_l4_kv_cache_hit_rate,
+    ctx_l5_mean_logprob, ctx_l5_top_logprob, ctx_l5_finish_reason,
+    ctx_l6_safety_score, ctx_l6_policy_violated, ctx_l6_action_taken,
+    ctx_l7_query_text, ctx_l7_retrieved_count, ctx_l7_top_score, ctx_l7_collection_name,
+    ctx_l8_tool_name, ctx_l8_tool_input_hash, ctx_l8_agent_step,
+    ctx_l9_method, ctx_l9_path, ctx_l9_status_code, ctx_l9_latency_ms,
+    ctx_l10_event_type, ctx_l10_component,
+    enrich_baseline_deviation, enrich_geoip_country, enrich_geoip_city, enrich_threat_intel_hit
+FROM signals FINAL
+WHERE trace_id = {trace_id:String}
+ORDER BY timestamp ASC
+LIMIT 1000`
+
+	rows, err := h.ch.Conn().Query(ctx, traceQuery, clickhouse.Named("trace_id", traceID))
+	if err != nil {
+		h.log.Error("trace query failed", zap.String("trace_id", traceID), zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "query failed"})
+		return
+	}
+	defer rows.Close()
+
+	signals := make([]*v1.ArgusSignal, 0)
+	for rows.Next() {
+		sig, err := scanSignalRow(rows)
+		if err != nil {
+			h.log.Warn("failed to scan trace signal row", zap.Error(err))
+			continue
+		}
+		signals = append(signals, sig)
+	}
+	if err := rows.Err(); err != nil {
+		h.log.Error("trace row iteration failed", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "query iteration failed"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(TraceResponse{TraceID: traceID, Signals: signals})
+}
+
+// scanSignalRow scans a single ClickHouse row (from the signals SELECT query) into an ArgusSignal.
+// The SELECT column order must match the order used in buildSignalQuery and traceQuery.
+func scanSignalRow(rows driver.Rows) (*v1.ArgusSignal, error) {
+	var (
+		// Identity
+		signalID, traceID, spanID string
+		parentSpanID              sql.NullString
+
+		// Classification
+		layer, severity uint8
+		category        string
+
+		// Temporal
+		timestamp  time.Time
+		durationMs sql.NullFloat64
+		ingestedAt time.Time
+
+		// Source/App info
+		appID, appVersion, sdkVersion string
+		environment, hostID           sql.NullString
+
+		// Provider
+		providerName, providerModel sql.NullString
+
+		// Related signals
+		relatedSignalsStr []string
+
+		// Relationships
+		incidentID, sessionID, conversationID, userID sql.NullString
+
+		// Data classification
+		dataClassification uint8
+		retentionPolicy    string
+		piiDetected        uint8
+
+		// Layer contexts (not yet fully implemented in proto, scan and ignore)
+		ctxL1CPU, ctxL1Memory, ctxL1GPU                sql.NullFloat64
+		ctxL2ModelID, ctxL2ModelHash, ctxL2Quantization sql.NullString
+		ctxL3InputTokens, ctxL3OutputTokens, ctxL3Truncated sql.NullInt64
+		ctxL4AttentionEntropy, ctxL4KVCacheHitRate      sql.NullFloat64
+		ctxL5MeanLogprob, ctxL5TopLogprob               sql.NullFloat64
+		ctxL5FinishReason                               sql.NullString
+		ctxL6SafetyScore                                sql.NullFloat64
+		ctxL6PolicyViolated, ctxL6ActionTaken           sql.NullString
+		ctxL7QueryText                                  sql.NullString
+		ctxL7RetrievedCount                             sql.NullInt64
+		ctxL7TopScore                                   sql.NullFloat64
+		ctxL7CollectionName                             sql.NullString
+		ctxL8ToolName, ctxL8ToolInputHash               sql.NullString
+		ctxL8AgentStep                                  sql.NullInt64
+		ctxL9Method, ctxL9Path, ctxL9StatusCode         sql.NullString
+		ctxL9LatencyMs                                  sql.NullFloat64
+		ctxL10EventType, ctxL10Component                sql.NullString
+
+		// Enrichment
+		enrichBaselineDeviation          sql.NullFloat64
+		enrichGeoipCountry, enrichGeoipCity sql.NullString
+		enrichThreatIntelHit             sql.NullInt64
+	)
+
+	err := rows.Scan(
+		&signalID, &traceID, &spanID, &parentSpanID,
+		&layer, &category, &severity,
+		&timestamp, &durationMs, &ingestedAt,
+		&appID, &appVersion, &sdkVersion, &environment, &hostID,
+		&providerName, &providerModel,
+		&relatedSignalsStr, &incidentID, &sessionID, &conversationID, &userID,
+		&dataClassification, &retentionPolicy, &piiDetected,
+		&ctxL1CPU, &ctxL1Memory, &ctxL1GPU,
+		&ctxL2ModelID, &ctxL2ModelHash, &ctxL2Quantization,
+		&ctxL3InputTokens, &ctxL3OutputTokens, &ctxL3Truncated,
+		&ctxL4AttentionEntropy, &ctxL4KVCacheHitRate,
+		&ctxL5MeanLogprob, &ctxL5TopLogprob, &ctxL5FinishReason,
+		&ctxL6SafetyScore, &ctxL6PolicyViolated, &ctxL6ActionTaken,
+		&ctxL7QueryText, &ctxL7RetrievedCount, &ctxL7TopScore, &ctxL7CollectionName,
+		&ctxL8ToolName, &ctxL8ToolInputHash, &ctxL8AgentStep,
+		&ctxL9Method, &ctxL9Path, &ctxL9StatusCode, &ctxL9LatencyMs,
+		&ctxL10EventType, &ctxL10Component,
+		&enrichBaselineDeviation, &enrichGeoipCountry, &enrichGeoipCity, &enrichThreatIntelHit,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build ArgusSignal from scanned values.
+	// Note: Some schema columns don't map to proto fields yet (layer contexts, detailed enrichment).
+	// This basic implementation returns core signal data; enrichment mapping requires proto updates.
+
+	src := &v1.Source{
+		AppId:       appID,
+		AppVersion:  appVersion,
+		SdkVersion:  sdkVersion,
+		Environment: environment.String,
+		InstanceId:  hostID.String,
+	}
+
+	var prov *v1.Provider
+	if providerName.Valid || providerModel.Valid {
+		prov = &v1.Provider{
+			Name:  providerName.String,
+			Model: providerModel.String,
+		}
+	}
+
+	var enrich *v1.Enrichment
+	if enrichBaselineDeviation.Valid || enrichGeoipCountry.Valid || enrichGeoipCity.Valid || enrichThreatIntelHit.Valid {
+		enrich = &v1.Enrichment{
+			BaselineDeviation: func() *float32 {
+				if enrichBaselineDeviation.Valid {
+					v := float32(enrichBaselineDeviation.Float64)
+					return &v
+				}
+				return nil
+			}(),
+			RiskScore:   nil, // Not available in schema yet
+			ThreatIntel: nil, // Would require separate query/parsing
+		}
+		if enrichGeoipCountry.Valid || enrichGeoipCity.Valid {
+			enrich.Geo = &v1.GeoData{
+				Country: func() *string {
+					if enrichGeoipCountry.Valid {
+						return &enrichGeoipCountry.String
+					}
+					return nil
+				}(),
+				City: func() *string {
+					if enrichGeoipCity.Valid {
+						return &enrichGeoipCity.String
+					}
+					return nil
+				}(),
+			}
+		}
+	}
+
+	signal := &v1.ArgusSignal{
+		SignalId:     signalID,
+		TraceId:      traceID,
+		SpanId:       spanID,
+		ParentSpanId: func() *string { if parentSpanID.Valid { return &parentSpanID.String }; return nil }(),
+		Source:       src,
+		Layer:        v1.Layer(layer),
+		Category:     category,
+		Severity:     v1.Severity(severity),
+		Timestamp:    timestamppb.New(timestamp),
+		IngestedAt:   timestamppb.New(ingestedAt),
+		RelatedSignals: relatedSignalsStr,
+		IncidentId:     func() *string { if incidentID.Valid { return &incidentID.String }; return nil }(),
+		SessionId:      func() *string { if sessionID.Valid { return &sessionID.String }; return nil }(),
+		ConversationId: func() *string { if conversationID.Valid { return &conversationID.String }; return nil }(),
+		UserId:         func() *string { if userID.Valid { return &userID.String }; return nil }(),
+		Provider:       prov,
+		Enrichment:     enrich,
+		DataClassification: v1.DataClassification(dataClassification),
+		RetentionPolicy:    retentionPolicy,
+		PiiDetected:        piiDetected != 0,
+	}
+
+	// Set optional duration
+	if durationMs.Valid {
+		v := float32(durationMs.Float64)
+		signal.DurationMs = &v
+	}
+
+	// TODO: Layer contexts (L1-L10) are defined in schema but not yet implemented in proto.
+	// Once proto context messages are fully defined, add mapping logic here.
+	// Scanned values: ctxL1-L10 fields above
+
+	return signal, nil
 }
 
 // handlePostQuery handles POST /api/v1/query.
