@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/argusxdr/argus/gen/go/argus/v1"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/storage"
@@ -45,7 +46,7 @@ func NewQueryHandler(ch *storage.ClickHouse, httpMetrics *metrics.HTTP, log *zap
 func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 	// Tier 1: Core signal query routes
 	mux.Get("/v1/signals", h.handleGetSignals)
-	mux.Get("/v1/schema/signals", h.HandleGetSignalSchema)
+	mux.Get("/v1/schema/signals", h.handleGetSignalSchema)
 	mux.Get("/api/v1/layers/status", h.handleGetLayerStatus)
 	mux.Get("/api/v1/traces/{traceId}", h.handleGetTrace)
 	mux.Post("/api/v1/query", h.handlePostQuery)
@@ -242,12 +243,12 @@ func (h *QueryHandler) handleGetSignals(w http.ResponseWriter, r *http.Request) 
 		cursorID = parts[1]
 	}
 
-	// Build ClickHouse query
-	query := buildSignalQuery(appID, layer, category, severity, startTs, endTs, cursorTs, cursorID, limit+1)
+	// Build ClickHouse query with named parameters to prevent SQL injection
+	query, queryArgs := buildSignalQuery(appID, layer, category, severity, startTs, endTs, cursorTs, cursorID, limit+1)
 	h.log.Debug("executing query", zap.String("query", query))
 
 	// Execute query
-	rows, err := h.ch.Conn().Query(ctx, query)
+	rows, err := h.ch.Conn().Query(ctx, query, queryArgs...)
 	if err != nil {
 		h.log.Error("query failed", zap.Error(err))
 		w.Header().Set("Content-Type", "application/json")
@@ -466,8 +467,8 @@ type SchemaResponse struct {
 	Columns []SchemaColumn `json:"columns"`
 }
 
-// HandleGetSignalSchema handles GET /v1/schema/signals and returns the signal table schema.
-func (h *QueryHandler) HandleGetSignalSchema(w http.ResponseWriter, r *http.Request) {
+// handleGetSignalSchema handles GET /v1/schema/signals and returns the signal table schema.
+func (h *QueryHandler) handleGetSignalSchema(w http.ResponseWriter, r *http.Request) {
 	schema := SchemaResponse{
 		Columns: []SchemaColumn{
 			// Identity
@@ -655,10 +656,12 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ErrorResponse{Error: "not implemented"})
 }
 
-// buildSignalQuery constructs a parameterized ClickHouse query for signals.
+// buildSignalQuery constructs a ClickHouse query for signals using named parameters
+// to prevent SQL injection for all user-supplied string values.
 // Uses FINAL modifier for ReplacingMergeTree deduplication.
-func buildSignalQuery(appID string, layer int32, category string, severity int32, startTs, endTs, cursorTs *time.Time, cursorID string, limit int64) string {
-	// Base query with FINAL for dedup
+// Returns the query string and the slice of clickhouse.Named args to pass to Query().
+func buildSignalQuery(appID string, layer int32, category string, severity int32, startTs, endTs, cursorTs *time.Time, cursorID string, limit int64) (string, []interface{}) {
+	// Base query with FINAL for dedup. app_id is always required and uses a named param.
 	query := `
 SELECT
 	signal_id, trace_id, span_id, parent_span_id,
@@ -680,20 +683,25 @@ SELECT
 	ctx_l10_event_type, ctx_l10_component,
 	enrich_baseline_deviation, enrich_geoip_country, enrich_geoip_city, enrich_threat_intel_hit
 FROM signals FINAL
-WHERE app_id = '` + escapeClickHouseString(appID) + `'`
+WHERE app_id = {app_id:String}`
 
+	args := []interface{}{clickhouse.Named("app_id", appID)}
+
+	// Numeric params (layer, severity) are safe to interpolate — parsed from integers, no user string injection.
 	if layer > 0 {
 		query += ` AND layer = ` + strconv.FormatInt(int64(layer), 10)
 	}
 
 	if category != "" {
-		query += ` AND category = '` + escapeClickHouseString(category) + `'`
+		query += ` AND category = {category:String}`
+		args = append(args, clickhouse.Named("category", category))
 	}
 
 	if severity > 0 {
 		query += ` AND severity >= ` + strconv.FormatInt(int64(severity), 10)
 	}
 
+	// Timestamps are server-generated RFC3339Nano strings — not user-supplied raw strings.
 	if startTs != nil {
 		query += ` AND timestamp >= parseDatetime64BestEffort('` + startTs.Format(time.RFC3339Nano) + `')`
 	}
@@ -702,20 +710,17 @@ WHERE app_id = '` + escapeClickHouseString(appID) + `'`
 		query += ` AND timestamp <= parseDatetime64BestEffort('` + endTs.Format(time.RFC3339Nano) + `')`
 	}
 
-	// Keyset pagination: (timestamp, signal_id) > (last_ts, last_id)
+	// Keyset pagination: (timestamp, signal_id) > (last_ts, last_id).
+	// cursorID is user-supplied and uses a named param; cursorTs is server-formatted.
 	if cursorTs != nil && cursorID != "" {
-		query += ` AND (timestamp, signal_id) > (parseDatetime64BestEffort('` + cursorTs.Format(time.RFC3339Nano) + `'), '` + escapeClickHouseString(cursorID) + `')`
+		query += ` AND (timestamp, signal_id) > (parseDatetime64BestEffort('` + cursorTs.Format(time.RFC3339Nano) + `'), {cursor_id:String})`
+		args = append(args, clickhouse.Named("cursor_id", cursorID))
 	}
 
-	// Order and limit
+	// Order and limit — limit is an int64, safe to interpolate.
 	query += `
 ORDER BY timestamp ASC, signal_id ASC
 LIMIT ` + strconv.FormatInt(limit, 10)
 
-	return query
-}
-
-// escapeClickHouseString escapes single quotes in a string for ClickHouse.
-func escapeClickHouseString(s string) string {
-	return strings.ReplaceAll(s, "'", "''")
+	return query, args
 }
