@@ -1,0 +1,186 @@
+syntax = "proto3";
+
+package argus.v1;
+
+import "argus/v1/signal.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/argusxdr/argus/gen/go/argus/v1;v1";
+
+// IngestService accepts signals from SDKs and external sources
+service IngestService {
+  // StreamSignals accepts a stream of signals and returns acknowledgement
+  rpc StreamSignals(stream ArgusSignal) returns (IngestResponse);
+}
+
+message IngestResponse {
+  string batch_id = 1;
+  int32 accepted_count = 2;
+  int32 rejected_count = 3;
+  repeated RejectionDetail rejections = 4;
+}
+
+message RejectionDetail {
+  string signal_id = 1;
+  string reason = 2;
+}
+
+// QueryService provides read access to stored signals
+service QueryService {
+  // GetSignals queries signals by filter criteria
+  rpc GetSignals(QueryRequest) returns (stream ArgusSignal);
+
+  // GetTrace retrieves all signals for a trace_id
+  rpc GetTrace(TraceRequest) returns (TraceResponse);
+
+  // GetAlerts retrieves alerts with optional filtering
+  rpc GetAlerts(AlertQueryRequest) returns (stream Alert);
+}
+
+message QueryRequest {
+  string app_id = 1;
+  optional Layer layer = 2;
+  optional string category = 3;
+  optional Severity severity = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  optional string cursor = 7;      // Pagination cursor
+  int32 page_size = 8;
+}
+
+message TraceRequest {
+  string trace_id = 1;
+}
+
+message TraceResponse {
+  repeated ArgusSignal signals = 1;
+  TraceMetadata metadata = 2;
+}
+
+message TraceMetadata {
+  string trace_id = 1;
+  int32 signal_count = 2;
+  float total_duration_ms = 3;
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5;
+}
+
+message AlertQueryRequest {
+  optional string app_id = 1;
+  optional string rule_id = 2;
+  optional Severity severity = 3;
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5;
+  optional string cursor = 6;
+  int32 page_size = 7;
+}
+
+message Alert {
+  string alert_id = 1;
+  string rule_id = 2;
+  repeated string signal_ids = 3;
+  Severity severity = 4;
+  float confidence = 5;
+  google.protobuf.Timestamp fired_at = 6;
+  string status = 7;  // open|acknowledged|resolved|closed
+}
+
+// ConfigService manages platform configuration
+service ConfigService {
+  // GetConfig retrieves current configuration
+  rpc GetConfig(ConfigRequest) returns (Config);
+
+  // UpdateConfig applies configuration changes
+  rpc UpdateConfig(UpdateConfigRequest) returns (ConfigResponse);
+
+  // CreateRule creates a new detection rule
+  rpc CreateRule(CreateRuleRequest) returns (Rule);
+
+  // UpdateRule updates an existing rule
+  rpc UpdateRule(UpdateRuleRequest) returns (Rule);
+
+  // DeleteRule deletes a rule
+  rpc DeleteRule(DeleteRuleRequest) returns (google.protobuf.Empty);
+
+  // ListRules lists all detection rules
+  rpc ListRules(ListRulesRequest) returns (ListRulesResponse);
+}
+
+message ConfigRequest {
+  optional string app_id = 1;
+}
+
+message Config {
+  string config_id = 1;
+  map<string, string> settings = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message UpdateConfigRequest {
+  string app_id = 1;
+  map<string, string> settings = 2;
+}
+
+message ConfigResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CreateRuleRequest {
+  string name = 1;
+  string yaml_content = 2;
+}
+
+message UpdateRuleRequest {
+  string rule_id = 1;
+  string yaml_content = 2;
+}
+
+message DeleteRuleRequest {
+  string rule_id = 1;
+}
+
+message ListRulesRequest {
+  optional string app_id = 1;
+  optional bool enabled_only = 2;
+}
+
+message ListRulesResponse {
+  repeated Rule rules = 1;
+}
+
+message Rule {
+  string rule_id = 1;
+  string name = 2;
+  string yaml_content = 3;
+  bool enabled = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// HealthService provides platform health status
+service HealthService {
+  // Check returns the health status
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // Watch streams health status updates
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;  // Optional: specific service to check
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+
+  ServingStatus status = 1;
+  map<string, string> details = 2;
+  google.protobuf.Timestamp checked_at = 3;
+}

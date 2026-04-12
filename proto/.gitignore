@@ -1,0 +1,21 @@
+# Generated stubs
+gen/
+*.pb.go
+*.pyi
+*.js
+*.ts
+*.d.ts
+
+# Build artifacts
+*.o
+*.so
+*.pyc
+__pycache__/
+node_modules/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

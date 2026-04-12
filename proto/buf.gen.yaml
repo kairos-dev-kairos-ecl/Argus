@@ -1,0 +1,17 @@
+version: v1
+managed:
+  enabled: true
+plugins:
+  - plugin: go
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+  - plugin: go-grpc
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+  - plugin: python
+    out: ../gen/python
+  # Note: TypeScript generation requires Node.js and protoc-gen-ts npm package.
+  # TypeScript SDK uses pre-generated stubs or generates them separately.
+  # Disabled for Docker builds (Go binary only needs Go stubs).

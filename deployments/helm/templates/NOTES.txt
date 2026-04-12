@@ -1,0 +1,27 @@
+1. Get the ingest service IP by running these commands:
+   export INGEST_SERVICE_IP=$(kubectl get svc {{ include "argus.fullname" . }}-grpc -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+   echo $INGEST_SERVICE_IP
+
+2. Get the query API service IP by running:
+   export API_SERVICE_IP=$(kubectl get svc {{ include "argus.fullname" . }}-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+   echo $API_SERVICE_IP
+
+3. Test the ingest service (gRPC):
+   grpcurl -plaintext $INGEST_SERVICE_IP:5001 list
+
+4. Test the query API:
+   curl -s "http://$API_SERVICE_IP:8080/health"
+
+5. View ingest pod logs:
+   kubectl logs -f deployment/{{ include "argus.fullname" . }}-ingest
+
+6. View API pod logs:
+   kubectl logs -f deployment/{{ include "argus.fullname" . }}-api
+
+7. Forward gRPC port locally:
+   kubectl port-forward svc/{{ include "argus.fullname" . }}-grpc 5001:5001
+
+8. Forward HTTP port locally:
+   kubectl port-forward svc/{{ include "argus.fullname" . }}-api 8080:8080
+
+Chart installed successfully!

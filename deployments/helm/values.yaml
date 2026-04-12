@@ -1,0 +1,103 @@
+# Argus XDR Helm Chart Values
+
+# Replica counts for different subsystems
+replicaCount:
+  ingest: 2  # Horizontal scaling for ingest workload
+  api: 1     # Typically only one API replica (stateless query)
+
+# Container image settings
+image:
+  repository: argusxdr/argus
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Service configuration
+service:
+  type: ClusterIP
+  grpcPort: 5001
+  httpPort: 8080
+  annotations: {}
+
+# Resource requests and limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Horizontal Pod Autoscaler configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Node selector (optional)
+nodeSelector: {}
+
+# Tolerations (optional)
+tolerations: []
+
+# Affinity rules (optional)
+affinity: {}
+
+# Storage backend configuration
+storage:
+  # ClickHouse for signals time-series
+  clickhouse:
+    enabled: true
+    addr: "clickhouse:9000"
+    database: "default"
+    username: "default"
+    password: ""
+    maxConns: 10
+    dialTimeout: 5s
+
+  # PostgreSQL for config, auth, rules
+  postgres:
+    enabled: true
+    host: "postgres"
+    port: 5432
+    database: "argus"
+    username: "argus"
+    password: "argus"
+    sslMode: "disable"
+    maxConns: 20
+    minConns: 5
+
+  # Redis for ephemeral state
+  redis:
+    enabled: true
+    addr: "redis:6379"
+    password: ""
+    db: 0
+
+# Ingest configuration
+ingest:
+  queueCapacity: 100000
+  batchSize: 500
+  flushInterval: 2s
+  maxGrpcMessageBytes: 10485760  # 10MB
+  maxHttpBodyBytes: 4194304      # 4MB
+  authCacheTtl: 5m
+
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+
+# Pod disruption budget (optional)
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network policies (optional)
+networkPolicy:
+  enabled: false
+
+# Service monitor for Prometheus (optional, requires Prometheus operator)
+serviceMonitor:
+  enabled: false
+  interval: 30s

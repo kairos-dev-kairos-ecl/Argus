@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>dev.argus.xdr</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/argus</string>
+		<string>server</string>
+		<string>start</string>
+		<string>-d</string>
+	</array>
+	<key>KeepAlive</key>
+	<true/>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/var/log/argus/argus.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/log/argus/argus-error.log</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>ARGUS_LOG_LEVEL</key>
+		<string>info</string>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>/var/lib/argus</string>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>SoftResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>65536</integer>
+		<key>NumberOfProcesses</key>
+		<integer>4096</integer>
+	</dict>
+</dict>
+</plist>

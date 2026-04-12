@@ -1,0 +1,29 @@
+[Unit]
+Description=Argus XDR - Extended Detection & Response for LLM Systems
+Documentation=https://github.com/argus-xdr/argus/wiki
+After=network.target
+
+[Service]
+Type=simple
+User=argus
+WorkingDirectory=/var/lib/argus
+ExecStart=/usr/local/bin/argus server start -d
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=argus
+
+# Security & resource limits
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/argus /var/log/argus
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: argus
+description: Argus XDR — LLM-integrated system observability platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - xdr
+  - detection
+  - response
+  - observability
+  - llm
+home: https://github.com/argusxdr/argus
+sources:
+  - https://github.com/argusxdr/argus
+maintainers:
+  - name: Argus Team

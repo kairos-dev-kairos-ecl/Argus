@@ -1,0 +1,292 @@
+syntax = "proto3";
+
+package argus.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/argusxdr/argus/gen/go/argus/v1;v1";
+
+// Layer represents the 10-layer LLM system taxonomy plus L_DECISION (policy decisions)
+enum Layer {
+  LAYER_UNSPECIFIED = 0;
+  L1_HARDWARE = 1;
+  L2_MODEL_WEIGHTS = 2;
+  L3_TOKENIZER = 3;
+  L4_TRANSFORMER = 4;
+  L5_OUTPUT_DECODING = 5;
+  L6_SAFETY = 6;
+  L7_RAG_RETRIEVAL = 7;
+  L8_AGENTS = 8;
+  L9_API_GATEWAY = 9;
+  L10_APPLICATION = 10;
+  L_DECISION = 11;  // Policy decision signals from Kairos
+}
+
+// Severity represents the criticality of a signal
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  INFO = 1;
+  LOW = 2;
+  MEDIUM = 3;
+  HIGH = 4;
+  CRITICAL = 5;
+}
+
+// DataClassification represents the sensitivity of signal data
+enum DataClassification {
+  CLASSIFICATION_UNSPECIFIED = 0;
+  PUBLIC = 1;
+  INTERNAL = 2;
+  CONFIDENTIAL = 3;
+  RESTRICTED = 4;
+}
+
+// ArgusSignal is the core atom of the platform: a typed event from any layer of an LLM system
+message ArgusSignal {
+  // Identity
+  string signal_id = 1;           // ULID, universally unique and time-sortable
+  string trace_id = 2;            // Distributed trace correlation
+  string span_id = 3;             // Span within trace
+  optional string parent_span_id = 4;
+
+  // Source
+  Source source = 5;
+
+  // Classification
+  Layer layer = 6;
+  string category = 7;            // e.g., "retrieval.search", "agent.tool_call", "safety.classifier"
+  Severity severity = 8;
+
+  // Temporal
+  google.protobuf.Timestamp timestamp = 9;   // When the event occurred (nanosecond precision)
+  optional float duration_ms = 10;            // How long the operation took
+  google.protobuf.Timestamp ingested_at = 11; // When Argus received it
+
+  // Context (layer-specific payload)
+  oneof context {
+    ContextL1 context_l1 = 12;
+    ContextL2 context_l2 = 13;
+    ContextL3 context_l3 = 14;
+    ContextL4 context_l4 = 15;
+    ContextL5 context_l5 = 16;
+    ContextL6 context_l6 = 17;
+    ContextL7 context_l7 = 18;
+    ContextL8 context_l8 = 19;
+    ContextL9 context_l9 = 20;
+    ContextL10 context_l10 = 21;
+    ContextLDecision context_l_decision = 22;
+  }
+
+  // Relationships
+  repeated string related_signals = 23;  // Correlated signal IDs (populated by pipeline)
+  optional string incident_id = 24;      // If part of an incident
+  optional string session_id = 25;       // User session
+  optional string conversation_id = 26;  // Conversation/thread
+  optional string user_id = 27;          // End user (if known, hashed)
+
+  // Provider metadata
+  Provider provider = 28;
+
+  // Enrichment (populated by pipeline, not SDK)
+  Enrichment enrichment = 29;
+
+  // Governance
+  DataClassification data_classification = 30;
+  string retention_policy = 31;  // Which retention rule applies
+  bool pii_detected = 32;        // Whether PII scanning flagged content
+}
+
+message Source {
+  string app_id = 1;          // Registered application identifier
+  string app_version = 2;     // Application version (semver)
+  string sdk_version = 3;     // Argus SDK version
+  string environment = 4;     // dev|staging|prod
+  string instance_id = 5;     // Specific runtime instance
+}
+
+message Provider {
+  string name = 1;                    // "openai" | "anthropic" | "bedrock" | "self-hosted" | ...
+  string model = 2;                   // Model identifier
+  optional string model_version = 3;  // Specific version if known
+  optional string region = 4;         // Deployment region
+}
+
+message Enrichment {
+  repeated ThreatIntelMatch threat_intel = 1;  // TI matches
+  optional GeoData geo = 2;                     // Geo-IP if applicable
+  optional float baseline_deviation = 3;        // Z-score from baseline
+  optional float risk_score = 4;                // Composite risk score (0.0–1.0)
+}
+
+message ThreatIntelMatch {
+  string indicator = 1;
+  string category = 2;
+  string source = 3;
+}
+
+message GeoData {
+  optional string country = 1;
+  optional string region = 2;
+  optional string city = 3;
+  optional float latitude = 4;
+  optional float longitude = 5;
+}
+
+// Placeholder context messages (to be expanded per-layer)
+message ContextL1 {
+  string placeholder = 1;
+}
+
+message ContextL2 {
+  string placeholder = 1;
+}
+
+message ContextL3 {
+  string placeholder = 1;
+}
+
+message ContextL4 {
+  string placeholder = 1;
+}
+
+message ContextL5 {
+  enum Operation {
+    OPERATION_UNSPECIFIED = 0;
+    GENERATION = 1;
+    STREAMING = 2;
+  }
+
+  Operation operation = 1;
+  int32 output_tokens = 2;
+  int32 input_tokens = 3;
+  int32 total_tokens = 4;
+  string finish_reason = 5;
+  float temperature = 6;
+  float top_p = 7;
+  repeated LogProbEntry logprobs = 8;
+  optional float mean_logprob = 9;
+  optional float min_logprob = 10;
+  optional float entropy_mean = 11;
+  optional float entropy_variance = 12;
+  float ttft_ms = 13;
+  float tps = 14;
+}
+
+message LogProbEntry {
+  string token = 1;
+  float logprob = 2;
+  repeated Alternative top_alternatives = 3;
+}
+
+message Alternative {
+  string token = 1;
+  float logprob = 2;
+}
+
+message ContextL6 {
+  string placeholder = 1;
+}
+
+message ContextL7 {
+  enum Operation {
+    OPERATION_UNSPECIFIED = 0;
+    VECTOR_SEARCH = 1;
+    RERANK = 2;
+    CHUNK_INJECT = 3;
+    EMBEDDING = 4;
+  }
+
+  Operation operation = 1;
+  string query_text = 2;
+  repeated float query_embedding = 3;
+  int32 results_count = 4;
+  repeated float results_scores = 5;
+  string top_chunk_source = 6;
+  float context_window_pct = 7;
+  string embedding_model = 8;
+  string vector_index = 9;
+  bool reranker_applied = 10;
+  optional float reranker_delta = 11;
+  LatencyBreakdown latency_breakdown = 12;
+}
+
+message LatencyBreakdown {
+  float embedding_ms = 1;
+  float search_ms = 2;
+  float rerank_ms = 3;
+}
+
+message ContextL8 {
+  enum Operation {
+    OPERATION_UNSPECIFIED = 0;
+    TOOL_CALL = 1;
+    TOOL_RESULT = 2;
+    PLANNING = 3;
+    DELEGATION = 4;
+  }
+
+  Operation operation = 1;
+  string tool_name = 2;
+  string tool_provider = 3;
+  map<string, string> tool_arguments = 4;
+  string tool_result = 5;
+  optional string tool_error = 6;
+  float tool_latency_ms = 7;
+  int32 step_number = 8;
+  optional int32 total_steps = 9;
+  repeated string permissions_used = 10;
+  repeated string permissions_requested = 11;
+  repeated string data_flow_tags = 12;
+}
+
+message ContextL9 {
+  string placeholder = 1;
+}
+
+message ContextL10 {
+  string placeholder = 1;
+}
+
+message ContextLDecision {
+  enum Decision {
+    DECISION_UNSPECIFIED = 0;
+    ALLOW = 1;
+    DENY = 2;
+    REVIEW = 3;
+  }
+
+  enum RecommendedAction {
+    ACTION_UNSPECIFIED = 0;
+    SUPPRESS = 1;
+    ESCALATE = 2;
+    INVESTIGATE = 3;
+  }
+
+  Decision decision = 1;
+  float confidence = 2;           // 0.0-1.0
+  string reasoning = 3;           // Human-readable explanation
+  RecommendedAction recommended_action = 4;
+  string policy_version = 5;      // Policy version used for decision
+  string policy_name = 6;         // Which policy was applied
+  float evaluation_time_ms = 7;   // How long evaluation took
+}
+
+// BaselineProfile represents statistical baseline metrics for (app_id, layer, category)
+message BaselineProfile {
+  // Identity
+  string app_id = 1;
+  Layer layer = 2;
+  string category = 3;
+
+  // Statistics
+  double mean = 4;
+  double std_dev = 5;
+  double min = 6;
+  double max = 7;
+
+  // Metadata
+  int32 sample_count = 8;
+  google.protobuf.Timestamp computed_at = 9;
+  google.protobuf.Timestamp expires_at = 10;
+}

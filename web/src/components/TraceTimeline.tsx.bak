@@ -1,0 +1,187 @@
+import React from 'react'
+import ReactECharts from 'echarts-for-react'
+import type { Trace } from '../types/index'
+import { LAYERS } from '../types/index'
+
+interface TraceTimelineProps {
+  trace: Trace
+  selectedSpanID: string | null
+  onSelectSpan: (spanID: string) => void
+}
+
+/**
+ * ECharts timeline visualization for trace spans across layers.
+ * X-axis: Time (milliseconds from trace start)
+ * Y-axis: Layer (L1-L10)
+ * Points: Spans positioned by start_time and sized by duration_ms
+ * Markers: Detection annotations on relevant spans
+ */
+export const TraceTimeline: React.FC<TraceTimelineProps> = ({
+  trace,
+  selectedSpanID,
+  onSelectSpan
+}) => {
+  if (!trace || !trace.spans || trace.spans.length === 0) {
+    return <div className="p-4 text-slate-400">No spans in trace</div>
+  }
+
+  // Map layers to Y-axis indices
+  const layerToY = Object.fromEntries(LAYERS.map((layer, i) => [layer, i]))
+
+  // Get min timestamp to establish time range
+  const minTime = Math.min(...trace.spans.map(s => new Date(s.start_time).getTime()))
+
+  // Convert spans to ECharts scatter points
+  const spanSeries = trace.spans.map((span, idx) => {
+    const startMs = new Date(span.start_time).getTime()
+    const xStart = startMs - minTime
+    const isSelected = selectedSpanID === span.signal_id
+
+    return {
+      name: span.layer,
+      value: [xStart, layerToY[span.layer], span.duration_ms, idx],
+      itemStyle: {
+        color: span.status === 'error' ? '#ef4444' : '#10b981',
+        opacity: isSelected ? 1 : 0.7,
+        borderColor: isSelected ? '#3b82f6' : 'rgba(255,255,255,0.3)',
+        borderWidth: isSelected ? 3 : 1
+      },
+      tooltip: {
+        formatter: `${span.layer}<br/>${span.message}<br/>${span.duration_ms}ms`
+      }
+    }
+  })
+
+  // Detection markers as visual annotations
+  const detectionMarkers: any[] = []
+  trace.detections.forEach(det => {
+    const detSpan = trace.spans.find(s => s.signal_id === det.signal_id)
+    if (detSpan) {
+      const startMs = new Date(detSpan.start_time).getTime()
+      const xPos = startMs - minTime
+      detectionMarkers.push({
+        xAxis: xPos,
+        yAxis: layerToY[detSpan.layer],
+        symbol: 'diamond',
+        symbolSize: 12,
+        itemStyle: {
+          color: '#f59e0b'
+        },
+        label: {
+          formatter: `${det.rule_name}`,
+          position: 'right'
+        }
+      })
+    }
+  })
+
+  const option = {
+    title: {
+      text: `Trace ${trace.trace_id.slice(0, 8)}... (${trace.duration_ms}ms)`,
+      textStyle: {
+        color: '#f1f5f9'
+      },
+      left: 'center',
+      top: 10
+    },
+    grid: {
+      left: '15%',
+      right: '10%',
+      bottom: '10%',
+      top: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'value',
+      name: 'Time (ms)',
+      nameTextStyle: {
+        color: '#94a3b8'
+      },
+      axisLabel: {
+        formatter: (v: number) => `${v}ms`,
+        color: '#94a3b8'
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#334155'
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#1e293b'
+        }
+      }
+    },
+    yAxis: {
+      type: 'category',
+      data: LAYERS,
+      nameTextStyle: {
+        color: '#94a3b8'
+      },
+      axisLabel: {
+        color: '#94a3b8'
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#334155'
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#1e293b'
+        }
+      }
+    },
+    series: [
+      {
+        type: 'scatter',
+        name: 'Spans',
+        symbolSize: (data: unknown[]) => {
+          const [, , duration] = data as [number, number, number]
+          return Math.max(8, Math.min(40, duration / 3))
+        },
+        data: spanSeries,
+        markLine: detectionMarkers.length > 0 ? { data: detectionMarkers } : undefined,
+        itemStyle: {
+          opacity: 0.8
+        }
+      }
+    ],
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#1e293b',
+      borderColor: '#475569',
+      textStyle: {
+        color: '#f1f5f9'
+      },
+      formatter: (params: any) => {
+        if (params.componentSubType !== 'scatter') return ''
+        const [x, y, duration] = params.value
+        const layerName = LAYERS[y]
+        return `Layer: ${layerName}<br/>Start: ${x}ms<br/>Duration: ${duration}ms`
+      }
+    },
+    backgroundColor: 'transparent'
+  }
+
+  const handleChartClick = (params: any) => {
+    if (params.componentSubType === 'scatter') {
+      const spanIdx = params.value[3]
+      const span = trace.spans[spanIdx]
+      if (span) {
+        onSelectSpan(span.signal_id)
+      }
+    }
+  }
+
+  return (
+    <div className="h-96 w-full bg-slate-900 rounded border border-slate-800 p-2">
+      <ReactECharts
+        option={option}
+        style={{ height: '100%', width: '100%' }}
+        onClick={handleChartClick}
+        opts={{ renderer: 'canvas' }}
+      />
+    </div>
+  )
+}

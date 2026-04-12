@@ -1,0 +1,482 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiClient } from '../lib/axios-client'
+import { useAuthStore } from '../stores/auth'
+
+/**
+ * SetupWizard Component
+ * 5-step first-run onboarding flow:
+ * 1. Admin Account Creation
+ * 2. Instance Configuration
+ * 3. Notification Channels (optional)
+ * 4. First App Registration
+ * 5. Done
+ */
+export function SetupWizard() {
+  const navigate = useNavigate()
+  const { login } = useAuthStore()
+
+  const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Step 1: Admin Account
+  const [admin, setAdmin] = useState({
+    email: '',
+    display_name: '',
+    password: '',
+    confirm_password: '',
+  })
+  const [passwordStrength, setPasswordStrength] = useState(0)
+
+  // Step 2: Instance Config
+  const [instance, setInstance] = useState({
+    instance_name: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    signal_retention_days: 30,
+    incident_retention_days: 90,
+    audit_retention_days: 365,
+  })
+
+  // Step 3: Notifications
+  const [notifications, setNotifications] = useState({
+    slack_webhook: '',
+    smtp_host: '',
+    smtp_port: 587,
+    pagerduty_key: '',
+  })
+
+  // Step 4: App Registration
+  const [app, setApp] = useState({
+    app_name: '',
+    description: '',
+    environment: 'dev' as 'dev' | 'staging' | 'prod',
+  })
+  const [apiKey, setApiKey] = useState<string | null>(null)
+
+  // Calculate password strength
+  useEffect(() => {
+    const password = admin.password
+    let strength = 0
+    if (password.length >= 12) strength++
+    if (password.length >= 16) strength++
+    if (/[A-Z]/.test(password)) strength++
+    if (/[0-9]/.test(password)) strength++
+    if (/[^A-Za-z0-9]/.test(password)) strength++
+    setPasswordStrength(Math.min(5, strength))
+  }, [admin.password])
+
+  const handleNext = async () => {
+    setError(null)
+
+    // Validation
+    if (currentStep === 1) {
+      if (!admin.email || !admin.display_name || !admin.password) {
+        setError('Please fill in all fields')
+        return
+      }
+      if (admin.password !== admin.confirm_password) {
+        setError('Passwords do not match')
+        return
+      }
+      if (admin.password.length < 12) {
+        setError('Password must be at least 12 characters')
+        return
+      }
+      if (passwordStrength < 3) {
+        setError('Password is too weak')
+        return
+      }
+    }
+
+    if (currentStep === 2) {
+      if (!instance.instance_name) {
+        setError('Instance name is required')
+        return
+      }
+    }
+
+    if (currentStep === 4) {
+      if (!app.app_name) {
+        setError('App name is required')
+        return
+      }
+    }
+
+    // Move to next step
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1)
+    } else if (currentStep === 4) {
+      // Generate API key
+      await generateAppAndKey()
+      setCurrentStep(5)
+    }
+  }
+
+  const generateAppAndKey = async () => {
+    setLoading(true)
+    try {
+      const response = await apiClient.post('/apps', {
+        name: app.app_name,
+        description: app.description,
+        environment: app.environment,
+      })
+      setApiKey(response.data.api_key)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to create app'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCompleteSetup = async () => {
+    setLoading(true)
+    try {
+      // Complete setup on backend
+      const setupPayload = {
+        email: admin.email,
+        display_name: admin.display_name,
+        password: admin.password,
+        instance_name: instance.instance_name,
+        timezone: instance.timezone,
+        app_name: app.app_name,
+      }
+
+      await apiClient.post('/setup', setupPayload)
+
+      // Log in with created admin account
+      await login(admin.email, admin.password)
+
+      // Redirect to dashboard
+      setTimeout(() => {
+        navigate('/', { replace: true })
+      }, 1500)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Setup failed'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              Create Admin Account
+            </h2>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={admin.email}
+                onChange={(e) =>
+                  setAdmin({ ...admin, email: e.target.value })
+                }
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={admin.display_name}
+                onChange={(e) =>
+                  setAdmin({ ...admin, display_name: e.target.value })
+                }
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={admin.password}
+                onChange={(e) =>
+                  setAdmin({ ...admin, password: e.target.value })
+                }
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+              {admin.password && (
+                <div className="mt-2">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-2 flex-1 rounded ${
+                          i <= passwordStrength
+                            ? 'bg-green-500'
+                            : 'bg-slate-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {passwordStrength < 3 ? 'Weak' : 'Strong'} password
+                  </p>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                value={admin.confirm_password}
+                onChange={(e) =>
+                  setAdmin({ ...admin, confirm_password: e.target.value })
+                }
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+          </div>
+        )
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              Instance Configuration
+            </h2>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Instance Name
+              </label>
+              <input
+                type="text"
+                value={instance.instance_name}
+                onChange={(e) =>
+                  setInstance({ ...instance, instance_name: e.target.value })
+                }
+                placeholder="My Argus Instance"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Timezone
+              </label>
+              <input
+                type="text"
+                value={instance.timezone}
+                readOnly
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Signal Retention (days)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={instance.signal_retention_days}
+                onChange={(e) =>
+                  setInstance({
+                    ...instance,
+                    signal_retention_days: parseInt(e.target.value),
+                  })
+                }
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+          </div>
+        )
+
+      case 3:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              Notification Channels (Optional)
+            </h2>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Slack Webhook URL
+              </label>
+              <input
+                type="text"
+                value={notifications.slack_webhook}
+                onChange={(e) =>
+                  setNotifications({
+                    ...notifications,
+                    slack_webhook: e.target.value,
+                  })
+                }
+                placeholder="https://hooks.slack.com/..."
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                SMTP Host
+              </label>
+              <input
+                type="text"
+                value={notifications.smtp_host}
+                onChange={(e) =>
+                  setNotifications({
+                    ...notifications,
+                    smtp_host: e.target.value,
+                  })
+                }
+                placeholder="smtp.example.com"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground py-3">
+              Skip for now and configure these later.
+            </p>
+          </div>
+        )
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              Register First App
+            </h2>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                App Name
+              </label>
+              <input
+                type="text"
+                value={app.app_name}
+                onChange={(e) => setApp({ ...app, app_name: e.target.value })}
+                placeholder="My LLM Application"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground/90 mb-2">
+                Environment
+              </label>
+              <select
+                value={app.environment}
+                onChange={(e) =>
+                  setApp({
+                    ...app,
+                    environment: e.target.value as
+                      | 'dev'
+                      | 'staging'
+                      | 'prod',
+                  })
+                }
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
+              >
+                <option value="dev">Development</option>
+                <option value="staging">Staging</option>
+                <option value="prod">Production</option>
+              </select>
+            </div>
+          </div>
+        )
+
+      case 5:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              Setup Complete!
+            </h2>
+            {apiKey ? (
+              <div>
+                <p className="text-foreground/90 mb-4">
+                  Your API key has been generated. Keep it safe!
+                </p>
+                <div className="bg-background border border-border rounded-lg p-4 font-mono text-sm break-all text-status-success select-all">
+                  {apiKey}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-background rounded-lg p-4">
+                <p className="text-foreground/90">
+                  Welcome to Argus XDR! You're all set.
+                </p>
+              </div>
+            )}
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            {[1, 2, 3, 4, 5].map((step) => (
+              <div
+                key={step}
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-all ${
+                  step <= currentStep
+                    ? 'bg-primary text-foreground'
+                    : 'bg-slate-700 text-muted-foreground'
+                }`}
+              >
+                {step}
+              </div>
+            ))}
+          </div>
+          <div className="bg-slate-700 h-1 rounded-full overflow-hidden">
+            <div
+              className="bg-primary h-full transition-all duration-300"
+              style={{ width: `${(currentStep / 5) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Content Card */}
+        <div className="bg-muted-background rounded-lg border border-border shadow-lg p-6 md:p-8">
+          {error && (
+            <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4 mb-6">
+              <p className="text-status-error text-sm">{error}</p>
+            </div>
+          )}
+
+          {renderStepContent()}
+
+          {/* Navigation Buttons */}
+          <div className="flex gap-4 mt-8">
+            {currentStep > 1 && (
+              <button
+                onClick={() => setCurrentStep(currentStep - 1)}
+                className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-foreground font-medium rounded-lg transition-colors"
+                disabled={loading}
+              >
+                Back
+              </button>
+            )}
+            <button
+              onClick={
+                currentStep === 5 ? handleCompleteSetup : handleNext
+              }
+              className="flex-1 py-2 px-4 bg-primary hover:bg-primary/90 text-foreground font-medium rounded-lg transition-colors"
+              disabled={loading}
+            >
+              {loading
+                ? 'Processing...'
+                : currentStep === 5
+                  ? 'Go to Dashboard'
+                  : 'Next'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

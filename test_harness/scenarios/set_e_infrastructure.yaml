@@ -1,0 +1,39 @@
+# Scenario Set E: Infrastructure attacks (resource exhaustion, API abuse, model extraction)
+
+scenarios:
+  - id: E1
+    name: "Denial of Wallet (Token Exhaustion)"
+    type: "chat_batch"
+    batch_count: 100
+    prompt_template: "Generate a very long response about topic {i}: "
+    max_tokens: 1000
+    expected_detection: "denial-of-wallet"
+    expected_severity: "HIGH"
+    description: "Rapid requests with max-length outputs to exhaust token budget"
+    timeout_sec: 120
+    attack_pattern: "resource-exhaustion"
+
+  - id: E2
+    name: "API Key Abuse (Multiple IPs)"
+    type: "api_stress"
+    request_count: 50
+    request_interval_sec: 0.1
+    simulate_ip_variation: true
+    expected_detection: "api-key-abuse"
+    expected_severity: "HIGH"
+    description: "Same API key used from multiple IPs in short time window"
+    timeout_sec: 30
+    attack_pattern: "anomalous-usage"
+
+  - id: E3
+    name: "Model Extraction Probe"
+    type: "chat_batch"
+    probe_type: "parameter-variation"
+    prompt: "Complete this sequence: 1, 2, 3, 4,"
+    temperature_variations: [0.0, 0.3, 0.5, 0.7, 0.9, 1.0]
+    seed_variations: [42, 123, 456, 789, 1000, 2000]
+    expected_detection: "model-extraction-probe"
+    expected_severity: "MEDIUM"
+    description: "Systematic parameter variation to infer model behavior"
+    timeout_sec: 60
+    attack_pattern: "model-inference"

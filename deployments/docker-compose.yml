@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  argus:
+    image: ghcr.io/argus-xdr/argus:latest
+    container_name: argus-api
+    ports:
+      - "9090:9090"    # HTTP dashboard + API
+      - "4317:4317"    # gRPC signal ingestion
+      - "8080:8080"    # HTTP signal ingestion
+    environment:
+      ARGUS_DATABASE_POSTGRES: "postgres://argus:password@postgres:5432/argus"
+      ARGUS_DATABASE_CLICKHOUSE: "http://clickhouse:8123/argus"
+      ARGUS_DATABASE_REDIS: "redis://redis:6379/0"
+      ARGUS_LOG_LEVEL: "info"
+    volumes:
+      - ./argus.yaml:/etc/argus/argus.yaml:ro
+      - argus-data:/var/lib/argus
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: argus-clickhouse
+    environment:
+      CLICKHOUSE_DB: argus
+      CLICKHOUSE_PASSWORD: password
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: argus-postgres
+    environment:
+      POSTGRES_DB: argus
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: argus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  argus-data:
+  clickhouse-data:
+  postgres-data:
+  redis-data:

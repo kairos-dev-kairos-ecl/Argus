@@ -1,0 +1,77 @@
+import React from 'react'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import type { Span, Detection } from '../types/index'
+import { DetectionAnnotation } from './DetectionAnnotation'
+
+dayjs.extend(relativeTime)
+
+interface DetailRowProps {
+  label: string
+  value: React.ReactNode
+}
+
+const DetailRow: React.FC<DetailRowProps> = ({ label, value }) => (
+  <div className="flex justify-between items-start">
+    <span className="text-slate-400 text-sm">{label}</span>
+    <span className="text-foreground text-sm font-mono">{value}</span>
+  </div>
+)
+
+interface SpanDetailProps {
+  span: Span | null
+  detections: Detection[]
+}
+
+/**
+ * Side panel displaying detailed information about a selected span.
+ * Shows signal metadata and any detections triggered on this span.
+ */
+export const SpanDetail: React.FC<SpanDetailProps> = ({ span, detections }) => {
+  if (!span) {
+    return (
+      <div className="p-4 bg-muted-background border border-border rounded h-full flex items-center justify-center">
+        <div className="text-slate-400 text-sm">Select a span to view details</div>
+      </div>
+    )
+  }
+
+  const spanDetections = detections.filter(d => d.signal_id === span.signal_id)
+
+  return (
+    <div className="p-4 bg-muted-background border border-border rounded h-full overflow-y-auto">
+      <h3 className="text-lg font-bold text-foreground mb-4">Signal Details</h3>
+
+      <div className="space-y-2 mb-6">
+        <DetailRow label="Signal ID" value={span.signal_id.slice(0, 12)} />
+        <DetailRow label="Layer" value={span.layer} />
+        <DetailRow label="Start Time" value={dayjs(span.start_time).format('HH:mm:ss.SSS')} />
+        <DetailRow label="Duration" value={`${span.duration_ms}ms`} />
+        <DetailRow
+          label="Status"
+          value={
+            <span className={span.status === 'error' ? 'text-status-error400' : 'text-status-success400'}>
+              {span.status.toUpperCase()}
+            </span>
+          }
+        />
+        <DetailRow label="Message" value={span.message} />
+        {span.parent_signal_id && <DetailRow label="Parent Signal" value={span.parent_signal_id.slice(0, 12)} />}
+      </div>
+
+      {spanDetections.length > 0 && (
+        <div>
+          <h4 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full"></span>
+            Detections ({spanDetections.length})
+          </h4>
+          <div className="space-y-2">
+            {spanDetections.map(det => (
+              <DetectionAnnotation key={det.detection_id} detection={det} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

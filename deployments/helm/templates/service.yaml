@@ -1,0 +1,70 @@
+{{- /* Service for gRPC (ingest-only) */ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "argus.fullname" . }}-grpc
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    component: ingest
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.grpcPort }}
+    targetPort: grpc
+    protocol: TCP
+    name: grpc
+  selector:
+    {{- include "argus.selectorLabels" . | nindent 4 }}
+    component: ingest
+
+---
+
+{{- /* Service for HTTP (both ingest and API) */ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "argus.fullname" . }}-http
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.httpPort }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "argus.selectorLabels" . | nindent 4 }}
+
+---
+
+{{- /* Service for API only (query endpoint) */ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "argus.fullname" . }}-api
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    component: api
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.httpPort }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "argus.selectorLabels" . | nindent 4 }}
+    component: api

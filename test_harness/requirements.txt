@@ -1,0 +1,5 @@
+httpx>=0.25.0
+pyyaml>=6.0
+numpy>=1.24.0
+google-protobuf>=4.23.0
+grpcio>=1.59.0
