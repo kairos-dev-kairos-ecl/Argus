@@ -1,1 +1,4 @@
 .planning/
+
+# Git worktrees
+.worktrees/
