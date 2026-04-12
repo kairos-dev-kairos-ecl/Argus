@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS detection_rules (
     description TEXT,
     tier        INTEGER NOT NULL CHECK (tier IN (1, 2, 3)),
     enabled     BOOLEAN NOT NULL DEFAULT true,
-    yaml_config JSONB NOT NULL,
+    config      JSONB NOT NULL,  -- rule definition (authored as YAML, stored as JSONB)
     created_by  UUID REFERENCES users(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -95,8 +95,8 @@ CREATE TABLE IF NOT EXISTS routing_rules (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     channel_id    UUID NOT NULL REFERENCES notification_channels(id) ON DELETE CASCADE,
     min_severity  INTEGER NOT NULL DEFAULT 1 CHECK (min_severity BETWEEN 1 AND 5),
-    app_id_filter TEXT,
-    layer_filter  INTEGER,
+    app_id_filter TEXT,    -- NULL = match all apps
+    layer_filter  INTEGER, -- NULL = match all layers
     enabled       BOOLEAN NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
