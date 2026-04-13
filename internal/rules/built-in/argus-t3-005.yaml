@@ -1,0 +1,17 @@
+id: argus-t3-005
+name: Decision Deny Cluster
+description: Built-in MITRE ATLAS detection rule
+tier: 3
+enabled: true
+severity: 5
+conditions:
+  layer: L_DECISION
+  category_prefix: policy.decision
+  temporal:
+    count_gte: 8
+    window_seconds: 600
+action:
+  title: Decision Deny Cluster
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0051

@@ -14,6 +14,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
+	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,7 @@ type QueryHandler struct {
 	ch      *storage.ClickHouse
 	metrics *metrics.HTTP
 	log     *zap.Logger
+	store   *engine.RuleStore // may be nil if detection engine not wired
 }
 
 // NewQueryHandler creates a new QueryHandler.
@@ -42,6 +44,11 @@ func NewQueryHandler(ch *storage.ClickHouse, httpMetrics *metrics.HTTP, log *zap
 		metrics: httpMetrics,
 		log:     log,
 	}
+}
+
+// SetRuleStore wires the in-memory rule store for rule management handlers.
+func (h *QueryHandler) SetRuleStore(s *engine.RuleStore) {
+	h.store = s
 }
 
 // RegisterRoutes mounts query API routes onto the chi mux.

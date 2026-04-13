@@ -1,0 +1,13 @@
+id: argus-t2-002
+name: Extreme Baseline Deviation
+description: Built-in MITRE ATLAS detection rule
+tier: 2
+enabled: true
+severity: 4
+conditions:
+  baseline_deviation_gte: 4
+action:
+  title: Extreme Deviation
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0000

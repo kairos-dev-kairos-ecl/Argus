@@ -1,0 +1,14 @@
+id: argus-t1-004
+name: Suspicious Tool Call
+description: Built-in MITRE ATLAS detection rule
+tier: 1
+enabled: true
+severity: 4
+conditions:
+  layer: L8_AGENTS
+  category_prefix: agent.tool_call
+action:
+  title: Suspicious Tool Call
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0026

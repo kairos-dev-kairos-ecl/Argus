@@ -1,0 +1,17 @@
+id: argus-t3-003
+name: Retrieval Spike
+description: Built-in MITRE ATLAS detection rule
+tier: 3
+enabled: true
+severity: 3
+conditions:
+  layer: L7_RAG_RETRIEVAL
+  category_prefix: retrieval.search
+  temporal:
+    count_gte: 20
+    window_seconds: 60
+action:
+  title: Retrieval Spike
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0036

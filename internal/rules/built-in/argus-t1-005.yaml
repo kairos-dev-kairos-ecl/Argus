@@ -1,0 +1,14 @@
+id: argus-t1-005
+name: RAG Poison Indicator
+description: Built-in MITRE ATLAS detection rule
+tier: 1
+enabled: true
+severity: 3
+conditions:
+  layer: L7_RAG_RETRIEVAL
+  category_prefix: retrieval.
+action:
+  title: RAG Poisoning Indicator
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0036

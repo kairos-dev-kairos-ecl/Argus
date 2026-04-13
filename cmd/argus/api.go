@@ -11,11 +11,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/ingest"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -44,6 +46,12 @@ func init() {
 	apiCmd.Flags().String("clickhouse-dsn", "localhost:9000", "ClickHouse address (host:port)")
 	viper.BindEnv("database.clickhouse.dsn", "ARGUS_DATABASE_CLICKHOUSE_DSN")
 	viper.BindPFlag("database.clickhouse.dsn", apiCmd.Flags().Lookup("clickhouse-dsn"))
+	apiCmd.Flags().String("postgres-dsn", "", "PostgreSQL DSN (optional, enables alert persistence)")
+	viper.BindEnv("database.postgres.dsn", "ARGUS_DATABASE_POSTGRES_DSN")
+	viper.BindPFlag("database.postgres.dsn", apiCmd.Flags().Lookup("postgres-dsn"))
+	apiCmd.Flags().String("rules-dir", "internal/rules/built-in", "Directory containing built-in YAML rules")
+	viper.BindEnv("detection.rules_dir", "ARGUS_DETECTION_RULES_DIR")
+	viper.BindPFlag("detection.rules_dir", apiCmd.Flags().Lookup("rules-dir"))
 
 	// Logging flags
 	apiCmd.Flags().Bool("dev", false, "Enable development logging (more verbose)")
@@ -81,9 +89,40 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		log.Info("ClickHouse connected")
 	}
 
+	// Connect to PostgreSQL (optional)
+	pgDSN := viper.GetString("database.postgres.dsn")
+	var pgPool *pgxpool.Pool
+	if pgDSN != "" {
+		pgPool, err = pgxpool.New(ctx, pgDSN)
+		if err != nil {
+			log.Warn("PostgreSQL unavailable - detection alerts will not persist", zap.Error(err))
+		} else {
+			defer pgPool.Close()
+			log.Info("PostgreSQL connected")
+		}
+	}
+
 	// Register metrics
 	reg := prometheus.NewRegistry()
 	httpMetrics := metrics.NewHTTP(reg)
+
+	// Create query handler
+	queryHandler := ingest.NewQueryHandler(ch, httpMetrics, log)
+	ruleStore := engine.NewRuleStore()
+	rulesDir := viper.GetString("detection.rules_dir")
+	if rulesDir == "" {
+		rulesDir = "internal/rules/built-in"
+	}
+	if builtInRules, loadErr := engine.LoadRulesFromDirectory(rulesDir); loadErr != nil {
+		log.Warn("could not load built-in rules directory", zap.String("dir", rulesDir), zap.Error(loadErr))
+	} else {
+		for _, r := range builtInRules {
+			ruleStore.Add(r)
+		}
+		log.Info("built-in rules loaded", zap.Int("count", ruleStore.Count()))
+	}
+	queryHandler.SetRuleStore(ruleStore)
+	_ = ingest.NewPgAlertWriter(pgPool, log)
 
 	// Build router
 	httpAddr := viper.GetString("server.http.addr")
@@ -101,7 +140,6 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	r.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
 	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
-	queryHandler := ingest.NewQueryHandler(ch, httpMetrics, log)
 	queryHandler.RegisterRoutes(r)
 
 	// Signal Broadcaster and WebSocket streaming

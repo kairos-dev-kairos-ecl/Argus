@@ -79,7 +79,7 @@ func (c *Client) EvaluatePolicy(ctx context.Context, req *PolicyRequest) (*Polic
 	}
 
 	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.endpoint+"/policy/evaluate", bytes.NewReader(body))
 	if err != nil {
 		c.logger.Error("failed to create http request", zap.Error(err))
 		return nil, fmt.Errorf("create http request: %w", err)

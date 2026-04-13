@@ -1,0 +1,17 @@
+id: argus-t3-001
+name: Rapid Safety Events
+description: Built-in MITRE ATLAS detection rule
+tier: 3
+enabled: true
+severity: 4
+conditions:
+  layer: L6_SAFETY
+  category_prefix: safety.
+  temporal:
+    count_gte: 5
+    window_seconds: 300
+action:
+  title: Rapid Safety Events
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0040

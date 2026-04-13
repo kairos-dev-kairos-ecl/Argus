@@ -1,0 +1,17 @@
+id: argus-t3-002
+name: Agent Tool Storm
+description: Built-in MITRE ATLAS detection rule
+tier: 3
+enabled: true
+severity: 4
+conditions:
+  layer: L8_AGENTS
+  category_prefix: agent.tool_call
+  temporal:
+    count_gte: 10
+    window_seconds: 120
+action:
+  title: Agent Tool Storm
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0026

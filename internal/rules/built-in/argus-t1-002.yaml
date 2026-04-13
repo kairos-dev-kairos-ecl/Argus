@@ -1,0 +1,14 @@
+id: argus-t1-002
+name: Jailbreak Attempt
+description: Built-in MITRE ATLAS detection rule
+tier: 1
+enabled: true
+severity: 4
+conditions:
+  layer: L6_SAFETY
+  category_prefix: safety.bypass
+action:
+  title: Jailbreak Attempt
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0040

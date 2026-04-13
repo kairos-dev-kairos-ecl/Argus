@@ -15,29 +15,6 @@ import (
 	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 )
 
-// MockGeoIPReader is a mock implementation of the geoip2.Reader for testing
-type MockGeoIPReader struct {
-	cities map[string]*geoip2.City
-	errors map[string]bool
-}
-
-// City returns mock city data for testing
-func (m *MockGeoIPReader) City(ip interface{}) (*geoip2.City, error) {
-	ipStr := ip.String()
-	if m.errors[ipStr] {
-		return nil, geoip2.ErrIPLookupFailed
-	}
-	if city, ok := m.cities[ipStr]; ok {
-		return city, nil
-	}
-	return nil, geoip2.ErrIPLookupFailed
-}
-
-// Close is a no-op for mock
-func (m *MockGeoIPReader) Close() error {
-	return nil
-}
-
 // newMockGeoIPEnricher creates a GeoIPEnricher with a mock reader for testing
 func newMockGeoIPEnricher(t *testing.T, mockReader *geoip2.Reader, redisClient *redis.Client) *GeoIPEnricher {
 	logger := zap.NewNop()
@@ -210,8 +187,8 @@ func TestGeoIPEnricher_RedisCacheHit(t *testing.T) {
 		Country:   strPtr("US"),
 		Region:    strPtr("CA"),
 		City:      strPtr("San Francisco"),
-		Latitude:  floatPtr(37.7749),
-		Longitude: floatPtr(-122.4194),
+		Latitude:  float32Ptr(37.7749),
+		Longitude: float32Ptr(-122.4194),
 	}
 	data, _ := json.Marshal(geodata)
 	err := redisClient.Set(ctx, cacheKey, data, 24*time.Hour).Err()
@@ -276,5 +253,9 @@ func strPtr(s string) *string {
 }
 
 func floatPtr(f float64) *float64 {
+	return &f
+}
+
+func float32Ptr(f float32) *float32 {
 	return &f
 }

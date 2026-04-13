@@ -1,0 +1,14 @@
+id: argus-t1-001
+name: Prompt Injection Pattern
+description: Built-in MITRE ATLAS detection rule
+tier: 1
+enabled: true
+severity: 4
+conditions:
+  layer: L6_SAFETY
+  category_prefix: safety.
+action:
+  title: Prompt Injection Suspected
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0018
