@@ -469,6 +469,12 @@ func (h *QueryHandler) handleGetLayerStatus(w http.ResponseWriter, r *http.Reque
 			lastSeen[int32(layer)] = ls.UTC().Format(time.RFC3339)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		h.log.Warn("layer status row iteration failed", zap.Error(err))
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "storage query failed"})
+		return
+	}
 
 	resp := LayerStatusResponse{Layers: make([]LayerStatus, 0, 10)}
 	for i := int32(1); i <= 10; i++ {
