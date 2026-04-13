@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -148,26 +149,45 @@ func runAPI(cmd *cobra.Command, args []string) error {
 // Always returns 200 — clients check "status" field for degraded/healthy.
 func makeHealthHandler(ch *storage.ClickHouse, log *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
 
-		chStatus := `"healthy"`
+		type componentHealth struct {
+			Status    string `json:"status"`
+			LatencyMs int64  `json:"latency_ms,omitempty"`
+			Error     string `json:"error,omitempty"`
+		}
+
+		chComp := componentHealth{Status: "unknown"}
+		overall := "healthy"
+
 		if ch == nil {
-			chStatus = `"unhealthy"`
+			chComp = componentHealth{Status: "unhealthy", Error: "not configured"}
+			overall = "degraded"
 		} else {
-			pingCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-			defer cancel()
-			if err := ch.Ping(pingCtx); err != nil {
-				chStatus = fmt.Sprintf(`"unhealthy: %s"`, err.Error())
+			start := time.Now()
+			if err := ch.Ping(ctx); err != nil {
+				chComp = componentHealth{Status: "unhealthy", Error: err.Error()}
+				overall = "degraded"
+			} else {
+				chComp = componentHealth{Status: "healthy", LatencyMs: time.Since(start).Milliseconds()}
 			}
 		}
 
-		overall := "healthy"
-		if chStatus != `"healthy"` {
-			overall = "degraded"
+		type healthResponse struct {
+			Status     string                     `json:"status"`
+			Components map[string]componentHealth `json:"components"`
 		}
 
+		resp := healthResponse{
+			Status: overall,
+			Components: map[string]componentHealth{
+				"clickhouse": chComp,
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":%q,"components":{"clickhouse":{"status":%s}}}`,
-			overall, chStatus)
+		json.NewEncoder(w).Encode(resp)
 	}
 }
