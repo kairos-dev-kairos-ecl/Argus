@@ -235,9 +235,9 @@ func TestBatchSizeHistogram(t *testing.T) {
 func TestMetricsNaming(t *testing.T) {
 	reg := prometheus.NewRegistry()
 
-	ingest := NewIngest(reg)
-	storage := NewStorage(reg)
-	http := NewHTTP(reg)
+	_ = NewIngest(reg)
+	_ = NewStorage(reg)
+	_ = NewHTTP(reg)
 
 	// Gather all metrics
 	metrics, err := reg.Gather()

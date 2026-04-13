@@ -11,11 +11,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// RedisClient defines the minimal interface needed for monitoring Redis.
+type RedisClient interface {
+	Info(ctx context.Context, section ...string) *redis.StringCmd
+	DBSize(ctx context.Context) *redis.IntCmd
+	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
+}
+
 // RedisMonitor periodically queries Redis INFO and DBSIZE commands
 // to populate Prometheus gauges for memory usage and key count.
 // This helps operators detect unbounded Redis growth (Critical Pitfall 2).
 type RedisMonitor struct {
-	client *redis.Client
+	client RedisClient
 	logger *zap.Logger
 
 	// Metrics
@@ -38,7 +45,7 @@ type RedisMonitor struct {
 // - argus_redis_memory_bytes: Redis memory usage in bytes (from INFO memory)
 // - argus_redis_key_count: Total number of keys in Redis (from DBSIZE)
 // - argus_redis_trace_keys_count: Count of trace:* keys (debugging correlation growth)
-func NewRedisMonitor(reg prometheus.Registerer, client *redis.Client, logger *zap.Logger) *RedisMonitor {
+func NewRedisMonitor(reg prometheus.Registerer, client RedisClient, logger *zap.Logger) *RedisMonitor {
 	memoryBytes := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "argus_redis_memory_bytes",

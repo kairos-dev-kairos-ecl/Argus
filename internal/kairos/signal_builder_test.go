@@ -3,7 +3,7 @@ package kairos
 import (
 	"testing"
 
-	"github.com/argusxdr/argus/gen/go/argus/v1"
+	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,17 +31,17 @@ func TestSignalBuilderBuildSignal(t *testing.T) {
 	assert.NotEmpty(t, signal.SignalId)
 	assert.Equal(t, "trace-123", signal.TraceId)
 	assert.Equal(t, "signal-456", *signal.ParentSpanId)
-	assert.Equal(t, argusv1.Layer_L_DECISION, signal.Layer)
+	assert.Equal(t, v1.Layer_L_DECISION, signal.Layer)
 	assert.Equal(t, "policy.decision", signal.Category)
-	assert.Equal(t, argusv1.Severity_HIGH, signal.Severity) // HIGH for deny
+	assert.Equal(t, v1.Severity_HIGH, signal.Severity) // HIGH for deny
 
 	// Verify decision context
 	decisionCtx := signal.GetContextLDecision()
 	assert.NotNil(t, decisionCtx)
-	assert.Equal(t, argusv1.ContextLDecision_DENY, decisionCtx.Decision)
+	assert.Equal(t, v1.ContextLDecision_DENY, decisionCtx.Decision)
 	assert.Equal(t, float32(0.95), decisionCtx.Confidence)
 	assert.Equal(t, "Critical severity signal blocked", decisionCtx.Reasoning)
-	assert.Equal(t, argusv1.ContextLDecision_ESCALATE, decisionCtx.RecommendedAction)
+	assert.Equal(t, v1.ContextLDecision_ESCALATE, decisionCtx.RecommendedAction)
 	assert.Equal(t, "1.0.0", decisionCtx.PolicyVersion)
 	assert.Equal(t, "default", decisionCtx.PolicyName)
 }
@@ -54,9 +54,9 @@ func TestSignalBuilderAllowDecision(t *testing.T) {
 	signal := builder.BuildSignal(decision, "trace-1", "signal-1", "app-1")
 
 	decisionCtx := signal.GetContextLDecision()
-	assert.Equal(t, argusv1.ContextLDecision_ALLOW, decisionCtx.Decision)
-	assert.Equal(t, argusv1.Severity_INFO, signal.Severity) // INFO for allow
-	assert.Equal(t, argusv1.ContextLDecision_SUPPRESS, decisionCtx.RecommendedAction)
+	assert.Equal(t, v1.ContextLDecision_ALLOW, decisionCtx.Decision)
+	assert.Equal(t, v1.Severity_INFO, signal.Severity) // INFO for allow
+	assert.Equal(t, v1.ContextLDecision_SUPPRESS, decisionCtx.RecommendedAction)
 }
 
 func TestSignalBuilderReviewDecision(t *testing.T) {
@@ -67,9 +67,9 @@ func TestSignalBuilderReviewDecision(t *testing.T) {
 	signal := builder.BuildSignal(decision, "trace-2", "signal-2", "app-2")
 
 	decisionCtx := signal.GetContextLDecision()
-	assert.Equal(t, argusv1.ContextLDecision_REVIEW, decisionCtx.Decision)
-	assert.Equal(t, argusv1.Severity_MEDIUM, signal.Severity) // MEDIUM for review
-	assert.Equal(t, argusv1.ContextLDecision_INVESTIGATE, decisionCtx.RecommendedAction)
+	assert.Equal(t, v1.ContextLDecision_REVIEW, decisionCtx.Decision)
+	assert.Equal(t, v1.Severity_MEDIUM, signal.Severity) // MEDIUM for review
+	assert.Equal(t, v1.ContextLDecision_INVESTIGATE, decisionCtx.RecommendedAction)
 }
 
 func TestSignalBuilderFromRequest(t *testing.T) {
@@ -83,10 +83,10 @@ func TestSignalBuilderFromRequest(t *testing.T) {
 	assert.Equal(t, "trace-abc", signal.TraceId)
 	assert.Equal(t, "signal-xyz", *signal.ParentSpanId)
 	assert.Equal(t, "app-production", signal.Source.AppId)
-	assert.Equal(t, argusv1.Layer_L_DECISION, signal.Layer)
+	assert.Equal(t, v1.Layer_L_DECISION, signal.Layer)
 
 	decisionCtx := signal.GetContextLDecision()
-	assert.Equal(t, argusv1.ContextLDecision_DENY, decisionCtx.Decision)
+	assert.Equal(t, v1.ContextLDecision_DENY, decisionCtx.Decision)
 }
 
 func TestSignalBuilderMultipleSignals(t *testing.T) {
@@ -98,7 +98,7 @@ func TestSignalBuilderMultipleSignals(t *testing.T) {
 		NewTestDecision("deny", "escalate", 0.95),
 	}
 
-	signals := make([]*argusv1.ArgusSignal, len(decisions))
+	signals := make([]*v1.ArgusSignal, len(decisions))
 	for i, decision := range decisions {
 		signals[i] = builder.BuildSignal(decision, "trace-1", "signal-"+string(rune(i)), "app-1")
 	}
