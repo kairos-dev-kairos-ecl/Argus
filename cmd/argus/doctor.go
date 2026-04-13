@@ -20,9 +20,9 @@ var DoctorCmd = &cobra.Command{
 }
 
 func runDoctor(cmd *cobra.Command, args []string) error {
-	fmt.Println("\n╔══════════════════════════════════════════╗")
-	fmt.Println("║  ARGUS DOCTOR — DIAGNOSTIC CHECK        ║")
-	fmt.Println("╚══════════════════════════════════════════╝\n")
+	fmt.Print("\n╔══════════════════════════════════════════╗\n")
+	fmt.Print("║  ARGUS DOCTOR — DIAGNOSTIC CHECK        ║\n")
+	fmt.Print("╚══════════════════════════════════════════╝\n\n")
 
 	checks := []struct {
 		name string
