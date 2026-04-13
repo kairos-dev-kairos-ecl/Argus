@@ -103,6 +103,12 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	queryHandler := ingest.NewQueryHandler(ch, httpMetrics, log)
 	queryHandler.RegisterRoutes(r)
 
+	// Signal Broadcaster and WebSocket streaming
+	broadcaster := ingest.NewSignalBroadcaster()
+	go broadcaster.Run(ctx)
+	wsHandler := ingest.NewWebSocketHandler(broadcaster, log)
+	wsHandler.RegisterRoutes(r)
+
 	// Bind listener first so we know the port is available before logging
 	ln, err := net.Listen("tcp", httpAddr)
 	if err != nil {
