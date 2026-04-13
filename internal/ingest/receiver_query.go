@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -738,13 +739,120 @@ func scanSignalRow(rows driver.Rows) (*v1.ArgusSignal, error) {
 	return signal, nil
 }
 
+// QueryRequest is the JSON body for POST /api/v1/query.
+type QueryRequest struct {
+	SQL   string `json:"sql"`
+	Limit int    `json:"limit"` // default 1000, max 5000
+}
+
+// QueryResultResponse is the JSON response for POST /api/v1/query.
+type QueryResultResponse struct {
+	Columns  []string        `json:"columns"`
+	Rows     [][]interface{} `json:"rows"`
+	RowCount int             `json:"row_count"`
+}
+
+// ddlPatterns lists forbidden SQL statement prefixes (DDL and mutating DML).
+var ddlPatterns = []string{
+	"DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "TRUNCATE",
+	"CREATE", "REPLACE", "RENAME", "OPTIMIZE", "SYSTEM",
+}
+
 // handlePostQuery handles POST /api/v1/query.
 // Executes a read-only SQL query against ClickHouse with safety checks.
 func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: implement in Step 1.4 — Tier 1 handlers
-	w.WriteHeader(http.StatusNotImplemented)
-	json.NewEncoder(w).Encode(ErrorResponse{Error: "not implemented"})
+
+	// Parse and validate request first (before storage check)
+	var req QueryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+	if req.SQL == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "sql is required"})
+		return
+	}
+
+	// Safety: block DDL and mutating statements (before storage availability check)
+	sqlUpper := strings.ToUpper(strings.TrimSpace(req.SQL))
+	for _, pattern := range ddlPatterns {
+		if strings.HasPrefix(sqlUpper, pattern) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ErrorResponse{
+				Error: fmt.Sprintf("DDL and mutating statements are not allowed: %s", pattern),
+			})
+			return
+		}
+	}
+
+	// Storage availability check (after request validation)
+	if h.ch == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "storage unavailable"})
+		return
+	}
+
+	// Enforce row limit
+	limit := req.Limit
+	if limit <= 0 || limit > 5000 {
+		limit = 1000
+	}
+	if !strings.Contains(sqlUpper, "LIMIT") {
+		req.SQL = fmt.Sprintf("%s LIMIT %d", req.SQL, limit)
+	}
+
+	// Execute with 30s timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	rows, err := h.ch.Conn().Query(ctx, req.SQL)
+	if err != nil {
+		h.log.Warn("user query failed", zap.String("sql", req.SQL), zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	// Get column names
+	colTypes := rows.ColumnTypes()
+	columns := make([]string, len(colTypes))
+	for i, ct := range colTypes {
+		columns[i] = ct.Name()
+	}
+
+	// Scan all rows
+	var resultRows [][]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		ptrs := make([]interface{}, len(columns))
+		for i := range values {
+			ptrs[i] = &values[i]
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			continue
+		}
+		resultRows = append(resultRows, values)
+	}
+	if err := rows.Err(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "scan error: " + err.Error()})
+		return
+	}
+
+	if resultRows == nil {
+		resultRows = [][]interface{}{}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(QueryResultResponse{
+		Columns:  columns,
+		Rows:     resultRows,
+		RowCount: len(resultRows),
+	})
 }
 
 // buildSignalQuery constructs a ClickHouse query for signals using named parameters

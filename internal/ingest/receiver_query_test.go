@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/argusxdr/argus/internal/ingest"
@@ -79,4 +80,33 @@ func TestHandleGetTrace_EmptyTraceId(t *testing.T) {
 	mux.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestHandlePostQuery_BlocksDDL(t *testing.T) {
+	mux := chi.NewRouter()
+	qh := ingest.NewQueryHandler(nil, &metrics.HTTP{}, zap.NewNop())
+	qh.RegisterRoutes(mux)
+
+	body := `{"sql":"DROP TABLE signals"}`
+	req := httptest.NewRequest("POST", "/api/v1/query", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, 400, w.Code)
+	assert.Contains(t, w.Body.String(), "DDL")
+}
+
+func TestHandlePostQuery_NilStorage(t *testing.T) {
+	mux := chi.NewRouter()
+	qh := ingest.NewQueryHandler(nil, &metrics.HTTP{}, zap.NewNop())
+	qh.RegisterRoutes(mux)
+
+	body := `{"sql":"SELECT count() FROM signals"}`
+	req := httptest.NewRequest("POST", "/api/v1/query", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, 503, w.Code)
 }
