@@ -25,10 +25,11 @@ import (
 // QueryHandler implements the query API (GET /v1/signals).
 // STORE-06 requirement: cursor-based pagination for ClickHouse signal queries.
 type QueryHandler struct {
-	ch      *storage.ClickHouse
-	metrics *metrics.HTTP
-	log     *zap.Logger
-	store   *engine.RuleStore // may be nil if detection engine not wired
+	ch          *storage.ClickHouse
+	metrics     *metrics.HTTP
+	log         *zap.Logger
+	store       *engine.RuleStore // may be nil if detection engine not wired
+	alertRouter *AlertRouter      // may be nil — alert pipeline disabled
 }
 
 // NewQueryHandler creates a new QueryHandler.
@@ -49,6 +50,11 @@ func NewQueryHandler(ch *storage.ClickHouse, httpMetrics *metrics.HTTP, log *zap
 // SetRuleStore wires the in-memory rule store for rule management handlers.
 func (h *QueryHandler) SetRuleStore(s *engine.RuleStore) {
 	h.store = s
+}
+
+// SetAlertRouter wires the alert router for alert/incident management.
+func (h *QueryHandler) SetAlertRouter(r *AlertRouter) {
+	h.alertRouter = r
 }
 
 // RegisterRoutes mounts query API routes onto the chi mux.
