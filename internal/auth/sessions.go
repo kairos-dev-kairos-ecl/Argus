@@ -43,7 +43,6 @@ func (sm *SessionManager) CreateSession(ctx context.Context, userID uuid.UUID, u
 
 	// If at limit, revoke oldest session
 	if len(existingSessions) >= sm.maxConcurrentSessions {
-		// Find oldest non-revoked session
 		var oldestSession Session
 		found := false
 		for _, s := range existingSessions {

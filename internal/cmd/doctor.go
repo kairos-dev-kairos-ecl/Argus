@@ -26,7 +26,8 @@ func runDoctor(cmd *cobra.Command, args []string) {
 
 	fmt.Println("\n╔══════════════════════════════════════════╗")
 	fmt.Println("║  ARGUS DOCTOR — DIAGNOSTIC CHECK        ║")
-	fmt.Println("╚══════════════════════════════════════════╝\n")
+	fmt.Println("╚══════════════════════════════════════════╝")
+	fmt.Println()
 
 	checks := []struct {
 		name string
@@ -91,7 +92,8 @@ func checkClickHouse(logger *zap.Logger) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := net.DialContext(ctx, "tcp", "localhost:8123")
+	d := &net.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", "localhost:8123")
 	if err != nil {
 		fmt.Printf("\n  → ClickHouse unreachable at localhost:8123\n")
 		return false
@@ -104,7 +106,8 @@ func checkPostgreSQL(logger *zap.Logger) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := net.DialContext(ctx, "tcp", "localhost:5432")
+	d := &net.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", "localhost:5432")
 	if err != nil {
 		fmt.Printf("\n  → PostgreSQL unreachable at localhost:5432\n")
 		return false
@@ -117,7 +120,8 @@ func checkRedis(logger *zap.Logger) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := net.DialContext(ctx, "tcp", "localhost:6379")
+	d := &net.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", "localhost:6379")
 	if err != nil {
 		fmt.Printf("\n  → Redis unreachable at localhost:6379\n")
 		return false
@@ -130,7 +134,8 @@ func checkArgusAPI(logger *zap.Logger) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := net.DialContext(ctx, "tcp", "localhost:9090")
+	d := &net.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", "localhost:9090")
 	if err != nil {
 		fmt.Printf("\n  → Argus API unreachable at localhost:9090\n")
 		return false
@@ -143,7 +148,8 @@ func checkGRPC(logger *zap.Logger) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := net.DialContext(ctx, "tcp", "localhost:4317")
+	d := &net.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", "localhost:4317")
 	if err != nil {
 		fmt.Printf("\n  → gRPC signal ingestion unreachable at localhost:4317\n")
 		return false

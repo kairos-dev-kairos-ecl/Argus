@@ -9,6 +9,7 @@ import (
 
 	"github.com/argusxdr/argus/gen/go/argus/v1"
 	"github.com/argusxdr/argus/internal/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestQueueEnqueue(t *testing.T) {
@@ -198,13 +199,13 @@ func TestQueueDepth(t *testing.T) {
 // Mock registerer for testing
 type mockRegisterer struct{}
 
-func (m *mockRegisterer) Register(interface{}) error {
+func (m *mockRegisterer) Register(prometheus.Collector) error {
 	return nil
 }
 
-func (m *mockRegisterer) MustRegister(...interface{}) {
+func (m *mockRegisterer) MustRegister(...prometheus.Collector) {
 }
 
-func (m *mockRegisterer) Unregister(interface{}) bool {
+func (m *mockRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }

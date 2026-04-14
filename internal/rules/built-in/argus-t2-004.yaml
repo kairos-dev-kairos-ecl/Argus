@@ -1,0 +1,13 @@
+id: argus-t2-004
+name: Agent Deviation
+description: Built-in MITRE ATLAS detection rule
+tier: 2
+enabled: true
+severity: 3
+conditions:
+  baseline_deviation_gte: 2
+action:
+  title: Agent Behavior Deviation
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0026

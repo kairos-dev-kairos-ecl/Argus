@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,13 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/argusxdr/argus/internal/auth"
+	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/ingest"
 	"github.com/argusxdr/argus/internal/metrics"
+	"github.com/argusxdr/argus/internal/notify"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -43,6 +49,15 @@ func init() {
 	apiCmd.Flags().String("clickhouse-dsn", "localhost:9000", "ClickHouse address (host:port)")
 	viper.BindEnv("database.clickhouse.dsn", "ARGUS_DATABASE_CLICKHOUSE_DSN")
 	viper.BindPFlag("database.clickhouse.dsn", apiCmd.Flags().Lookup("clickhouse-dsn"))
+	apiCmd.Flags().String("postgres-dsn", "", "PostgreSQL DSN (optional, enables alert persistence)")
+	viper.BindEnv("database.postgres.dsn", "ARGUS_DATABASE_POSTGRES_DSN")
+	viper.BindPFlag("database.postgres.dsn", apiCmd.Flags().Lookup("postgres-dsn"))
+	apiCmd.Flags().String("rules-dir", "internal/rules/built-in", "Directory containing built-in YAML rules")
+	viper.BindEnv("detection.rules_dir", "ARGUS_DETECTION_RULES_DIR")
+	viper.BindPFlag("detection.rules_dir", apiCmd.Flags().Lookup("rules-dir"))
+	apiCmd.Flags().String("redis-addr", "localhost:6379", "Redis address (host:port)")
+	viper.BindEnv("redis.addr", "ARGUS_REDIS_ADDR")
+	viper.BindPFlag("redis.addr", apiCmd.Flags().Lookup("redis-addr"))
 
 	// Logging flags
 	apiCmd.Flags().Bool("dev", false, "Enable development logging (more verbose)")
@@ -80,9 +95,135 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		log.Info("ClickHouse connected")
 	}
 
+	// Connect to PostgreSQL (optional)
+	pgDSN := viper.GetString("database.postgres.dsn")
+	var pgPool *pgxpool.Pool
+	if pgDSN != "" {
+		pgPool, err = pgxpool.New(ctx, pgDSN)
+		if err != nil {
+			log.Warn("PostgreSQL unavailable - detection alerts will not persist", zap.Error(err))
+		} else {
+			defer pgPool.Close()
+			log.Info("PostgreSQL connected")
+
+			// Run pending migrations so all tables exist before the server
+			// starts accepting requests. Safe to call on every startup (idempotent).
+			if migrateErr := storage.MigrateDB(ctx, pgPool, pgDSN, log); migrateErr != nil {
+				log.Warn("database migration failed — some features may be unavailable",
+					zap.Error(migrateErr))
+			} else {
+				log.Info("database migrations up to date")
+			}
+		}
+	}
+
+	// Auth subsystem (requires PostgreSQL)
+	var authSvc *ingest.AuthService
+	if pgPool != nil {
+		privateKey, publicKey, keyErr := auth.LoadOrGenerateRSAKey()
+		if keyErr != nil {
+			log.Warn("failed to load/generate JWT key — auth disabled", zap.Error(keyErr))
+		} else {
+			userStore := auth.NewPgUserStore(pgPool)
+			sessionStore := auth.NewPgSessionStore(pgPool)
+			auditStore := auth.NewPgAuditStore(pgPool)
+			auditLogger := auth.NewAuditLogger(auditStore)
+			userSvc := auth.NewUserService(userStore)
+			tokenMgr := auth.NewTokenManager(auth.TokenConfig{
+				PrivateKey: privateKey,
+				PublicKey:  publicKey,
+			})
+			sessionMgr := auth.NewSessionManager(sessionStore, 0)
+			authSvc = &ingest.AuthService{
+				UserSvc:      userSvc,
+				UserStore:    userStore,
+				SessionMgr:   sessionMgr,
+				TokenMgr:     tokenMgr,
+				AuditLog:     auditLogger,
+				SessionStore: sessionStore,
+			}
+			log.Info("auth subsystem initialized")
+		}
+	}
+
 	// Register metrics
 	reg := prometheus.NewRegistry()
 	httpMetrics := metrics.NewHTTP(reg)
+
+	// Create query handler
+	queryHandler := ingest.NewQueryHandler(ch, httpMetrics, log)
+	ruleStore := engine.NewRuleStore()
+	rulesDir := viper.GetString("detection.rules_dir")
+	if rulesDir == "" {
+		rulesDir = "internal/rules/built-in"
+	}
+	if builtInRules, loadErr := engine.LoadRulesFromDirectory(rulesDir); loadErr != nil {
+		log.Warn("could not load built-in rules directory", zap.String("dir", rulesDir), zap.Error(loadErr))
+	} else {
+		for _, r := range builtInRules {
+			ruleStore.Add(r)
+		}
+		log.Info("built-in rules loaded", zap.Int("count", ruleStore.Count()))
+	}
+	queryHandler.SetRuleStore(ruleStore)
+
+	// Wire auth service if initialized
+	if authSvc != nil {
+		queryHandler.SetAuthService(authSvc)
+	}
+
+	// Notification adapter registry
+	adapterRegistry := notify.NewAdapterRegistry(log)
+	logAdapter := notify.NewLogAdapter(log)
+	cbAdapter := notify.NewCircuitBreakerAdapter(logAdapter, notify.NewCircuitBreaker(nil))
+	if regErr := adapterRegistry.Register(cbAdapter); regErr != nil {
+		log.Warn("failed to register log adapter", zap.Error(regErr))
+	}
+
+	// Alert dispatcher (fixed worker pool)
+	dispatcherCfg := notify.DefaultDispatcherConfig()
+	dispatcherCfg.WorkerCount = 2
+	alertDispatcher, dispErr := notify.NewAlertDispatcher(dispatcherCfg, adapterRegistry, log)
+	if dispErr != nil {
+		log.Warn("alert dispatcher unavailable", zap.Error(dispErr))
+	} else {
+		defer func() {
+			shutdownCtx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel2()
+			alertDispatcher.Shutdown(shutdownCtx2)
+		}()
+	}
+
+	// Routing engine (requires PostgreSQL)
+	var routingEngine *notify.RoutingEngine
+	if pgPool != nil {
+		routingEngine, err = notify.NewRoutingEngine(pgPool, log)
+		if err != nil {
+			log.Warn("routing engine unavailable", zap.Error(err))
+			err = nil // non-fatal
+		} else {
+			routingEngine.Start()
+			defer routingEngine.Stop()
+		}
+	}
+
+	// Redis client for dedup + incident correlation
+	redisAddr := viper.GetString("redis.addr")
+	var redisClient *redis.Client
+	if redisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{Addr: redisAddr})
+		if pingErr := redisClient.Ping(ctx).Err(); pingErr != nil {
+			log.Warn("Redis unavailable — dedup and incident correlation disabled", zap.Error(pingErr))
+			redisClient = nil
+		} else {
+			defer redisClient.Close()
+			log.Info("Redis connected", zap.String("addr", redisAddr))
+		}
+	}
+
+	// Alert router: replaces PgAlertWriter — owns dedup, persist, route, dispatch
+	alertRouter := ingest.NewAlertRouter(pgPool, redisClient, routingEngine, alertDispatcher, log)
+	queryHandler.SetAlertRouter(alertRouter)
 
 	// Build router
 	httpAddr := viper.GetString("server.http.addr")
@@ -93,6 +234,28 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 
+	// Auth middleware on protected routes
+	if authSvc != nil {
+		r.Use(func(next http.Handler) http.Handler {
+			return auth.AuthMiddleware(auth.MiddlewareConfig{
+				TokenManager: authSvc.TokenMgr,
+				SessionStore: authSvc.SessionStore,
+				AuditLogger:  authSvc.AuditLog,
+				Logger:       log,
+				ExcludedPaths: map[string]bool{
+					"/health":              true,
+					"/metrics":             true,
+					"/api/v1/auth/login":   true,
+					"/api/v1/auth/refresh": true,
+					"/api/v1/auth/setup":   true,
+					"/v1/signals":          true,
+					"/v1/signals/stream":   true,
+					"/v1/schema/signals":   true,
+				},
+			})(next)
+		})
+	}
+
 	// Health endpoint — always available, reports component status
 	r.Get("/health", makeHealthHandler(ch, log))
 
@@ -100,8 +263,13 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	r.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
 	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
-	queryHandler := ingest.NewQueryHandler(ch, httpMetrics, log)
 	queryHandler.RegisterRoutes(r)
+
+	// Signal Broadcaster and WebSocket streaming
+	broadcaster := ingest.NewSignalBroadcaster()
+	go broadcaster.Run(ctx)
+	wsHandler := ingest.NewWebSocketHandler(broadcaster, log)
+	wsHandler.RegisterRoutes(r)
 
 	// Bind listener first so we know the port is available before logging
 	ln, err := net.Listen("tcp", httpAddr)
@@ -142,26 +310,45 @@ func runAPI(cmd *cobra.Command, args []string) error {
 // Always returns 200 — clients check "status" field for degraded/healthy.
 func makeHealthHandler(ch *storage.ClickHouse, log *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
 
-		chStatus := `"healthy"`
+		type componentHealth struct {
+			Status    string `json:"status"`
+			LatencyMs int64  `json:"latency_ms,omitempty"`
+			Error     string `json:"error,omitempty"`
+		}
+
+		chComp := componentHealth{Status: "unknown"}
+		overall := "healthy"
+
 		if ch == nil {
-			chStatus = `"unhealthy"`
+			chComp = componentHealth{Status: "unhealthy", Error: "not configured"}
+			overall = "degraded"
 		} else {
-			pingCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-			defer cancel()
-			if err := ch.Ping(pingCtx); err != nil {
-				chStatus = fmt.Sprintf(`"unhealthy: %s"`, err.Error())
+			start := time.Now()
+			if err := ch.Ping(ctx); err != nil {
+				chComp = componentHealth{Status: "unhealthy", Error: err.Error()}
+				overall = "degraded"
+			} else {
+				chComp = componentHealth{Status: "healthy", LatencyMs: time.Since(start).Milliseconds()}
 			}
 		}
 
-		overall := "healthy"
-		if chStatus != `"healthy"` {
-			overall = "degraded"
+		type healthResponse struct {
+			Status     string                     `json:"status"`
+			Components map[string]componentHealth `json:"components"`
 		}
 
+		resp := healthResponse{
+			Status: overall,
+			Components: map[string]componentHealth{
+				"clickhouse": chComp,
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":%q,"components":{"clickhouse":{"status":%s}}}`,
-			overall, chStatus)
+		json.NewEncoder(w).Encode(resp)
 	}
 }

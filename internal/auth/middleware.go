@@ -176,7 +176,8 @@ func GetUserFromContext(r *http.Request) *Claims {
 	return claims
 }
 
-// GetClaimsFromContext retrieves claims directly from a context.Context (non-HTTP callers).
+// GetClaimsFromContext retrieves Claims from a plain context.Context.
+// Used by audit logging code that has a context but not an *http.Request.
 func GetClaimsFromContext(ctx context.Context) *Claims {
 	claims, ok := ctx.Value(ContextKeyUser).(*Claims)
 	if !ok {
@@ -238,13 +239,13 @@ func RequirePermission(permission string) func(next http.Handler) http.Handler {
 	}
 }
 
-// hashToken creates a SHA256 hash of a token for storage/comparison.
+// hashToken creates a SHA256 hash of a token for secure storage.
 func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
 }
 
-// HashToken is the exported form of hashToken for use by other packages.
+// HashToken is the exported version of hashToken for use by other packages.
 func HashToken(token string) string { return hashToken(token) }
 
 // currentUnixTime returns the current time as a Unix timestamp.

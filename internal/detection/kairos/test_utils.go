@@ -53,9 +53,10 @@ func NewMockKairosServer() (*MockKairosServer, error) {
 	return m, nil
 }
 
-// GetEndpoint returns the server's endpoint URL.
+// GetEndpoint returns the server's base URL (without path).
+// Client methods append their own paths (e.g. /health, /policy/evaluate).
 func (m *MockKairosServer) GetEndpoint() string {
-	return fmt.Sprintf("http://localhost:%d/policy/evaluate", m.port)
+	return fmt.Sprintf("http://localhost:%d", m.port)
 }
 
 // SetResponse sets a response for a given rule ID.

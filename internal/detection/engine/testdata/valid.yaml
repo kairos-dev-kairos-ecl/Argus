@@ -1,0 +1,16 @@
+id: argus-t1-test
+name: Test Rule
+description: A rule for testing
+tier: 1
+enabled: true
+severity: 3
+conditions:
+  layer: L6_SAFETY
+  category_prefix: safety.
+  severity_gte: 2
+action:
+  title: Test Alert
+  description: Test alert description
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0051
+

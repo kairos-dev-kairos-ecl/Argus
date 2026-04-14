@@ -1,0 +1,13 @@
+id: argus-t2-003
+name: Safety Burst Deviation
+description: Built-in MITRE ATLAS detection rule
+tier: 2
+enabled: true
+severity: 4
+conditions:
+  baseline_deviation_gte: 3
+action:
+  title: Safety Deviation Burst
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0040

@@ -38,9 +38,9 @@ func testSignal(id string) *v1.ArgusSignal {
 	return &v1.ArgusSignal{
 		SignalId:   id,
 		TraceId:    "trace-" + id,
-		Layer:      v1.Layer_LAYER_APPLICATION,
+		Layer:      v1.Layer_L10_APPLICATION,
 		Category:   "test",
-		Severity:   v1.Severity_SEVERITY_MEDIUM,
+		Severity:   v1.Severity_MEDIUM,
 		Timestamp:  timestamppb.Now(),
 		IngestedAt: timestamppb.Now(),
 		Source: &v1.Source{
@@ -336,31 +336,10 @@ func TestChainMultipleProcessors(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	// Create a chain of 3 processors that each add to a tag
-	p1 := &mockProcessor{
-		name: "p1",
-		modifyFunc: func(sig *v1.ArgusSignal) (*v1.ArgusSignal, error) {
-			if sig.Tags == nil {
-				sig.Tags = make(map[string]string)
-			}
-			sig.Tags["p1"] = "done"
-			return sig, nil
-		},
-	}
-	p2 := &mockProcessor{
-		name: "p2",
-		modifyFunc: func(sig *v1.ArgusSignal) (*v1.ArgusSignal, error) {
-			sig.Tags["p2"] = "done"
-			return sig, nil
-		},
-	}
-	p3 := &mockProcessor{
-		name: "p3",
-		modifyFunc: func(sig *v1.ArgusSignal) (*v1.ArgusSignal, error) {
-			sig.Tags["p3"] = "done"
-			return sig, nil
-		},
-	}
+	// Create a chain of 3 processors that each increment a counter
+	p1 := &mockProcessor{name: "p1"}
+	p2 := &mockProcessor{name: "p2"}
+	p3 := &mockProcessor{name: "p3"}
 
 	chain := NewChain(p1, p2, p3)
 	chain.SetLogger(logger)
@@ -381,10 +360,10 @@ func TestChainMultipleProcessors(t *testing.T) {
 	result := <-chain.Results()
 	require.NotNil(t, result)
 
-	// All processors should have run
-	assert.Equal(t, "done", result.Tags["p1"])
-	assert.Equal(t, "done", result.Tags["p2"])
-	assert.Equal(t, "done", result.Tags["p3"])
+	// All processors should have run exactly once
+	assert.Equal(t, 1, p1.callCount)
+	assert.Equal(t, 1, p2.callCount)
+	assert.Equal(t, 1, p3.callCount)
 }
 
 // TestChainContextCancellation verifies that context cancellation stops processing

@@ -1,0 +1,17 @@
+id: argus-t3-004
+name: App Error Burst
+description: Built-in MITRE ATLAS detection rule
+tier: 3
+enabled: true
+severity: 3
+conditions:
+  layer: L10_APPLICATION
+  category_prefix: app.error
+  temporal:
+    count_gte: 15
+    window_seconds: 300
+action:
+  title: Application Error Burst
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0000

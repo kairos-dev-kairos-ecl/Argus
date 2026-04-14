@@ -1,11 +1,11 @@
 package kairos
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	pb "github.com/argusxdr/argus/gen/go/argus/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 	"go.uber.org/zap"
 )
 
@@ -32,40 +32,57 @@ func (sb *SignalBuilder) BuildDecisionSignal(
 	category string,
 	result *EvaluationResult,
 	appID string,
-) *pb.ArgusSignal {
+) *v1.ArgusSignal {
 	now := time.Now()
 	decisionSignalID := uuid.New().String()
 
-	signal := &pb.ArgusSignal{
-		SignalId:    decisionSignalID,
-		TraceId:     traceID,
-		SpanId:      spanID,
-		Timestamp:   now.Unix(),
-		TimestampNs: int64(now.Nanosecond()),
-		AppId:       appID,
-		Layer:       pb.Layer_LAYER_DECISION, // L_DECISION layer
-		Category:    pb.Category_CATEGORY_SECURITY, // Security category
+	// Map decision string to proto enum
+	var decisionEnum v1.ContextLDecision_Decision
+	switch result.Decision {
+	case DecisionAllow:
+		decisionEnum = v1.ContextLDecision_ALLOW
+	case DecisionDeny:
+		decisionEnum = v1.ContextLDecision_DENY
+	case DecisionReview:
+		decisionEnum = v1.ContextLDecision_REVIEW
+	default:
+		decisionEnum = v1.ContextLDecision_DECISION_UNSPECIFIED
+	}
 
-		// Decision-specific fields
-		Metadata: map[string]string{
-			"decision":                  result.Decision,
-			"confidence":                fmt.Sprintf("%.2f", result.Confidence),
-			"reasoning":                 result.Reasoning,
-			"recommended_action":        result.RecommendedAction,
-			"kairos_policy_version":     result.KairosPolicyVersion,
-			"policy_rule_triggered":     result.PolicyRuleTriggered,
-			"processing_time_ms":        fmt.Sprintf("%d", result.ProcessingTimeMs),
-			"source_rule_id":            ruleID,
-			"source_rule_name":          ruleName,
-			"source_signal_id":          signalID,
-			"source_layer":              layer,
-			"source_category":           category,
+	// Map action string to proto enum
+	var actionEnum v1.ContextLDecision_RecommendedAction
+	switch result.RecommendedAction {
+	case ActionSuppress:
+		actionEnum = v1.ContextLDecision_SUPPRESS
+	case ActionEscalate:
+		actionEnum = v1.ContextLDecision_ESCALATE
+	case ActionInvestigate:
+		actionEnum = v1.ContextLDecision_INVESTIGATE
+	default:
+		actionEnum = v1.ContextLDecision_ACTION_UNSPECIFIED
+	}
+
+	signal := &v1.ArgusSignal{
+		SignalId: decisionSignalID,
+		TraceId:  traceID,
+		SpanId:   spanID,
+		Timestamp: timestamppb.New(now),
+		Source: &v1.Source{
+			AppId: appID,
 		},
-
-		// For query and analysis
-		Title: fmt.Sprintf("Policy Decision: %s", result.Decision),
-		Body:  fmt.Sprintf("Kairos policy evaluation: %s\nReasoning: %s\nRecommended action: %s",
-			result.Decision, result.Reasoning, result.RecommendedAction),
+		Layer:    v1.Layer_L_DECISION,
+		Category: "decision.kairos",
+		Context: &v1.ArgusSignal_ContextLDecision{
+			ContextLDecision: &v1.ContextLDecision{
+				Decision:           decisionEnum,
+				Confidence:         float32(result.Confidence),
+				Reasoning:          result.Reasoning,
+				RecommendedAction:  actionEnum,
+				PolicyVersion:      result.KairosPolicyVersion,
+				PolicyName:         result.PolicyRuleTriggered,
+				EvaluationTimeMs:   float32(result.ProcessingTimeMs),
+			},
+		},
 	}
 
 	sb.logger.Debug("L_DECISION signal built",
@@ -80,18 +97,24 @@ func (sb *SignalBuilder) BuildDecisionSignal(
 
 // BuildDecisionSignalFromDetection creates an L_DECISION signal from detection context.
 func (sb *SignalBuilder) BuildDecisionSignalFromDetection(
-	detectionSignal *pb.ArgusSignal,
+	detectionSignal *v1.ArgusSignal,
 	result *EvaluationResult,
 	appID string,
-) *pb.ArgusSignal {
+) *v1.ArgusSignal {
+	// Extract rule info from detection signal (may be empty if not available)
+	ruleID := ""
+	ruleName := ""
+	// Rule metadata would be stored in detection signal's context if available
+	// For now, use defaults
+
 	return sb.BuildDecisionSignal(
 		detectionSignal.TraceId,
 		detectionSignal.SpanId,
 		detectionSignal.SignalId,
-		detectionSignal.Metadata["rule_id"],
-		detectionSignal.Metadata["rule_name"],
+		ruleID,
+		ruleName,
 		detectionSignal.Layer.String(),
-		detectionSignal.Category.String(),
+		detectionSignal.Category,
 		result,
 		appID,
 	)
@@ -112,49 +135,59 @@ const (
 )
 
 // IsDecisionSignal checks if a signal is an L_DECISION signal.
-func IsDecisionSignal(signal *pb.ArgusSignal) bool {
+func IsDecisionSignal(signal *v1.ArgusSignal) bool {
 	if signal == nil {
 		return false
 	}
-	return signal.Layer == pb.Layer_LAYER_DECISION
+	return signal.Layer == v1.Layer_L_DECISION
 }
 
 // ExtractDecision extracts the decision from a signal.
-func ExtractDecision(signal *pb.ArgusSignal) string {
-	if signal == nil || signal.Metadata == nil {
+func ExtractDecision(signal *v1.ArgusSignal) string {
+	if signal == nil {
 		return ""
 	}
-	return signal.Metadata["decision"]
+	ctx := signal.GetContextLDecision()
+	if ctx == nil {
+		return ""
+	}
+	return ctx.Decision.String()
 }
 
 // ExtractConfidence extracts the confidence score from a signal.
-func ExtractConfidence(signal *pb.ArgusSignal) float64 {
-	if signal == nil || signal.Metadata == nil {
+func ExtractConfidence(signal *v1.ArgusSignal) float64 {
+	if signal == nil {
 		return 0
 	}
-	confidenceStr := signal.Metadata["confidence"]
-	if confidenceStr == "" {
+	ctx := signal.GetContextLDecision()
+	if ctx == nil {
 		return 0
 	}
-	var conf float64
-	fmt.Sscanf(confidenceStr, "%f", &conf)
-	return conf
+	return float64(ctx.Confidence)
 }
 
 // ExtractReasoning extracts the reasoning from a signal.
-func ExtractReasoning(signal *pb.ArgusSignal) string {
-	if signal == nil || signal.Metadata == nil {
+func ExtractReasoning(signal *v1.ArgusSignal) string {
+	if signal == nil {
 		return ""
 	}
-	return signal.Metadata["reasoning"]
+	ctx := signal.GetContextLDecision()
+	if ctx == nil {
+		return ""
+	}
+	return ctx.Reasoning
 }
 
 // ExtractRecommendedAction extracts the recommended action from a signal.
-func ExtractRecommendedAction(signal *pb.ArgusSignal) string {
-	if signal == nil || signal.Metadata == nil {
+func ExtractRecommendedAction(signal *v1.ArgusSignal) string {
+	if signal == nil {
 		return ""
 	}
-	return signal.Metadata["recommended_action"]
+	ctx := signal.GetContextLDecision()
+	if ctx == nil {
+		return ""
+	}
+	return ctx.RecommendedAction.String()
 }
 
 // DecisionSignalInfo contains extracted decision signal information.
@@ -174,8 +207,13 @@ type DecisionSignalInfo struct {
 }
 
 // ExtractDecisionInfo extracts all decision information from a signal.
-func ExtractDecisionInfo(signal *pb.ArgusSignal) *DecisionSignalInfo {
+func ExtractDecisionInfo(signal *v1.ArgusSignal) *DecisionSignalInfo {
 	if !IsDecisionSignal(signal) {
+		return nil
+	}
+
+	ctx := signal.GetContextLDecision()
+	if ctx == nil {
 		return nil
 	}
 
@@ -184,33 +222,9 @@ func ExtractDecisionInfo(signal *pb.ArgusSignal) *DecisionSignalInfo {
 		Confidence:        ExtractConfidence(signal),
 		Reasoning:         ExtractReasoning(signal),
 		RecommendedAction: ExtractRecommendedAction(signal),
-	}
-
-	if signal.Metadata != nil {
-		if v, ok := signal.Metadata["kairos_policy_version"]; ok {
-			info.PolicyVersion = v
-		}
-		if v, ok := signal.Metadata["policy_rule_triggered"]; ok {
-			info.PolicyRule = v
-		}
-		if v, ok := signal.Metadata["processing_time_ms"]; ok {
-			fmt.Sscanf(v, "%d", &info.ProcessingTimeMs)
-		}
-		if v, ok := signal.Metadata["source_rule_id"]; ok {
-			info.SourceRuleID = v
-		}
-		if v, ok := signal.Metadata["source_rule_name"]; ok {
-			info.SourceRuleName = v
-		}
-		if v, ok := signal.Metadata["source_signal_id"]; ok {
-			info.SourceSignalID = v
-		}
-		if v, ok := signal.Metadata["source_layer"]; ok {
-			info.SourceLayer = v
-		}
-		if v, ok := signal.Metadata["source_category"]; ok {
-			info.SourceCategory = v
-		}
+		PolicyVersion:     ctx.PolicyVersion,
+		PolicyRule:        ctx.PolicyName,
+		ProcessingTimeMs:  int64(ctx.EvaluationTimeMs),
 	}
 
 	return info

@@ -1,0 +1,14 @@
+id: argus-t1-003
+name: Policy Violation
+description: Built-in MITRE ATLAS detection rule
+tier: 1
+enabled: true
+severity: 3
+conditions:
+  layer: L6_SAFETY
+  category_prefix: safety.policy
+action:
+  title: Policy Violation
+  description: Auto-generated built-in rule
+  mitre_tactic: ML Attack Staging
+  mitre_technique: AML.T0051

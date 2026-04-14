@@ -75,8 +75,7 @@ func (al *AuditLogger) LogAction(ctx context.Context, action, resource string, d
 		userID = &claims.UserID
 	}
 
-	// IP and User-Agent are populated by callers that have access to *http.Request
-	// (e.g. LogLogin/LogLogout). For non-HTTP callers these remain empty.
+	// Callers that have an *http.Request pass IP/UserAgent in the detail map.
 	var ipAddress, userAgent string
 
 	entry := &AuditLogEntry{

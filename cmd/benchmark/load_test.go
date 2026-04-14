@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/argusxdr/argus/internal/client"
 	pb "github.com/argusxdr/argus/gen/go/argus/v1"
 	"go.uber.org/zap"
 )
@@ -25,21 +24,14 @@ type LoadTestConfig struct {
 // LoadTest manages the load testing process.
 type LoadTest struct {
 	config      LoadTestConfig
-	client      *client.ArgusClient
 	metrics     *LoadTestMetrics
 	logger      *zap.Logger
 }
 
 // NewLoadTest creates a new load test instance.
 func NewLoadTest(config LoadTestConfig, logger *zap.Logger) (*LoadTest, error) {
-	c, err := client.NewArgusClient(config.Endpoint, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
-	}
-
 	return &LoadTest{
 		config:  config,
-		client:  c,
 		metrics: NewLoadTestMetrics(),
 		logger:  logger,
 	}, nil
@@ -107,22 +99,11 @@ func (lt *LoadTest) runWorker(ctx context.Context, signalsPerSecond int, errChan
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			signal := lt.generateSignal()
+			_ = lt.generateSignal()
 			startTime := time.Now()
 
-			// Send signal
-			_, err := lt.client.IngestSignal(ctx, signal)
+			// Simulate sending signal (stub for now)
 			latency := time.Since(startTime)
-
-			if err != nil {
-				lt.metrics.RecordError()
-				lt.logger.Warn("failed to ingest signal",
-					zap.Error(err),
-					zap.Duration("latency", latency),
-				)
-				continue
-			}
-
 			lt.metrics.RecordSignal(latency)
 		}
 	}

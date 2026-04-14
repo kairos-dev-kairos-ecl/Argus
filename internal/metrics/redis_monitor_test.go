@@ -181,13 +181,19 @@ func TestRedisMonitorMemoryGaugeUpdates(t *testing.T) {
 
 	mock := &mockRedisClient{
 		infoFunc: func(ctx context.Context, section ...string) *redis.StringCmd {
-			return &mockStringCmd{val: infoOutput, err: nil}
+			cmd := redis.NewStringCmd(ctx, nil)
+			cmd.SetVal(infoOutput)
+			return cmd
 		},
 		dbsizeFunc: func(ctx context.Context) *redis.IntCmd {
-			return &mockIntCmd{val: 100, err: nil}
+			cmd := redis.NewIntCmd(ctx, nil)
+			cmd.SetVal(100)
+			return cmd
 		},
 		keysFunc: func(ctx context.Context, pattern string) *redis.StringSliceCmd {
-			return &mockStringSliceCmd{val: []string{"trace:123", "trace:456"}, err: nil}
+			cmd := redis.NewStringSliceCmd(ctx, nil)
+			cmd.SetVal([]string{"trace:123", "trace:456"})
+			return cmd
 		},
 	}
 
@@ -230,13 +236,19 @@ func TestRedisMonitorKeyCountGaugeUpdates(t *testing.T) {
 
 	mock := &mockRedisClient{
 		infoFunc: func(ctx context.Context, section ...string) *redis.StringCmd {
-			return &mockStringCmd{val: infoOutput, err: nil}
+			cmd := redis.NewStringCmd(ctx, nil)
+			cmd.SetVal(infoOutput)
+			return cmd
 		},
 		dbsizeFunc: func(ctx context.Context) *redis.IntCmd {
-			return &mockIntCmd{val: keyCount, err: nil}
+			cmd := redis.NewIntCmd(ctx, nil)
+			cmd.SetVal(keyCount)
+			return cmd
 		},
 		keysFunc: func(ctx context.Context, pattern string) *redis.StringSliceCmd {
-			return &mockStringSliceCmd{val: []string{"trace:123", "trace:456", "trace:789"}, err: nil}
+			cmd := redis.NewStringSliceCmd(ctx, nil)
+			cmd.SetVal([]string{"trace:123", "trace:456", "trace:789"})
+			return cmd
 		},
 	}
 
@@ -277,13 +289,19 @@ func TestRedisMonitorHandlesErrorsGracefully(t *testing.T) {
 	// Mock Redis returning errors
 	mock := &mockRedisClient{
 		infoFunc: func(ctx context.Context, section ...string) *redis.StringCmd {
-			return &mockStringCmd{val: "", err: errors.New("connection refused")}
+			cmd := redis.NewStringCmd(ctx, nil)
+			cmd.SetErr(errors.New("connection refused"))
+			return cmd
 		},
 		dbsizeFunc: func(ctx context.Context) *redis.IntCmd {
-			return &mockIntCmd{val: 0, err: errors.New("connection refused")}
+			cmd := redis.NewIntCmd(ctx, nil)
+			cmd.SetErr(errors.New("connection refused"))
+			return cmd
 		},
 		keysFunc: func(ctx context.Context, pattern string) *redis.StringSliceCmd {
-			return &mockStringSliceCmd{val: nil, err: errors.New("connection refused")}
+			cmd := redis.NewStringSliceCmd(ctx, nil)
+			cmd.SetErr(errors.New("connection refused"))
+			return cmd
 		},
 	}
 
@@ -307,14 +325,20 @@ func TestRedisMonitorStopTerminatesGoroutine(t *testing.T) {
 	callCount := 0
 	mock := &mockRedisClient{
 		infoFunc: func(ctx context.Context, section ...string) *redis.StringCmd {
-			return &mockStringCmd{val: "used_memory:1000000\r\n", err: nil}
+			cmd := redis.NewStringCmd(ctx, nil)
+			cmd.SetVal("used_memory:1000000\r\n")
+			return cmd
 		},
 		dbsizeFunc: func(ctx context.Context) *redis.IntCmd {
 			callCount++
-			return &mockIntCmd{val: 100, err: nil}
+			cmd := redis.NewIntCmd(ctx, nil)
+			cmd.SetVal(100)
+			return cmd
 		},
 		keysFunc: func(ctx context.Context, pattern string) *redis.StringSliceCmd {
-			return &mockStringSliceCmd{val: []string{}, err: nil}
+			cmd := redis.NewStringSliceCmd(ctx, nil)
+			cmd.SetVal([]string{})
+			return cmd
 		},
 	}
 
@@ -352,16 +376,23 @@ func TestRedisMonitorTraceKeyCountUpdates(t *testing.T) {
 
 	mock := &mockRedisClient{
 		infoFunc: func(ctx context.Context, section ...string) *redis.StringCmd {
-			return &mockStringCmd{val: infoOutput, err: nil}
+			cmd := redis.NewStringCmd(ctx, nil)
+			cmd.SetVal(infoOutput)
+			return cmd
 		},
 		dbsizeFunc: func(ctx context.Context) *redis.IntCmd {
-			return &mockIntCmd{val: 500, err: nil}
+			cmd := redis.NewIntCmd(ctx, nil)
+			cmd.SetVal(500)
+			return cmd
 		},
 		keysFunc: func(ctx context.Context, pattern string) *redis.StringSliceCmd {
+			cmd := redis.NewStringSliceCmd(ctx, nil)
 			if pattern == "trace:*" {
-				return &mockStringSliceCmd{val: traceKeys, err: nil}
+				cmd.SetVal(traceKeys)
+			} else {
+				cmd.SetVal([]string{})
 			}
-			return &mockStringSliceCmd{val: []string{}, err: nil}
+			return cmd
 		},
 	}
 
