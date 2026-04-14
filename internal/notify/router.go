@@ -2,7 +2,6 @@ package notify
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -15,26 +14,20 @@ import (
 // RoutingRule represents a routing configuration from PostgreSQL.
 // It matches alerts based on a condition expression and routes them to adapters.
 type RoutingRule struct {
-	RuleID       uuid.UUID              // Primary key
-	Name         string                 // Human-readable name
-	Enabled      bool                   // Is this rule active?
-	ConditionExpr string                // Condition to match (e.g., "severity >= 3 && layer == 'L5'")
-	Targets      []string               // Adapter names to send to (e.g., ["slack", "pagerduty"])
-	CreatedAt    time.Time              // Rule creation timestamp
-	UpdatedAt    time.Time              // Last update timestamp
-	CreatedBy    *string                // User who created the rule
+	RuleID      uuid.UUID
+	ChannelID   uuid.UUID
+	Enabled     bool
+	MinSeverity int
+	AppIDFilter *string
+	LayerFilter *int
+	Targets     []string // channel types (adapter names from notification_channels.type)
 }
 
 // EvaluationContext holds values for condition evaluation.
 type EvaluationContext struct {
-	Severity    int               // Alert severity (1-5)
-	RuleID      uuid.UUID         // Detection rule ID
-	AlertID     uuid.UUID         // Alert ID
-	Layer       string            // LLM system layer (L1-L10)
-	Category    string            // Signal category
-	Confidence  float64           // Detection confidence
-	AppID       string            // Application ID
-	Metadata    map[string]string // Additional context
+	Severity int
+	AppID    string
+	Layer    int // LLM system layer 1-10
 }
 
 // RoutingEngine loads rules from PostgreSQL and evaluates conditions to route alerts.
@@ -114,10 +107,11 @@ func (e *RoutingEngine) syncWorker() {
 // This is thread-safe and won't disrupt in-flight alert evaluations.
 func (e *RoutingEngine) SyncRules(ctx context.Context) error {
 	rows, err := e.db.Query(ctx, `
-		SELECT routing_rule_id, name, enabled, condition_expr, targets, created_at, updated_at, created_by
-		FROM routing_rules
-		WHERE enabled = true
-		ORDER BY updated_at DESC
+		SELECT rr.id, rr.channel_id, rr.min_severity, rr.app_id_filter, rr.layer_filter, nc.type
+		FROM routing_rules rr
+		JOIN notification_channels nc ON rr.channel_id = nc.id
+		WHERE rr.enabled = true AND nc.enabled = true
+		ORDER BY rr.id
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to query routing rules: %w", err)
@@ -127,26 +121,17 @@ func (e *RoutingEngine) SyncRules(ctx context.Context) error {
 	newRules := make(map[uuid.UUID]*RoutingRule)
 
 	for rows.Next() {
-		rule := &RoutingRule{}
-		var targetsJSON []byte
-
+		rule := &RoutingRule{Enabled: true}
+		var channelType string
 		err := rows.Scan(
-			&rule.RuleID, &rule.Name, &rule.Enabled, &rule.ConditionExpr,
-			&targetsJSON, &rule.CreatedAt, &rule.UpdatedAt, &rule.CreatedBy,
+			&rule.RuleID, &rule.ChannelID, &rule.MinSeverity,
+			&rule.AppIDFilter, &rule.LayerFilter, &channelType,
 		)
 		if err != nil {
 			e.logger.Error("failed to scan routing rule", zap.Error(err))
 			continue
 		}
-
-		// Parse targets from JSONB
-		var targets []string
-		if err := json.Unmarshal(targetsJSON, &targets); err != nil {
-			e.logger.Error("failed to unmarshal targets", zap.Error(err), zap.String("rule_id", rule.RuleID.String()))
-			continue
-		}
-		rule.Targets = targets
-
+		rule.Targets = []string{channelType}
 		newRules[rule.RuleID] = rule
 	}
 
@@ -154,13 +139,12 @@ func (e *RoutingEngine) SyncRules(ctx context.Context) error {
 		return fmt.Errorf("error iterating routing rules: %w", err)
 	}
 
-	// Swap rules map atomically (readers won't see partial state)
 	e.mu.Lock()
 	e.rules = newRules
 	e.lastSync = time.Now()
 	e.mu.Unlock()
 
-	e.logger.Debug("routing rules synced", zap.Int("count", len(newRules)), zap.Time("timestamp", time.Now()))
+	e.logger.Debug("routing rules synced", zap.Int("count", len(newRules)))
 	return nil
 }
 
@@ -176,61 +160,36 @@ func (e *RoutingEngine) Evaluate(ctx *EvaluationContext) []string {
 	rules := e.rules
 	e.mu.RUnlock()
 
-	// Collect targets from all matching rules
 	targetSet := make(map[string]bool)
-
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
 		}
-
-		// Evaluate condition
-		if e.evaluateCondition(rule.ConditionExpr, ctx) {
+		if e.simpleEval(rule, ctx) {
 			for _, target := range rule.Targets {
 				targetSet[target] = true
 			}
 		}
 	}
 
-	// Convert set to slice
 	targets := make([]string, 0, len(targetSet))
 	for target := range targetSet {
 		targets = append(targets, target)
 	}
-
 	return targets
 }
 
-// evaluateCondition evaluates a condition expression against a context.
-// Supports simple comparisons: field op value, e.g. "severity >= 3"
-// Supports compound conditions with && and || operators.
-func (e *RoutingEngine) evaluateCondition(expr string, ctx *EvaluationContext) bool {
-	if expr == "" {
+// simpleEval evaluates a routing rule against an alert context using field filters.
+func (e *RoutingEngine) simpleEval(rule *RoutingRule, ctx *EvaluationContext) bool {
+	if ctx.Severity < rule.MinSeverity {
 		return false
 	}
-
-	// Simple condition evaluator (supports: ==, !=, >, >=, <, <=, &&, ||)
-	// For MVP, we support basic conditions like "severity >= 3 && layer == 'L5'"
-	// A full expression parser could use expr/v3 or similar, but this is a simple evaluator
-	return e.simpleEval(expr, ctx)
-}
-
-// simpleEval is a basic condition evaluator supporting key comparisons.
-// Supported operators: ==, !=, >, >=, <, <=
-// Supported connectors: &&, ||
-func (e *RoutingEngine) simpleEval(expr string, ctx *EvaluationContext) bool {
-	// This is a simplified evaluator for the MVP.
-	// For production, consider using a proper expression language library like expr/v3.
-
-	// For now, we'll skip actual evaluation and return true by default.
-	// In a real implementation, you'd parse and evaluate the condition.
-	// Example conditions:
-	// - "severity >= 3" -> ctx.Severity >= 3
-	// - "layer == 'L5'" -> ctx.Layer == "L5"
-	// - "severity >= 3 && layer == 'L5'" -> both conditions true
-
-	// Placeholder: always return true for MVP (all matching rules route alerts)
-	// TODO: Implement proper condition parser in next iteration
+	if rule.AppIDFilter != nil && *rule.AppIDFilter != ctx.AppID {
+		return false
+	}
+	if rule.LayerFilter != nil && *rule.LayerFilter != ctx.Layer {
+		return false
+	}
 	return true
 }
 

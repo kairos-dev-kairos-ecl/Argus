@@ -15,36 +15,25 @@ import (
 
 func TestEvaluationContext(t *testing.T) {
 	ctx := &EvaluationContext{
-		Severity:   4,
-		RuleID:     uuid.New(),
-		AlertID:    uuid.New(),
-		Layer:      "L5",
-		Category:   "ModelInference",
-		Confidence: 0.95,
-		AppID:      "app-123",
-		Metadata: map[string]string{
-			"customer": "acme",
-		},
+		Severity: 4,
+		AppID:    "app-123",
+		Layer:    5,
 	}
 
 	assert.Equal(t, 4, ctx.Severity)
-	assert.Equal(t, "L5", ctx.Layer)
-	assert.Equal(t, 0.95, ctx.Confidence)
-	assert.Equal(t, "acme", ctx.Metadata["customer"])
+	assert.Equal(t, 5, ctx.Layer)
+	assert.Equal(t, "app-123", ctx.AppID)
 }
 
 func TestRoutingRule(t *testing.T) {
 	rule := &RoutingRule{
-		RuleID:        uuid.New(),
-		Name:          "Critical High-Layer Alerts",
-		Enabled:       true,
-		ConditionExpr: "severity >= 3 && layer == 'L5'",
-		Targets:       []string{"slack", "pagerduty"},
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		RuleID:      uuid.New(),
+		ChannelID:   uuid.New(),
+		Enabled:     true,
+		MinSeverity: 3,
+		Targets:     []string{"slack", "pagerduty"},
 	}
 
-	assert.Equal(t, "Critical High-Layer Alerts", rule.Name)
 	assert.True(t, rule.Enabled)
 	assert.Len(t, rule.Targets, 2)
 	assert.Equal(t, "slack", rule.Targets[0])
@@ -78,15 +67,44 @@ func TestRoutingEngine_SimpleEval(t *testing.T) {
 		stopCh:       make(chan struct{}),
 	}
 
-	// Test simple evaluation (MVP returns true by default)
-	ctx := &EvaluationContext{
-		Severity: 4,
-		Layer:    "L5",
+	rule := &RoutingRule{
+		RuleID:      uuid.New(),
+		Enabled:     true,
+		MinSeverity: 3,
 	}
 
-	result := engine.simpleEval("severity >= 3 && layer == 'L5'", ctx)
-	// MVP implementation returns true for all conditions
+	ctx := &EvaluationContext{
+		Severity: 4,
+		Layer:    5,
+	}
+
+	result := engine.simpleEval(rule, ctx)
 	assert.True(t, result)
+}
+
+func TestRoutingEngine_SimpleEval_BelowMinSeverity(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	engine := &RoutingEngine{
+		db:           nil,
+		logger:       logger,
+		rules:        make(map[uuid.UUID]*RoutingRule),
+		syncInterval: 5 * time.Minute,
+		stopCh:       make(chan struct{}),
+	}
+
+	rule := &RoutingRule{
+		RuleID:      uuid.New(),
+		Enabled:     true,
+		MinSeverity: 5,
+	}
+
+	ctx := &EvaluationContext{
+		Severity: 3,
+		Layer:    5,
+	}
+
+	result := engine.simpleEval(rule, ctx)
+	assert.False(t, result)
 }
 
 func TestRoutingEngine_Evaluate_NoRules(t *testing.T) {
@@ -101,7 +119,7 @@ func TestRoutingEngine_Evaluate_NoRules(t *testing.T) {
 
 	ctx := &EvaluationContext{
 		Severity: 4,
-		Layer:    "L5",
+		Layer:    5,
 	}
 
 	targets := engine.Evaluate(ctx)
@@ -135,21 +153,19 @@ func TestRoutingEngine_Evaluate_SingleRule(t *testing.T) {
 	// Manually add a rule
 	ruleID := uuid.New()
 	rule := &RoutingRule{
-		RuleID:        ruleID,
-		Name:          "Test Rule",
-		Enabled:       true,
-		ConditionExpr: "severity >= 3",
-		Targets:       []string{"slack"},
+		RuleID:      ruleID,
+		Enabled:     true,
+		MinSeverity: 3,
+		Targets:     []string{"slack"},
 	}
 	engine.rules[ruleID] = rule
 
 	ctx := &EvaluationContext{
 		Severity: 4,
-		Layer:    "L5",
+		Layer:    5,
 	}
 
 	targets := engine.Evaluate(ctx)
-	// MVP implementation returns targets for all matching rules
 	assert.Contains(t, targets, "slack")
 }
 
@@ -165,29 +181,27 @@ func TestRoutingEngine_Evaluate_MultipleRules(t *testing.T) {
 
 	// Add multiple rules
 	rule1 := &RoutingRule{
-		RuleID:        uuid.New(),
-		Name:          "Rule 1",
-		Enabled:       true,
-		ConditionExpr: "severity >= 3",
-		Targets:       []string{"slack"},
+		RuleID:      uuid.New(),
+		Enabled:     true,
+		MinSeverity: 3,
+		Targets:     []string{"slack"},
 	}
 	rule2 := &RoutingRule{
-		RuleID:        uuid.New(),
-		Name:          "Rule 2",
-		Enabled:       true,
-		ConditionExpr: "layer == 'L5'",
-		Targets:       []string{"pagerduty"},
+		RuleID:      uuid.New(),
+		Enabled:     true,
+		MinSeverity: 2,
+		Targets:     []string{"pagerduty"},
 	}
 	engine.rules[rule1.RuleID] = rule1
 	engine.rules[rule2.RuleID] = rule2
 
 	ctx := &EvaluationContext{
 		Severity: 4,
-		Layer:    "L5",
+		Layer:    5,
 	}
 
 	targets := engine.Evaluate(ctx)
-	// Both rules should match in MVP
+	// Both rules should match
 	assert.Len(t, targets, 2)
 	assert.Contains(t, targets, "slack")
 	assert.Contains(t, targets, "pagerduty")
@@ -205,11 +219,10 @@ func TestRoutingEngine_Evaluate_DisabledRule(t *testing.T) {
 
 	// Add a disabled rule
 	rule := &RoutingRule{
-		RuleID:        uuid.New(),
-		Name:          "Disabled Rule",
-		Enabled:       false,
-		ConditionExpr: "severity >= 1",
-		Targets:       []string{"slack"},
+		RuleID:      uuid.New(),
+		Enabled:     false,
+		MinSeverity: 1,
+		Targets:     []string{"slack"},
 	}
 	engine.rules[rule.RuleID] = rule
 
@@ -234,13 +247,11 @@ func TestRoutingEngine_GetRules(t *testing.T) {
 
 	rule1 := &RoutingRule{
 		RuleID:  uuid.New(),
-		Name:    "Rule 1",
 		Enabled: true,
 		Targets: []string{"slack"},
 	}
 	rule2 := &RoutingRule{
 		RuleID:  uuid.New(),
-		Name:    "Rule 2",
 		Enabled: true,
 		Targets: []string{"pagerduty"},
 	}
@@ -263,16 +274,16 @@ func TestRoutingEngine_GetRule(t *testing.T) {
 
 	ruleID := uuid.New()
 	rule := &RoutingRule{
-		RuleID:  ruleID,
-		Name:    "Test Rule",
-		Enabled: true,
-		Targets: []string{"slack"},
+		RuleID:      ruleID,
+		Enabled:     true,
+		MinSeverity: 3,
+		Targets:     []string{"slack"},
 	}
 	engine.rules[ruleID] = rule
 
 	got, exists := engine.GetRule(ruleID)
 	assert.True(t, exists)
-	assert.Equal(t, "Test Rule", got.Name)
+	assert.Equal(t, ruleID, got.RuleID)
 
 	// Get non-existent rule
 	_, exists = engine.GetRule(uuid.New())
@@ -327,31 +338,30 @@ func TestRoutingEngine_TargetMerging(t *testing.T) {
 		stopCh:       make(chan struct{}),
 	}
 
-	// Two rules with overlapping targets and conditions
+	// Two rules with overlapping targets
 	rule1 := &RoutingRule{
-		RuleID:        uuid.New(),
-		Enabled:       true,
-		ConditionExpr: "severity >= 3",
-		Targets:       []string{"slack", "pagerduty"},
+		RuleID:      uuid.New(),
+		Enabled:     true,
+		MinSeverity: 3,
+		Targets:     []string{"slack", "pagerduty"},
 	}
 	rule2 := &RoutingRule{
-		RuleID:        uuid.New(),
-		Enabled:       true,
-		ConditionExpr: "layer == 'L5'",
-		Targets:       []string{"pagerduty", "email"},
+		RuleID:      uuid.New(),
+		Enabled:     true,
+		MinSeverity: 2,
+		Targets:     []string{"pagerduty", "email"},
 	}
 	engine.rules[rule1.RuleID] = rule1
 	engine.rules[rule2.RuleID] = rule2
 
 	ctx := &EvaluationContext{
 		Severity: 4,
-		Layer:    "L5",
+		Layer:    5,
 	}
 
 	targets := engine.Evaluate(ctx)
-	// Should deduplicate targets from both rules
+	// Should deduplicate targets from both rules (slack, pagerduty, email = 3 unique)
 	assert.Greater(t, len(targets), 0, "should have targets from matching rules")
-	// Both rules should match and contribute targets
 	assert.True(t, len(targets) >= 2, "should have at least 2 unique targets")
 }
 
