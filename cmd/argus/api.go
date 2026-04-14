@@ -14,7 +14,9 @@ import (
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/ingest"
 	"github.com/argusxdr/argus/internal/metrics"
+	"github.com/argusxdr/argus/internal/notify"
 	"github.com/argusxdr/argus/internal/storage"
+	"github.com/redis/go-redis/v9"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,6 +54,9 @@ func init() {
 	apiCmd.Flags().String("rules-dir", "internal/rules/built-in", "Directory containing built-in YAML rules")
 	viper.BindEnv("detection.rules_dir", "ARGUS_DETECTION_RULES_DIR")
 	viper.BindPFlag("detection.rules_dir", apiCmd.Flags().Lookup("rules-dir"))
+	apiCmd.Flags().String("redis-addr", "localhost:6379", "Redis address (host:port)")
+	viper.BindEnv("redis.addr", "ARGUS_REDIS_ADDR")
+	viper.BindPFlag("redis.addr", apiCmd.Flags().Lookup("redis-addr"))
 
 	// Logging flags
 	apiCmd.Flags().Bool("dev", false, "Enable development logging (more verbose)")
@@ -122,7 +127,59 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		log.Info("built-in rules loaded", zap.Int("count", ruleStore.Count()))
 	}
 	queryHandler.SetRuleStore(ruleStore)
-	_ = ingest.NewPgAlertWriter(pgPool, log)
+
+	// Notification adapter registry
+	adapterRegistry := notify.NewAdapterRegistry(log)
+	logAdapter := notify.NewLogAdapter(log)
+	cbAdapter := notify.NewCircuitBreakerAdapter(logAdapter, notify.NewCircuitBreaker(nil))
+	if regErr := adapterRegistry.Register(cbAdapter); regErr != nil {
+		log.Warn("failed to register log adapter", zap.Error(regErr))
+	}
+
+	// Alert dispatcher (fixed worker pool)
+	dispatcherCfg := notify.DefaultDispatcherConfig()
+	dispatcherCfg.WorkerCount = 2
+	alertDispatcher, dispErr := notify.NewAlertDispatcher(dispatcherCfg, adapterRegistry, log)
+	if dispErr != nil {
+		log.Warn("alert dispatcher unavailable", zap.Error(dispErr))
+	} else {
+		defer func() {
+			shutdownCtx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel2()
+			alertDispatcher.Shutdown(shutdownCtx2)
+		}()
+	}
+
+	// Routing engine (requires PostgreSQL)
+	var routingEngine *notify.RoutingEngine
+	if pgPool != nil {
+		routingEngine, err = notify.NewRoutingEngine(pgPool, log)
+		if err != nil {
+			log.Warn("routing engine unavailable", zap.Error(err))
+			err = nil // non-fatal
+		} else {
+			routingEngine.Start()
+			defer routingEngine.Stop()
+		}
+	}
+
+	// Redis client for dedup + incident correlation
+	redisAddr := viper.GetString("redis.addr")
+	var redisClient *redis.Client
+	if redisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{Addr: redisAddr})
+		if pingErr := redisClient.Ping(ctx).Err(); pingErr != nil {
+			log.Warn("Redis unavailable — dedup and incident correlation disabled", zap.Error(pingErr))
+			redisClient = nil
+		} else {
+			defer redisClient.Close()
+			log.Info("Redis connected", zap.String("addr", redisAddr))
+		}
+	}
+
+	// Alert router: replaces PgAlertWriter — owns dedup, persist, route, dispatch
+	alertRouter := ingest.NewAlertRouter(pgPool, redisClient, routingEngine, alertDispatcher, log)
+	queryHandler.SetAlertRouter(alertRouter)
 
 	// Build router
 	httpAddr := viper.GetString("server.http.addr")
