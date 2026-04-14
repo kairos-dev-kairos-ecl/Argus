@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/argusxdr/argus/gen/go/argus/v1"
 	baseline "github.com/argusxdr/argus/internal/baseline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,9 +18,9 @@ func TestProfileCalculator_ComputeProfile_NormalDistribution(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, profile)
-	assert.Equal(t, int64(5), profile.Count)
+	assert.Equal(t, int32(5), profile.SampleCount)
 	assert.Equal(t, 30.0, profile.Mean) // (10+20+30+40+50)/5 = 30
-	assert.Greater(t, profile.Stddev, 0.0)
+	assert.Greater(t, profile.StdDev, 0.0)
 	assert.Equal(t, 10.0, profile.Min)
 	assert.Equal(t, 50.0, profile.Max)
 }
@@ -35,9 +34,9 @@ func TestProfileCalculator_ComputeProfile_SingleSample(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, profile)
-	assert.Equal(t, int64(1), profile.Count)
+	assert.Equal(t, int32(1), profile.SampleCount)
 	assert.Equal(t, 42.5, profile.Mean)
-	assert.Equal(t, 0.0, profile.Stddev) // Single point has no variance
+	assert.Equal(t, 0.0, profile.StdDev) // Single point has no variance
 	assert.Equal(t, 42.5, profile.Min)
 	assert.Equal(t, 42.5, profile.Max)
 }
@@ -51,9 +50,9 @@ func TestProfileCalculator_ComputeProfile_IdenticalSamples(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, profile)
-	assert.Equal(t, int64(5), profile.Count)
+	assert.Equal(t, int32(5), profile.SampleCount)
 	assert.Equal(t, 5.0, profile.Mean)
-	assert.Equal(t, 0.0, profile.Stddev) // All same = no variance
+	assert.Equal(t, 0.0, profile.StdDev) // All same = no variance
 	assert.Equal(t, 5.0, profile.Min)
 	assert.Equal(t, 5.0, profile.Max)
 }
@@ -70,12 +69,12 @@ func TestProfileCalculator_ComputeProfile_EmptyInput(t *testing.T) {
 func TestProfileCalculator_ComputeZScore_Normal(t *testing.T) {
 	calc := baseline.NewProfileCalculator()
 
-	profile := &v1.BaselineProfile{
-		Count:  10,
-		Mean:   100.0,
-		Stddev: 10.0,
-		Min:    80.0,
-		Max:    120.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 10,
+		Mean:        100.0,
+		StdDev:      10.0,
+		Min:         80.0,
+		Max:         120.0,
 	}
 
 	// 1 standard deviation above mean
@@ -94,12 +93,12 @@ func TestProfileCalculator_ComputeZScore_Normal(t *testing.T) {
 func TestProfileCalculator_ComputeZScore_ZeroStddev(t *testing.T) {
 	calc := baseline.NewProfileCalculator()
 
-	profile := &v1.BaselineProfile{
-		Count:  5,
-		Mean:   50.0,
-		Stddev: 0.0, // No variance
-		Min:    50.0,
-		Max:    50.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 5,
+		Mean:        50.0,
+		StdDev:      0.0, // No variance
+		Min:         50.0,
+		Max:         50.0,
 	}
 
 	// When stddev is 0, should return 0 (not NaN)
@@ -114,12 +113,12 @@ func TestProfileCalculator_ComputeZScore_ZeroStddev(t *testing.T) {
 func TestProfileCalculator_ComputeZScore_NegativeStddev(t *testing.T) {
 	calc := baseline.NewProfileCalculator()
 
-	profile := &v1.BaselineProfile{
-		Count:  5,
-		Mean:   50.0,
-		Stddev: -1.0, // Invalid but should handle gracefully
-		Min:    50.0,
-		Max:    50.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 5,
+		Mean:        50.0,
+		StdDev:      -1.0, // Invalid but should handle gracefully
+		Min:         50.0,
+		Max:         50.0,
 	}
 
 	zscore := calc.ComputeZScore(50.0, profile)
@@ -134,13 +133,12 @@ func TestProfileCalculator_ComputeZScore_NilProfile(t *testing.T) {
 }
 
 func TestComputeZScore_Standalone(t *testing.T) {
-	// Test the standalone function
-	profile := &v1.BaselineProfile{
-		Count:  10,
-		Mean:   50.0,
-		Stddev: 5.0,
-		Min:    40.0,
-		Max:    60.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 10,
+		Mean:        50.0,
+		StdDev:      5.0,
+		Min:         40.0,
+		Max:         60.0,
 	}
 
 	zscore := baseline.ComputeZScore(55.0, profile)
@@ -153,12 +151,12 @@ func TestComputeZScore_Standalone(t *testing.T) {
 func TestProfileCalculator_ComputeZScore_LargeDeviation(t *testing.T) {
 	calc := baseline.NewProfileCalculator()
 
-	profile := &v1.BaselineProfile{
-		Count:  100,
-		Mean:   1000.0,
-		Stddev: 50.0,
-		Min:    850.0,
-		Max:    1150.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 100,
+		Mean:        1000.0,
+		StdDev:      50.0,
+		Min:         850.0,
+		Max:         1150.0,
 	}
 
 	// Very high value
@@ -173,12 +171,12 @@ func TestProfileCalculator_ComputeZScore_LargeDeviation(t *testing.T) {
 func TestProfileCalculator_ComputeZScore_DoesntReturnNaN(t *testing.T) {
 	calc := baseline.NewProfileCalculator()
 
-	profile := &v1.BaselineProfile{
-		Count:  1,
-		Mean:   0.0,
-		Stddev: 0.0,
-		Min:    0.0,
-		Max:    0.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 1,
+		Mean:        0.0,
+		StdDev:      0.0,
+		Min:         0.0,
+		Max:         0.0,
 	}
 
 	zscore := calc.ComputeZScore(math.MaxFloat64, profile)
@@ -195,7 +193,7 @@ func TestProfileCalculator_ComputeProfile_NegativeValues(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 0.0, profile.Mean)
-	assert.Greater(t, profile.Stddev, 0.0)
+	assert.Greater(t, profile.StdDev, 0.0)
 	assert.Equal(t, -10.0, profile.Min)
 	assert.Equal(t, 10.0, profile.Max)
 }
@@ -209,7 +207,7 @@ func TestProfileCalculator_ComputeProfile_VerySmallValues(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Greater(t, profile.Mean, 0.0)
-	assert.Greater(t, profile.Stddev, 0.0)
+	assert.Greater(t, profile.StdDev, 0.0)
 	assert.InDelta(t, 0.001, profile.Min, 0.0001)
 	assert.InDelta(t, 0.005, profile.Max, 0.0001)
 }

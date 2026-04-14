@@ -3,7 +3,7 @@ package kairos
 import (
 	"time"
 
-	"github.com/argusxdr/argus/gen/go/argus/v1"
+	argusv1 "github.com/argusxdr/argus/gen/go/argus/v1"
 	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"

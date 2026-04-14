@@ -99,11 +99,6 @@ func (tm *TokenManager) VerifyAccessToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("invalid token")
 	}
 
-	// Verify claims
-	if err := claims.Valid(); err != nil {
-		return nil, fmt.Errorf("claims validation failed: %w", err)
-	}
-
 	return claims, nil
 }
 

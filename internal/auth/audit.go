@@ -71,16 +71,13 @@ func NewAuditLogger(store AuditStore) *AuditLogger {
 func (al *AuditLogger) LogAction(ctx context.Context, action, resource string, detail map[string]interface{}) error {
 	// Extract user ID from context if available
 	var userID *uuid.UUID
-	if claims := GetUserFromContext(ctx); claims != nil {
+	if claims := GetClaimsFromContext(ctx); claims != nil {
 		userID = &claims.UserID
 	}
 
-	// Extract IP and User-Agent if this is an HTTP request
+	// IP and User-Agent are populated by callers that have access to *http.Request
+	// (e.g. LogLogin/LogLogout). For non-HTTP callers these remain empty.
 	var ipAddress, userAgent string
-	if req, ok := ctx.Value(http.Request{}).(*http.Request); ok {
-		ipAddress = getClientIP(req)
-		userAgent = req.UserAgent()
-	}
 
 	entry := &AuditLogEntry{
 		ID:        uuid.New(),
