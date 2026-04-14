@@ -120,6 +120,7 @@ export function SetupWizard() {
         password: admin.password,
         instance_name: instance.instance_name,
         timezone: instance.timezone,
+        app_name: app.app_name,
       })
 
       // 2. Auto-login with the newly created admin credentials
@@ -206,7 +207,7 @@ export function SetupWizard() {
                         className={`h-2 flex-1 rounded ${
                           i <= passwordStrength
                             ? 'bg-green-500'
-                            : 'bg-slate-700'
+                            : 'bg-[#2A2A2F]'
                         }`}
                       />
                     ))}
@@ -404,7 +405,7 @@ export function SetupWizard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Progress Bar */}
         <div className="mb-8">
@@ -415,14 +416,14 @@ export function SetupWizard() {
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-all ${
                   step <= currentStep
                     ? 'bg-primary text-foreground'
-                    : 'bg-slate-700 text-muted-foreground'
+                    : 'bg-[#2A2A2F] text-muted-foreground'
                 }`}
               >
                 {step}
               </div>
             ))}
           </div>
-          <div className="bg-slate-700 h-1 rounded-full overflow-hidden">
+          <div className="bg-[#2A2A2F] h-1 rounded-full overflow-hidden">
             <div
               className="bg-primary h-full transition-all duration-300"
               style={{ width: `${(currentStep / 5) * 100}%` }}
@@ -445,7 +446,7 @@ export function SetupWizard() {
             {currentStep > 1 && (
               <button
                 onClick={() => setCurrentStep(currentStep - 1)}
-                className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-foreground font-medium rounded-lg transition-colors"
+                className="flex-1 py-2 px-4 bg-[#2A2A2F] hover:bg-[#3A3A3F] text-foreground font-medium rounded-lg transition-colors"
                 disabled={loading}
               >
                 Back

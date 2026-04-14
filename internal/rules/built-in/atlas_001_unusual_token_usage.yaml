@@ -1,0 +1,33 @@
+---
+# MITRE ATLAS Mapping: T0002 - Resource Development / Token and Credential Control
+# Detection Rule: Unusual Token Usage Pattern
+# Purpose: Detect anomalous API token usage that may indicate credential compromise
+
+rule_id: "atlas-001-token-usage"
+name: "Unusual Token Usage Pattern"
+description: "Detects unusual patterns in API token usage that may indicate credential compromise or token theft"
+tier: "statistical"  # baseline deviation (Tier 2)
+enabled: true
+
+# Baseline threshold: if this signal deviates >2.5 standard deviations from baseline, trigger
+conditions:
+  - type: "field_comparison"
+    field: "event.frequency"
+    operator: ">"
+    threshold: 2.5  # z-score threshold for statistical tier
+    window_seconds: 300  # evaluate over last 5 minutes
+
+# Additional context for enrichment
+context:
+  layer: "L7"  # Application layer
+  category: "credential_usage"
+  mitre_technique: "T0002"
+  framework: "MITRE ATLAS"
+
+# Recommended action when rule triggers
+action:
+  severity: 3  # medium
+  title: "Unusual API Token Activity Detected"
+  description: "Detected deviation in token usage patterns for app {app_id}"
+  recommendation: "Review recent API calls; consider token rotation if unauthorized"
+  suppress_duplicate_seconds: 3600  # don't alert on same token within 1 hour

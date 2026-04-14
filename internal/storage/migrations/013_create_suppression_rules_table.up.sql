@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS suppression_rules (
     suppression_rule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    rule_id UUID NOT NULL REFERENCES rules(rule_id) ON DELETE CASCADE,
+    rule_id UUID NOT NULL REFERENCES detection_rules(id) ON DELETE CASCADE,
     starts_at TIMESTAMP NOT NULL,
     ends_at TIMESTAMP NOT NULL,
     pattern_type VARCHAR(32) NULL,

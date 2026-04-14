@@ -51,7 +51,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="relative h-screen bg-background text-foreground">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 h-16 bg-muted-background border-b border-border z-40">
         <div className="flex items-center justify-between h-full px-4 gap-4">
@@ -192,7 +192,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* Main content */}
       <main
-        className={`flex-1 flex flex-col ${sidebarOpen ? 'ml-64' : 'ml-0'} mt-16 overflow-auto transition-all duration-200`}
+        className={`absolute top-16 left-0 right-0 bottom-0 flex flex-col ${sidebarOpen ? 'ml-64' : 'ml-0'} overflow-auto transition-all duration-200`}
       >
         {/* Breadcrumbs */}
         {location.pathname !== '/' && (

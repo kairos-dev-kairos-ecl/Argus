@@ -34,6 +34,12 @@ RUN apk --no-cache add ca-certificates curl
 # Copy binary from builder
 COPY --from=builder /argus /usr/local/bin/argus
 
+# Copy built-in detection rules
+COPY --from=builder /app/internal/rules /app/internal/rules
+
+# Set working directory so relative paths work
+WORKDIR /app
+
 # Health check
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
   CMD curl -f http://localhost:8080/health || exit 1
