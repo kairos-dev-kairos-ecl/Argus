@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createWebSocketClient, WebSocketClient } from '../lib/websocket'
+import { WebSocketClient } from '../lib/websocket'
 import { useSignalStore } from '../stores/signal'
 import type { ArgusSignal } from '../types'
 
@@ -19,24 +19,14 @@ export function useSignalStream() {
   const wsRef = useRef<WebSocketClient | null>(null)
 
   useEffect(() => {
-    // TODO: WebSocket streaming endpoint not yet implemented on backend
-    // For now, use REST polling or query-based loading
-    // When backend implements /v1/signals/stream, uncomment code below:
-
-    /*
-    // Determine WebSocket URL based on current location
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
-    const host = location.host
-    const wsUrl = `${protocol}://${host}/v1/signals/stream`
+    const wsUrl = `${protocol}://${location.host}/v1/signals/stream`
 
-    // Create WebSocket client
-    const ws = createWebSocketClient(wsUrl)
+    const ws = new WebSocketClient(wsUrl)
 
-    // Handle incoming signals
     const unsubscribeMessage = ws.onMessage((data) => {
       try {
         const signal = data as ArgusSignal
-        // Ensure signal.timestamp is a date string (already should be from backend)
         if (signal && typeof signal === 'object' && 'signal_id' in signal) {
           store.addSignal(signal)
         }
@@ -45,14 +35,12 @@ export function useSignalStream() {
       }
     })
 
-    // Handle connection errors
     const unsubscribeError = ws.onError((err) => {
       console.error('WebSocket error:', err)
       setError(err)
       setIsConnected(false)
     })
 
-    // Connect to WebSocket
     ws.connect()
       .then(() => {
         setIsConnected(true)
@@ -61,28 +49,16 @@ export function useSignalStream() {
       })
       .catch((err) => {
         const errMsg = err instanceof Error ? err.message : String(err)
-        console.error('WebSocket connection failed:', errMsg)
         setError(errMsg)
         setIsConnected(false)
       })
 
     wsRef.current = ws
 
-    // Cleanup on unmount
     return () => {
       unsubscribeMessage()
       unsubscribeError()
       ws.disconnect()
-      store.setSubscribed(false)
-    }
-    */
-
-    // Mark as subscribed even without WebSocket for now
-    store.setSubscribed(true)
-    setIsConnected(false)
-    setError('WebSocket streaming not yet implemented on backend')
-
-    return () => {
       store.setSubscribed(false)
     }
   }, [])
