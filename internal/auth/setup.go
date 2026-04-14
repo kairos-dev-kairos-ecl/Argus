@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"

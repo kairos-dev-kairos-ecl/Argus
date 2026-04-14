@@ -11,17 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/argusxdr/argus/internal/auth"
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/ingest"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/notify"
 	"github.com/argusxdr/argus/internal/storage"
-	"github.com/redis/go-redis/v9"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -107,6 +108,35 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Auth subsystem (requires PostgreSQL)
+	var authSvc *ingest.AuthService
+	if pgPool != nil {
+		privateKey, publicKey, keyErr := auth.LoadOrGenerateRSAKey()
+		if keyErr != nil {
+			log.Warn("failed to load/generate JWT key — auth disabled", zap.Error(keyErr))
+		} else {
+			userStore := auth.NewPgUserStore(pgPool)
+			sessionStore := auth.NewPgSessionStore(pgPool)
+			auditStore := auth.NewPgAuditStore(pgPool)
+			auditLogger := auth.NewAuditLogger(auditStore)
+			userSvc := auth.NewUserService(userStore)
+			tokenMgr := auth.NewTokenManager(auth.TokenConfig{
+				PrivateKey: privateKey,
+				PublicKey:  publicKey,
+			})
+			sessionMgr := auth.NewSessionManager(sessionStore, 0)
+			authSvc = &ingest.AuthService{
+				UserSvc:      userSvc,
+				UserStore:    userStore,
+				SessionMgr:   sessionMgr,
+				TokenMgr:     tokenMgr,
+				AuditLog:     auditLogger,
+				SessionStore: sessionStore,
+			}
+			log.Info("auth subsystem initialized")
+		}
+	}
+
 	// Register metrics
 	reg := prometheus.NewRegistry()
 	httpMetrics := metrics.NewHTTP(reg)
@@ -127,6 +157,11 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		log.Info("built-in rules loaded", zap.Int("count", ruleStore.Count()))
 	}
 	queryHandler.SetRuleStore(ruleStore)
+
+	// Wire auth service if initialized
+	if authSvc != nil {
+		queryHandler.SetAuthService(authSvc)
+	}
 
 	// Notification adapter registry
 	adapterRegistry := notify.NewAdapterRegistry(log)
@@ -189,6 +224,28 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
+
+	// Auth middleware on protected routes
+	if authSvc != nil {
+		r.Use(func(next http.Handler) http.Handler {
+			return auth.AuthMiddleware(auth.MiddlewareConfig{
+				TokenManager: authSvc.TokenMgr,
+				SessionStore: authSvc.SessionStore,
+				AuditLogger:  authSvc.AuditLog,
+				Logger:       log,
+				ExcludedPaths: map[string]bool{
+					"/health":              true,
+					"/metrics":             true,
+					"/api/v1/auth/login":   true,
+					"/api/v1/auth/refresh": true,
+					"/api/v1/auth/setup":   true,
+					"/v1/signals":          true,
+					"/v1/signals/stream":   true,
+					"/v1/schema/signals":   true,
+				},
+			})(next)
+		})
+	}
 
 	// Health endpoint — always available, reports component status
 	r.Get("/health", makeHealthHandler(ch, log))

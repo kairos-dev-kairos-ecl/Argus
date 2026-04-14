@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
-	"fmt"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -174,6 +176,16 @@ func GetUserFromContext(r *http.Request) *Claims {
 	return claims
 }
 
+// GetClaimsFromContext retrieves Claims from a plain context.Context.
+// Used by audit logging code that has a context but not an *http.Request.
+func GetClaimsFromContext(ctx context.Context) *Claims {
+	claims, ok := ctx.Value(ContextKeyUser).(*Claims)
+	if !ok {
+		return nil
+	}
+	return claims
+}
+
 // RequireRole middleware ensures user has the specified role
 func RequireRole(roles ...string) func(next http.Handler) http.Handler {
 	roleMap := make(map[string]bool)
@@ -227,14 +239,14 @@ func RequirePermission(permission string) func(next http.Handler) http.Handler {
 	}
 }
 
-// hashToken creates a SHA256 hash of a token for storage
+// hashToken creates a SHA256 hash of a token for secure storage.
 func hashToken(token string) string {
-	// This is intentionally simple - in production use a proper hash function
-	// For now we'll use a placeholder that can be replaced with crypto/sha256
-	return token // TODO: implement SHA256 hashing
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }
 
-// currentUnixTime returns current time as Unix timestamp
-func currentUnixTime() int64 {
-	return 0 // TODO: implement
-}
+// HashToken is the exported version of hashToken for use by other packages.
+func HashToken(token string) string { return hashToken(token) }
+
+// currentUnixTime returns the current time as a Unix timestamp.
+func currentUnixTime() int64 { return time.Now().Unix() }

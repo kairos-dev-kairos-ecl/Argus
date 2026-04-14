@@ -30,6 +30,7 @@ type QueryHandler struct {
 	log         *zap.Logger
 	store       *engine.RuleStore // may be nil if detection engine not wired
 	alertRouter *AlertRouter      // may be nil — alert pipeline disabled
+	authService *AuthService      // may be nil — auth disabled
 }
 
 // NewQueryHandler creates a new QueryHandler.
@@ -55,6 +56,16 @@ func (h *QueryHandler) SetRuleStore(s *engine.RuleStore) {
 // SetAlertRouter wires the alert router for alert/incident management.
 func (h *QueryHandler) SetAlertRouter(r *AlertRouter) {
 	h.alertRouter = r
+}
+
+// SetAuthService wires the auth subsystem into the query handler.
+func (h *QueryHandler) SetAuthService(svc *AuthService) {
+	h.authService = svc
+}
+
+// authAvailable returns true if the auth service is configured.
+func (h *QueryHandler) authAvailable() bool {
+	return h.authService != nil
 }
 
 // RegisterRoutes mounts query API routes onto the chi mux.

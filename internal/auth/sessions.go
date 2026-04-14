@@ -43,16 +43,17 @@ func (sm *SessionManager) CreateSession(ctx context.Context, userID uuid.UUID, u
 
 	// If at limit, revoke oldest session
 	if len(existingSessions) >= sm.maxConcurrentSessions {
-		// Find oldest non-revoked session
-		var oldestSession *Session
+		var oldestSession Session
+		found := false
 		for _, s := range existingSessions {
 			if s.RevokedAt == nil {
-				if oldestSession == nil || s.CreatedAt < oldestSession.CreatedAt {
+				if !found || s.CreatedAt < oldestSession.CreatedAt {
 					oldestSession = s
+					found = true
 				}
 			}
 		}
-		if oldestSession != nil {
+		if found {
 			if err := sm.sessionStore.RevokeSession(ctx, oldestSession.ID); err != nil {
 				return "", "", fmt.Errorf("failed to revoke old session: %w", err)
 			}
@@ -161,7 +162,7 @@ func (sm *SessionManager) GetActiveSessions(ctx context.Context, userID uuid.UUI
 	now := time.Now().Unix()
 	for _, s := range sessions {
 		if s.RevokedAt == nil && s.ExpiresAt > now {
-			activeSessions = append(activeSessions, *s)
+			activeSessions = append(activeSessions, s)
 		}
 	}
 
