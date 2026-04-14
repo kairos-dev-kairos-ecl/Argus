@@ -103,7 +103,7 @@ services:
       # Database connections
       ARGUS_DATABASE_POSTGRES_DSN: "postgresql://argus:argus@postgres:5432/argus?sslmode=disable"
       ARGUS_DATABASE_CLICKHOUSE_DSN: "clickhouse:9000"
-      ARGUS_DATABASE_REDIS_ADDR: "redis:6379"
+      ARGUS_REDIS_ADDR: "redis:6379"
 
       # Queue and batching
       ARGUS_INGEST_QUEUE_CAPACITY: "100000"

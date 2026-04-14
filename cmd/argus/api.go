@@ -105,6 +105,15 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		} else {
 			defer pgPool.Close()
 			log.Info("PostgreSQL connected")
+
+			// Run pending migrations so all tables exist before the server
+			// starts accepting requests. Safe to call on every startup (idempotent).
+			if migrateErr := storage.MigrateDB(ctx, pgPool, pgDSN, log); migrateErr != nil {
+				log.Warn("database migration failed — some features may be unavailable",
+					zap.Error(migrateErr))
+			} else {
+				log.Info("database migrations up to date")
+			}
 		}
 	}
 
