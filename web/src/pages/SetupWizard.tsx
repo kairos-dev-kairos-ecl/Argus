@@ -103,53 +103,43 @@ export function SetupWizard() {
       }
     }
 
-    // Move to next step
-    if (currentStep < 4) {
+    // Move to next step (steps 1-4 are local form only — no API calls yet)
+    if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
-    } else if (currentStep === 4) {
-      // Generate API key
-      await generateAppAndKey()
-      setCurrentStep(5)
-    }
-  }
-
-  const generateAppAndKey = async () => {
-    setLoading(true)
-    try {
-      const response = await apiClient.post('/apps', {
-        name: app.app_name,
-        description: app.description,
-        environment: app.environment,
-      })
-      setApiKey(response.data.api_key)
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create app'
-      setError(message)
-    } finally {
-      setLoading(false)
     }
   }
 
   const handleCompleteSetup = async () => {
     setLoading(true)
+    setError(null)
     try {
-      // Complete setup on backend
-      const setupPayload = {
+      // 1. Create admin account + instance config on backend
+      await apiClient.post('/auth/setup', {
         email: admin.email,
         display_name: admin.display_name,
         password: admin.password,
         instance_name: instance.instance_name,
         timezone: instance.timezone,
-        app_name: app.app_name,
-      }
+      })
 
-      await apiClient.post('/setup', setupPayload)
-
-      // Log in with created admin account
+      // 2. Auto-login with the newly created admin credentials
       await login(admin.email, admin.password)
 
-      // Redirect to dashboard
+      // 3. Register the first app (best-effort — requires auth from step 2)
+      if (app.app_name) {
+        try {
+          const response = await apiClient.post('/apps', {
+            name: app.app_name,
+            description: app.description,
+            environment: app.environment,
+          })
+          setApiKey(response.data.api_key)
+        } catch {
+          // Non-fatal: user can register apps later from Apps page
+        }
+      }
+
+      // 4. Redirect to dashboard after brief success pause
       setTimeout(() => {
         navigate('/', { replace: true })
       }, 1500)
