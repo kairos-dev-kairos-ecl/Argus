@@ -271,13 +271,51 @@ func (h *QueryHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
 // ---- helpers ----
 
 func getIP(r *http.Request) string {
+	var ip string
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+		ip = xff
+	} else if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		ip = xri
+	} else {
+		ip = r.RemoteAddr
 	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+
+	// Strip port from IP:port format (required for PostgreSQL INET type)
+	// Format is "IP:port", we only want the IP
+	if idx := lastIndexOf(ip, ":"); idx != -1 {
+		// Check if it's IPv6 (has multiple colons)
+		if countChar(ip, ':') > 1 {
+			// IPv6 address in brackets like [::1]:port, strip port
+			if ip[0] == '[' && idx > 0 {
+				return ip[1 : idx-1]
+			}
+			// IPv6 without brackets, return as-is
+			return ip
+		}
+		// IPv4 address, strip port
+		return ip[:idx]
 	}
-	return r.RemoteAddr
+	return ip
+}
+
+// Helper functions for IP parsing
+func lastIndexOf(s string, c byte) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
+func countChar(s string, c byte) int {
+	count := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == c {
+			count++
+		}
+	}
+	return count
 }
 
 func hashTokenStr(token string) string {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -208,21 +209,35 @@ func (al *AuditLogger) ExportCSV(ctx context.Context, filters map[string]interfa
 	return csv, nil
 }
 
-// getClientIP extracts the client IP from the request
+// getClientIP extracts the client IP from the request (without port)
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header first (for proxies)
+	// Format can be "IP" or "IP:port" or "IP, IP, IP" (comma-separated)
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+		// Take first IP from list
+		if idx := strings.Index(xff, ","); idx != -1 {
+			xff = xff[:idx]
+		}
+		// Strip port if present
+		if ip, _, err := net.SplitHostPort(xff); err == nil {
+			return ip
+		}
+		return strings.TrimSpace(xff)
 	}
 
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		// Strip port if present
+		if ip, _, err := net.SplitHostPort(xri); err == nil {
+			return ip
+		}
+		return strings.TrimSpace(xri)
 	}
 
-	// Fall back to RemoteAddr
+	// Fall back to RemoteAddr (format: "IP:port")
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
+		// If no port, return as-is
 		return r.RemoteAddr
 	}
 
