@@ -59,10 +59,20 @@ class DirectConnector(BaseConnector):
             environment=config.get("environment", "dev"),
             timeout=config.get("timeout", 30.0),
         )
+        self._session_entered = False
+
+    async def _ensure_session(self):
+        """Ensure client session is initialized"""
+        if not self._session_entered:
+            await self.client.__aenter__()
+            self._session_entered = True
 
     async def send(self, signal: Dict[str, Any]) -> bool:
         """Emit signal via SDK"""
         try:
+            # Ensure session is initialized before sending
+            await self._ensure_session()
+
             success = await self.client.emit_signal(
                 layer=signal.get("layer"),
                 category=signal.get("category"),
@@ -77,8 +87,9 @@ class DirectConnector(BaseConnector):
             return False
 
     async def close(self):
-        """Close client"""
-        self.client.close()
+        """Close client session"""
+        if self._session_entered:
+            await self.client.__aexit__(None, None, None)
 
 
 class BufferedConnector(BaseConnector):
