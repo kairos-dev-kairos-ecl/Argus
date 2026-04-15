@@ -2,3 +2,40 @@
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/
+
+# Development artifacts
+build.log
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.coverage
+*.egg-info/
+dist/
+build/
+
+# Node
+web/node_modules/
+web/dist/
+web/.env.local
+
+# IDE
+.env
+.env.*.local
+*.iml
+
+# Docker
+.env.docker
+docker-compose.override.yml
