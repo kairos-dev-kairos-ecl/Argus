@@ -282,7 +282,7 @@ func getIP(r *http.Request) string {
 
 	// Strip port from IP:port format (required for PostgreSQL INET type)
 	// Format is "IP:port", we only want the IP
-	if idx := lastIndexOf(ip, ":"); idx != -1 {
+	if idx := lastIndexOf(ip, ':'); idx != -1 {
 		// Check if it's IPv6 (has multiple colons)
 		if countChar(ip, ':') > 1 {
 			// IPv6 address in brackets like [::1]:port, strip port
