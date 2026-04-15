@@ -269,13 +269,26 @@ func (s *PgSessionStore) CreateSession(ctx context.Context, sess *Session) error
 	if s.db == nil {
 		return fmt.Errorf("database unavailable")
 	}
+
+	// Convert empty IP address to NULL for PostgreSQL INET type
+	var ipAddress interface{} = sess.IPAddress
+	if sess.IPAddress == "" {
+		ipAddress = nil
+	}
+
+	// Convert empty user agent to NULL
+	var userAgent interface{} = sess.UserAgent
+	if sess.UserAgent == "" {
+		userAgent = nil
+	}
+
 	_, err := s.db.Exec(ctx, `
         INSERT INTO sessions (id, user_id, refresh_token_hash, user_agent, ip_address,
             created_at, expires_at, last_used_at)
         VALUES ($1,$2,$3,$4,$5,
             to_timestamp($6), to_timestamp($7), to_timestamp($8))
     `,
-		sess.ID, sess.UserID, sess.RefreshTokenHash, sess.UserAgent, sess.IPAddress,
+		sess.ID, sess.UserID, sess.RefreshTokenHash, userAgent, ipAddress,
 		sess.CreatedAt, sess.ExpiresAt, sess.LastUsedAt,
 	)
 	return err
@@ -339,12 +352,25 @@ func (s *PgAuditStore) LogEntry(ctx context.Context, entry *AuditLogEntry) error
 	if err != nil {
 		detailJSON = []byte("{}")
 	}
+
+	// Convert empty IP address to NULL for PostgreSQL INET type
+	var ipAddress interface{} = entry.IPAddress
+	if entry.IPAddress == "" {
+		ipAddress = nil
+	}
+
+	// Convert empty user agent to NULL
+	var userAgent interface{} = entry.UserAgent
+	if entry.UserAgent == "" {
+		userAgent = nil
+	}
+
 	_, err = s.db.Exec(ctx, `
         INSERT INTO audit_log (id, user_id, action, resource, detail, ip_address, user_agent, timestamp)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
     `,
 		entry.ID, entry.UserID, entry.Action, entry.Resource,
-		detailJSON, entry.IPAddress, entry.UserAgent, entry.Timestamp,
+		detailJSON, ipAddress, userAgent, entry.Timestamp,
 	)
 	return err
 }
