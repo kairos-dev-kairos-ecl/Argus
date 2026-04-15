@@ -53,7 +53,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="relative h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 h-16 bg-muted-background border-b border-border z-40">
+      <header className="fixed top-0 left-0 right-0 h-16 border-b border-border z-40" style={{ backgroundColor: '#1F1F23' }}>
         <div className="flex items-center justify-between h-full px-4 gap-4">
           {/* Left: Menu + Logo */}
           <div className="flex items-center gap-3 min-w-0">
@@ -140,9 +140,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-16 bottom-0 w-64 bg-muted-background border-r border-border overflow-y-auto transition-all duration-200 z-30 ${
+        className={`fixed left-0 top-16 bottom-0 w-64 border-r border-border overflow-y-auto transition-all duration-200 z-30 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ backgroundColor: '#1F1F23' }}
       >
         <nav className="p-4 space-y-6">
           {/* Dashboard Section */}
