@@ -1,0 +1,83 @@
+# ArgusXDR — Roadmap
+
+> Bootstrapped: 2026-04-16 | From AUDIT.md codebase state
+
+---
+
+## Milestone: M1 — Foundation & Observability
+
+**Goal:** Production-grade XDR platform for LLM systems with full-spectrum observability across the 10-layer taxonomy.
+
+**Guiding principle:** Observe everything — alert for what matters — signals are gold.
+
+---
+
+### Phase 1: Proto Schema Rewrite
+**Goal:** Replace all placeholder ContextL* messages in signal.proto with complete field definitions covering all inference engines, transformer architectures, and tokenizers. Align storage schema and SDK to the new contract.
+
+**Status:** Planned
+
+**Requirements:**
+- REQ-P1-01: ContextL1 (hardware) — CPU, GPU, memory, disk, temperature, NUMA, power
+- REQ-P1-02: ContextL2 (model) — model identity, architecture, inference engine, quantization, adapter, multimodal
+- REQ-P1-03: ContextL3 (tokenizer) — token counts, chat template, density, prefix cache, injection indicators
+- REQ-P1-04: ContextL4 (compute) — KV cache, batching, prefill/decode latency, speculative decoding, MoE routing
+- REQ-P1-05: ContextL5 (output) — extend with missing fields (top_k, seed, stop_sequences, repetition)
+- REQ-P1-06: ContextL6 (safety) — input/output safety scores, PII detection, jailbreak, injection
+- REQ-P1-07: ContextL7 (retrieval) — extend with cache hit, citation tracking, index health
+- REQ-P1-08: ContextL8 (agent) — extend with task hierarchy, memory ops, code execution
+- REQ-P1-09: ContextL9 (API gateway) — method, path, status, auth, rate limiting, cost, quota
+- REQ-P1-10: ContextL10 (application) — user session, business event, feature flags, A/B variant
+- REQ-P1-11: ContextLDecision — add audit chain (policy_id, triggering_rule_id, triggering_signal_id, failed_open)
+- REQ-P1-12: Regenerate Go stubs via make proto-generate
+- REQ-P1-13: Align ClickHouse DDL in schema.go to new proto columns
+- REQ-P1-14: Update sdk/signal_builder.py with builder methods for all new context types
+
+---
+
+### Phase 2: Build Stabilization
+**Goal:** Fix all 14 failing packages so the codebase compiles cleanly.
+
+**Status:** Not started
+
+---
+
+### Phase 3: API Completeness
+**Goal:** Implement all missing backend endpoints required by the frontend.
+
+**Status:** Not started
+
+---
+
+### Phase 4: Detection Engine
+**Goal:** Tier 1/2/3 rule evaluation + Kairos integration working end-to-end.
+
+**Status:** Not started
+
+---
+
+### Phase 5: Dashboard Integration
+**Goal:** Frontend fully connected to real API data, WebSocket live feed working.
+
+**Status:** Not started
+
+---
+
+## Requirements Index
+
+| ID | Phase | Description |
+|----|-------|-------------|
+| REQ-P1-01 | 1 | ContextL1: hardware context fields |
+| REQ-P1-02 | 1 | ContextL2: model anchor fields |
+| REQ-P1-03 | 1 | ContextL3: tokenizer fields |
+| REQ-P1-04 | 1 | ContextL4: compute/transformer internals |
+| REQ-P1-05 | 1 | ContextL5: output extension |
+| REQ-P1-06 | 1 | ContextL6: safety layer fields |
+| REQ-P1-07 | 1 | ContextL7: retrieval extension |
+| REQ-P1-08 | 1 | ContextL8: agent extension |
+| REQ-P1-09 | 1 | ContextL9: API gateway fields |
+| REQ-P1-10 | 1 | ContextL10: application context fields |
+| REQ-P1-11 | 1 | ContextLDecision: audit chain extension |
+| REQ-P1-12 | 1 | Proto stubs regenerated |
+| REQ-P1-13 | 1 | ClickHouse DDL aligned |
+| REQ-P1-14 | 1 | SDK signal_builder.py updated |
