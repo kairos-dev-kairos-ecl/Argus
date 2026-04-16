@@ -2,7 +2,7 @@ package baseline
 
 import (
 	"context"
-	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -121,7 +121,7 @@ func TestBaselineConfig_DefaultConfig(t *testing.T) {
 	assert.NoError(t, config.Validate())
 	assert.True(t, config.Enabled)
 	assert.Equal(t, 10*time.Minute, config.ComputeInterval)
-	assert.Greater(t, config.HistoryWindow, 0)
+	assert.Greater(t, config.HistoryWindow, time.Duration(0))
 	assert.Greater(t, config.MinSamples, int64(0))
 	assert.True(t, config.AsyncMode)
 }
@@ -130,16 +130,16 @@ func TestProfileStore_StoreAndRetrieve(t *testing.T) {
 	// This is a placeholder for integration testing with real PostgreSQL/Redis
 	// For unit testing, we'd mock the dependencies
 
-	profile := &v1.BaselineProfile{
-		Count:  100,
-		Mean:   50.0,
-		Stddev: 5.0,
-		Min:    40.0,
-		Max:    60.0,
+	profile := &baseline.BaselineProfile{
+		SampleCount: 100,
+		Mean:        50.0,
+		StdDev:      5.0,
+		Min:         40.0,
+		Max:         60.0,
 	}
 
 	assert.NotNil(t, profile)
-	assert.Equal(t, int64(100), profile.Count)
+	assert.Equal(t, int32(100), profile.SampleCount)
 }
 
 func TestProfileCalculator_Edge_LargeDataset(t *testing.T) {
@@ -154,14 +154,14 @@ func TestProfileCalculator_Edge_LargeDataset(t *testing.T) {
 	profile, err := calc.ComputeProfile(samples)
 
 	require.NoError(t, err)
-	assert.Equal(t, int64(10000), profile.Count)
-	assert.Greater(t, profile.Stddev, 0.0)
+	assert.Equal(t, int32(10000), profile.SampleCount)
+	assert.Greater(t, profile.StdDev, 0.0)
 
 	// Z-score should be finite for all values in range
 	for _, val := range []float64{0, 500, 999} {
 		zscore := calc.ComputeZScore(val, profile)
-		assert.False(t, fmt.IsNaN(zscore), fmt.Sprintf("z-score NaN for value %f", val))
-		assert.False(t, fmt.IsInf(zscore, 0), fmt.Sprintf("z-score Inf for value %f", val))
+		assert.False(t, math.IsNaN(zscore), "z-score NaN for value %f", val)
+		assert.False(t, math.IsInf(zscore, 0), "z-score Inf for value %f", val)
 	}
 }
 
@@ -173,12 +173,12 @@ func TestProfileCalculator_Edge_VeryHighVariance(t *testing.T) {
 	profile, err := calc.ComputeProfile(samples)
 
 	require.NoError(t, err)
-	assert.Greater(t, profile.Stddev, 1000.0) // Should have very high stddev
+	assert.Greater(t, profile.StdDev, 1000.0) // Should have very high stddev
 
 	// Z-scores should still be finite
 	zscore := calc.ComputeZScore(500000.0, profile)
-	assert.False(t, fmt.IsNaN(zscore))
-	assert.False(t, fmt.IsInf(zscore, 0))
+	assert.False(t, math.IsNaN(zscore))
+	assert.False(t, math.IsInf(zscore, 0))
 }
 
 func TestBaselineEngine_ConfigNil(t *testing.T) {
@@ -221,4 +221,11 @@ func TestBaselineEngine_Concurrency(t *testing.T) {
 	// Attempt stop immediately (should be safe)
 	err = engine.Stop()
 	assert.NoError(t, err)
+}
+
+// TestBaselineLayerEnum verifies Layer enum values are accessible
+func TestBaselineLayerEnum(t *testing.T) {
+	// Verify that layer enum values used in baseline are valid
+	layer := v1.Layer_L5_OUTPUT_DECODING
+	assert.NotEqual(t, v1.Layer_LAYER_UNSPECIFIED, layer)
 }

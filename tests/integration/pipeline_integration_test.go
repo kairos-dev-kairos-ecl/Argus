@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"runtime"
 	"testing"
@@ -26,12 +27,13 @@ func TestPipelineValidationRejectsInvalidSignals(t *testing.T) {
 	// Create a signal missing required fields
 	invalidSignal := &v1.ArgusSignal{
 		// Missing signal_id - required field
-		Layer: v1.Layer_L5_SERVICE,
+		Layer: v1.Layer_L5_OUTPUT_DECODING,
 		// Missing timestamp - required field
-		Source: nil, // Will need proper Source
+		Source: nil,
 	}
 
-	validator := pipeline.NewSchemaValidator()
+	validator, err := pipeline.NewSchemaValidator(nil)
+	require.NoError(t, err, "Failed to create schema validator")
 	result, err := validator.Process(context.Background(), invalidSignal)
 
 	// SchemaValidator should reject invalid signals
@@ -50,7 +52,7 @@ func TestPipelineFullEndToEnd(t *testing.T) {
 	validSignal := &v1.ArgusSignal{
 		SignalId:  fmt.Sprintf("test-signal-%d", rand.Intn(1000000)),
 		Timestamp: now,
-		Layer:     v1.Layer_L5_SERVICE,
+		Layer:     v1.Layer_L5_OUTPUT_DECODING,
 		TraceId:   "trace-123",
 		Source: &v1.Source{
 			AppId:       "test-app",
@@ -59,16 +61,17 @@ func TestPipelineFullEndToEnd(t *testing.T) {
 			Environment: "test",
 			InstanceId:  "instance-1",
 		},
-		EventData: &v1.ArgusSignal_Event{
-			Event: &v1.Event{
-				Type: "test_event",
-				Time: now,
+		Context: &v1.ArgusSignal_ContextL5{
+			ContextL5: &v1.ContextL5{
+				OutputTokens: 128,
+				FinishReason: "stop",
 			},
 		},
 	}
 
 	// Create a simple chain with validators and normalizer
-	validator := pipeline.NewSchemaValidator()
+	validator, err := pipeline.NewSchemaValidator(nil)
+	require.NoError(t, err, "Failed to create schema validator")
 	normalizer := pipeline.NewNormalizer(nil)
 
 	chain := pipeline.NewChain(validator, normalizer)
@@ -76,8 +79,7 @@ func TestPipelineFullEndToEnd(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := chain.Start(ctx)
-	require.NoError(t, err, "Failed to start chain")
+	chain.Start(ctx)
 
 	// Enqueue signal
 	err = chain.Enqueue(validSignal)
@@ -88,7 +90,7 @@ func TestPipelineFullEndToEnd(t *testing.T) {
 	case result := <-chain.Results():
 		assert.NotNil(t, result, "Pipeline should return processed signal")
 		assert.Equal(t, validSignal.SignalId, result.SignalId, "Signal ID should be preserved")
-		assert.Equal(t, v1.Layer_L5_SERVICE, result.Layer, "Layer should be preserved")
+		assert.Equal(t, v1.Layer_L5_OUTPUT_DECODING, result.Layer, "Layer should be preserved")
 	case <-ctx.Done():
 		t.Fatal("Pipeline timeout waiting for result")
 	}
@@ -138,8 +140,8 @@ func TestBaselineProfileComputation(t *testing.T) {
 
 	// Test z-score computation
 	zscore := calc.ComputeZScore(samples[0], profile)
-	assert.False(t, fmt.IsNaN(zscore), "Z-score should never be NaN")
-	assert.False(t, fmt.IsInf(zscore, 0), "Z-score should not be Inf")
+	assert.False(t, math.IsNaN(zscore), "Z-score should never be NaN")
+	assert.False(t, math.IsInf(zscore, 0), "Z-score should not be Inf")
 }
 
 // TestBaselineZScoreClamping verifies z-score never NaN when stddev=0
@@ -175,14 +177,15 @@ func TestWorkerPoolGoroutineStability(t *testing.T) {
 
 	// Simulate processing many signals
 	// In a real test, this would use actual WorkerPool
-	processor := pipeline.NewSchemaValidator()
+	processor, err := pipeline.NewSchemaValidator(nil)
+	require.NoError(t, err)
 	ctx := context.Background()
 
 	for i := 0; i < 100; i++ {
 		signal := &v1.ArgusSignal{
 			SignalId:  fmt.Sprintf("signal-%d", i),
 			Timestamp: timestamppb.Now(),
-			Layer:     v1.Layer_L5_SERVICE,
+			Layer:     v1.Layer_L5_OUTPUT_DECODING,
 			Source:    &v1.Source{AppId: "test"},
 		}
 		// Process signal (non-blocking validation)
@@ -204,7 +207,8 @@ func TestPipelineMetricTracking(t *testing.T) {
 	}
 
 	// Create schema validator which increments rejection metrics
-	validator := pipeline.NewSchemaValidator()
+	validator, err := pipeline.NewSchemaValidator(nil)
+	require.NoError(t, err)
 
 	// Create invalid signal
 	invalidSignal := &v1.ArgusSignal{
@@ -212,7 +216,7 @@ func TestPipelineMetricTracking(t *testing.T) {
 	}
 
 	// Process invalid signal (should increment rejection metric)
-	_, err := validator.Process(context.Background(), invalidSignal)
+	_, err = validator.Process(context.Background(), invalidSignal)
 	assert.Error(t, err, "Should reject invalid signal")
 
 	// In a real integration test, we would query Prometheus metrics to verify:
@@ -240,7 +244,7 @@ func TestEnricherWithGeoIPIntegration(t *testing.T) {
 func TestBaselineProfileSerialization(t *testing.T) {
 	profile := &baseline.BaselineProfile{
 		AppID:       "test-app",
-		Layer:       v1.Layer_L5_SERVICE,
+		Layer:       v1.Layer_L5_OUTPUT_DECODING,
 		Category:    "test_category",
 		Mean:        50.0,
 		StdDev:      5.0,
@@ -272,7 +276,8 @@ func TestSignalFlowThroughChain(t *testing.T) {
 	}
 
 	// Create processors in proper order
-	validator := pipeline.NewSchemaValidator()
+	validator, err := pipeline.NewSchemaValidator(nil)
+	require.NoError(t, err)
 	normalizer := pipeline.NewNormalizer(nil)
 
 	// Create chain
@@ -284,7 +289,7 @@ func TestSignalFlowThroughChain(t *testing.T) {
 	assert.Equal(t, "Normalizer", normalizer.Name(), "Normalizer name should match")
 }
 
-// TestSmokeTes verifies basic end-to-end functionality
+// TestSmokeTest verifies basic end-to-end functionality
 func TestSmokeTest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -294,13 +299,14 @@ func TestSmokeTest(t *testing.T) {
 	defer cancel()
 
 	// Create a simple processor
-	validator := pipeline.NewSchemaValidator()
+	validator, err := pipeline.NewSchemaValidator(nil)
+	require.NoError(t, err)
 
 	// Process a valid signal
 	signal := &v1.ArgusSignal{
 		SignalId:  "smoke-test-1",
 		Timestamp: timestamppb.Now(),
-		Layer:     v1.Layer_L5_SERVICE,
+		Layer:     v1.Layer_L5_OUTPUT_DECODING,
 		Source: &v1.Source{
 			AppId: "smoke-test",
 		},

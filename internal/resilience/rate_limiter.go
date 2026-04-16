@@ -1,6 +1,7 @@
 package resilience
 
 import (
+	"context"
 	"sync"
 	"time"
 )

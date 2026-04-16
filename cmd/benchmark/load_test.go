@@ -112,45 +112,31 @@ func (lt *LoadTest) runWorker(ctx context.Context, signalsPerSecond int, errChan
 // generateSignal creates a synthetic ArgusSignal.
 func (lt *LoadTest) generateSignal() *pb.ArgusSignal {
 	layers := []pb.Layer{
-		pb.Layer_LAYER_HARDWARE,
-		pb.Layer_LAYER_OS,
-		pb.Layer_LAYER_CONTAINER,
-		pb.Layer_LAYER_RUNTIME,
-		pb.Layer_LAYER_LIBRARY,
-		pb.Layer_LAYER_FRAMEWORK,
-		pb.Layer_LAYER_APPLICATION,
-		pb.Layer_LAYER_NETWORK,
-		pb.Layer_LAYER_DATA,
-		pb.Layer_LAYER_INTEGRATION,
-	}
-
-	categories := []pb.Category{
-		pb.Category_CATEGORY_PERFORMANCE,
-		pb.Category_CATEGORY_SECURITY,
-		pb.Category_CATEGORY_RELIABILITY,
-		pb.Category_CATEGORY_CONFIGURATION,
-		pb.Category_CATEGORY_COMPLIANCE,
+		pb.Layer_L1_HARDWARE,
+		pb.Layer_L2_MODEL_WEIGHTS,
+		pb.Layer_L3_TOKENIZER,
+		pb.Layer_L4_TRANSFORMER,
+		pb.Layer_L5_OUTPUT_DECODING,
+		pb.Layer_L6_SAFETY,
+		pb.Layer_L7_RAG_RETRIEVAL,
+		pb.Layer_L8_AGENTS,
+		pb.Layer_L9_API_GATEWAY,
+		pb.Layer_L10_APPLICATION,
 	}
 
 	randomLayer := layers[rand.Intn(len(layers))]
-	randomCategory := categories[rand.Intn(len(categories))]
 
 	return &pb.ArgusSignal{
-		SignalId:    generateID(),
-		TraceId:     generateID(),
-		SpanId:      generateID(),
-		Timestamp:   time.Now().Unix(),
-		TimestampNs: int64(time.Now().Nanosecond()),
-		AppId:       fmt.Sprintf("app-%d", rand.Intn(10)),
-		Layer:       randomLayer,
-		Category:    randomCategory,
-		Title:       "Synthetic signal for load test",
-		Body:        "This is a synthetic signal generated for load testing",
-		Severity:    pb.Severity(rand.Intn(5)),
-		Metadata: map[string]string{
-			"test":        "load-test",
-			"timestamp":   time.Now().Format(time.RFC3339),
-			"worker_id":   fmt.Sprintf("%d", rand.Intn(100)),
+		SignalId: generateID(),
+		TraceId:  generateID(),
+		SpanId:   generateID(),
+		Layer:    randomLayer,
+		Category: fmt.Sprintf("load-test.category.%d", rand.Intn(5)),
+		Severity: pb.Severity(rand.Intn(5)),
+		Source: &pb.Source{
+			AppId:       fmt.Sprintf("app-%d", rand.Intn(10)),
+			Environment: "load-test",
+			SdkVersion:  "0.0.1",
 		},
 	}
 }
@@ -218,9 +204,10 @@ func (m *LoadTestMetrics) GenerateReport() {
 	// Calculate percentiles
 	p50, p95, p99 := m.CalculatePercentiles()
 
-	fmt.Println("\n" + "="*60)
+	separator := "============================================================"
+	fmt.Println("\n" + separator)
 	fmt.Println("LOAD TEST REPORT")
-	fmt.Println("="*60)
+	fmt.Println(separator)
 	fmt.Printf("Duration: %v\n", elapsed)
 	fmt.Printf("Total Signals: %d\n", m.totalSignals)
 	fmt.Printf("Total Errors: %d\n", m.totalErrors)
@@ -231,7 +218,7 @@ func (m *LoadTestMetrics) GenerateReport() {
 	fmt.Printf("  P50:  %.2f ms\n", p50.Seconds()*1000)
 	fmt.Printf("  P95:  %.2f ms\n", p95.Seconds()*1000)
 	fmt.Printf("  P99:  %.2f ms\n", p99.Seconds()*1000)
-	fmt.Println("="*60)
+	fmt.Println(separator)
 
 	// Verify SLOs
 	fmt.Println("\nSLO VERIFICATION")
