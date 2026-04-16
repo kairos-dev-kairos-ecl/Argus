@@ -316,7 +316,7 @@ func (x ContextL7_Operation) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContextL7_Operation.Descriptor instead.
 func (ContextL7_Operation) EnumDescriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{14, 0}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{15, 0}
 }
 
 type ContextL8_Operation int32
@@ -371,7 +371,7 @@ func (x ContextL8_Operation) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContextL8_Operation.Descriptor instead.
 func (ContextL8_Operation) EnumDescriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{16, 0}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{17, 0}
 }
 
 type ContextLDecision_Decision int32
@@ -423,7 +423,7 @@ func (x ContextLDecision_Decision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContextLDecision_Decision.Descriptor instead.
 func (ContextLDecision_Decision) EnumDescriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{19, 0}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{20, 0}
 }
 
 type ContextLDecision_RecommendedAction int32
@@ -475,7 +475,7 @@ func (x ContextLDecision_RecommendedAction) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContextLDecision_RecommendedAction.Descriptor instead.
 func (ContextLDecision_RecommendedAction) EnumDescriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{19, 1}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{20, 1}
 }
 
 // ArgusSignal is the core atom of the platform: a typed event from any layer of an LLM system
@@ -1032,7 +1032,7 @@ type Enrichment struct {
 	ThreatIntel       []*ThreatIntelMatch    `protobuf:"bytes,1,rep,name=threat_intel,json=threatIntel,proto3" json:"threat_intel,omitempty"`                           // TI matches
 	Geo               *GeoData               `protobuf:"bytes,2,opt,name=geo,proto3,oneof" json:"geo,omitempty"`                                                        // Geo-IP if applicable
 	BaselineDeviation *float32               `protobuf:"fixed32,3,opt,name=baseline_deviation,json=baselineDeviation,proto3,oneof" json:"baseline_deviation,omitempty"` // Z-score from baseline
-	RiskScore         *float32               `protobuf:"fixed32,4,opt,name=risk_score,json=riskScore,proto3,oneof" json:"risk_score,omitempty"`                         // Composite risk score (0.0–1.0)
+	RiskScore         *float32               `protobuf:"fixed32,4,opt,name=risk_score,json=riskScore,proto3,oneof" json:"risk_score,omitempty"`                         // Composite risk score (0.0-1.0)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -1231,12 +1231,35 @@ func (x *GeoData) GetLongitude() float32 {
 	return 0
 }
 
-// Placeholder context messages (to be expanded per-layer)
+// ContextL1: Hardware / Infrastructure layer signals
 type ContextL1 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	CpuUsagePct         *float32               `protobuf:"fixed32,1,opt,name=cpu_usage_pct,json=cpuUsagePct,proto3,oneof" json:"cpu_usage_pct,omitempty"`                         // CPU utilization 0-100
+	MemoryUsedMb        *float32               `protobuf:"fixed32,2,opt,name=memory_used_mb,json=memoryUsedMb,proto3,oneof" json:"memory_used_mb,omitempty"`                      // RAM consumed (MB)
+	MemoryTotalMb       *float32               `protobuf:"fixed32,3,opt,name=memory_total_mb,json=memoryTotalMb,proto3,oneof" json:"memory_total_mb,omitempty"`                   // Total RAM (MB)
+	GpuUtilizationPct   *float32               `protobuf:"fixed32,4,opt,name=gpu_utilization_pct,json=gpuUtilizationPct,proto3,oneof" json:"gpu_utilization_pct,omitempty"`       // GPU compute utilization 0-100
+	GpuMemoryUsedMb     *float32               `protobuf:"fixed32,5,opt,name=gpu_memory_used_mb,json=gpuMemoryUsedMb,proto3,oneof" json:"gpu_memory_used_mb,omitempty"`           // GPU VRAM consumed (MB)
+	GpuMemoryTotalMb    *float32               `protobuf:"fixed32,6,opt,name=gpu_memory_total_mb,json=gpuMemoryTotalMb,proto3,oneof" json:"gpu_memory_total_mb,omitempty"`        // GPU VRAM total (MB)
+	GpuTemperatureC     *float32               `protobuf:"fixed32,7,opt,name=gpu_temperature_c,json=gpuTemperatureC,proto3,oneof" json:"gpu_temperature_c,omitempty"`             // GPU temperature (Celsius)
+	GpuPowerDrawW       *float32               `protobuf:"fixed32,8,opt,name=gpu_power_draw_w,json=gpuPowerDrawW,proto3,oneof" json:"gpu_power_draw_w,omitempty"`                 // GPU power draw (watts)
+	GpuCount            *int32                 `protobuf:"varint,9,opt,name=gpu_count,json=gpuCount,proto3,oneof" json:"gpu_count,omitempty"`                                     // Number of GPUs
+	GpuModel            *string                `protobuf:"bytes,10,opt,name=gpu_model,json=gpuModel,proto3,oneof" json:"gpu_model,omitempty"`                                     // GPU model name
+	DiskReadMbps        *float32               `protobuf:"fixed32,11,opt,name=disk_read_mbps,json=diskReadMbps,proto3,oneof" json:"disk_read_mbps,omitempty"`                     // Disk read throughput (MB/s)
+	DiskWriteMbps       *float32               `protobuf:"fixed32,12,opt,name=disk_write_mbps,json=diskWriteMbps,proto3,oneof" json:"disk_write_mbps,omitempty"`                  // Disk write throughput (MB/s)
+	NetRxMbps           *float32               `protobuf:"fixed32,13,opt,name=net_rx_mbps,json=netRxMbps,proto3,oneof" json:"net_rx_mbps,omitempty"`                              // Network receive (MB/s)
+	NetTxMbps           *float32               `protobuf:"fixed32,14,opt,name=net_tx_mbps,json=netTxMbps,proto3,oneof" json:"net_tx_mbps,omitempty"`                              // Network transmit (MB/s)
+	CpuStealPct         *float32               `protobuf:"fixed32,16,opt,name=cpu_steal_pct,json=cpuStealPct,proto3,oneof" json:"cpu_steal_pct,omitempty"`                        // CPU steal time (VM environments)
+	LoadAvg_1M          *float32               `protobuf:"fixed32,17,opt,name=load_avg_1m,json=loadAvg1m,proto3,oneof" json:"load_avg_1m,omitempty"`                              // 1-minute load average
+	LoadAvg_5M          *float32               `protobuf:"fixed32,18,opt,name=load_avg_5m,json=loadAvg5m,proto3,oneof" json:"load_avg_5m,omitempty"`                              // 5-minute load average
+	LoadAvg_15M         *float32               `protobuf:"fixed32,19,opt,name=load_avg_15m,json=loadAvg15m,proto3,oneof" json:"load_avg_15m,omitempty"`                           // 15-minute load average
+	OpenFileDescriptors *int32                 `protobuf:"varint,20,opt,name=open_file_descriptors,json=openFileDescriptors,proto3,oneof" json:"open_file_descriptors,omitempty"` // Open file descriptor count
+	ThreadCount         *int32                 `protobuf:"varint,21,opt,name=thread_count,json=threadCount,proto3,oneof" json:"thread_count,omitempty"`                           // Total thread count
+	HostId              *string                `protobuf:"bytes,22,opt,name=host_id,json=hostId,proto3,oneof" json:"host_id,omitempty"`                                           // Host identifier
+	InstanceType        *string                `protobuf:"bytes,24,opt,name=instance_type,json=instanceType,proto3,oneof" json:"instance_type,omitempty"`                         // Cloud instance type (e.g., "g4dn.xlarge")
+	ProcessCpuPct       *float32               `protobuf:"fixed32,25,opt,name=process_cpu_pct,json=processCpuPct,proto3,oneof" json:"process_cpu_pct,omitempty"`                  // Per-process CPU usage
+	ProcessMemoryMb     *float32               `protobuf:"fixed32,26,opt,name=process_memory_mb,json=processMemoryMb,proto3,oneof" json:"process_memory_mb,omitempty"`            // Per-process memory (MB)
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ContextL1) Reset() {
@@ -1269,18 +1292,197 @@ func (*ContextL1) Descriptor() ([]byte, []int) {
 	return file_argus_v1_signal_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *ContextL1) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL1) GetCpuUsagePct() float32 {
+	if x != nil && x.CpuUsagePct != nil {
+		return *x.CpuUsagePct
+	}
+	return 0
+}
+
+func (x *ContextL1) GetMemoryUsedMb() float32 {
+	if x != nil && x.MemoryUsedMb != nil {
+		return *x.MemoryUsedMb
+	}
+	return 0
+}
+
+func (x *ContextL1) GetMemoryTotalMb() float32 {
+	if x != nil && x.MemoryTotalMb != nil {
+		return *x.MemoryTotalMb
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuUtilizationPct() float32 {
+	if x != nil && x.GpuUtilizationPct != nil {
+		return *x.GpuUtilizationPct
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuMemoryUsedMb() float32 {
+	if x != nil && x.GpuMemoryUsedMb != nil {
+		return *x.GpuMemoryUsedMb
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuMemoryTotalMb() float32 {
+	if x != nil && x.GpuMemoryTotalMb != nil {
+		return *x.GpuMemoryTotalMb
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuTemperatureC() float32 {
+	if x != nil && x.GpuTemperatureC != nil {
+		return *x.GpuTemperatureC
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuPowerDrawW() float32 {
+	if x != nil && x.GpuPowerDrawW != nil {
+		return *x.GpuPowerDrawW
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuCount() int32 {
+	if x != nil && x.GpuCount != nil {
+		return *x.GpuCount
+	}
+	return 0
+}
+
+func (x *ContextL1) GetGpuModel() string {
+	if x != nil && x.GpuModel != nil {
+		return *x.GpuModel
 	}
 	return ""
 }
 
+func (x *ContextL1) GetDiskReadMbps() float32 {
+	if x != nil && x.DiskReadMbps != nil {
+		return *x.DiskReadMbps
+	}
+	return 0
+}
+
+func (x *ContextL1) GetDiskWriteMbps() float32 {
+	if x != nil && x.DiskWriteMbps != nil {
+		return *x.DiskWriteMbps
+	}
+	return 0
+}
+
+func (x *ContextL1) GetNetRxMbps() float32 {
+	if x != nil && x.NetRxMbps != nil {
+		return *x.NetRxMbps
+	}
+	return 0
+}
+
+func (x *ContextL1) GetNetTxMbps() float32 {
+	if x != nil && x.NetTxMbps != nil {
+		return *x.NetTxMbps
+	}
+	return 0
+}
+
+func (x *ContextL1) GetCpuStealPct() float32 {
+	if x != nil && x.CpuStealPct != nil {
+		return *x.CpuStealPct
+	}
+	return 0
+}
+
+func (x *ContextL1) GetLoadAvg_1M() float32 {
+	if x != nil && x.LoadAvg_1M != nil {
+		return *x.LoadAvg_1M
+	}
+	return 0
+}
+
+func (x *ContextL1) GetLoadAvg_5M() float32 {
+	if x != nil && x.LoadAvg_5M != nil {
+		return *x.LoadAvg_5M
+	}
+	return 0
+}
+
+func (x *ContextL1) GetLoadAvg_15M() float32 {
+	if x != nil && x.LoadAvg_15M != nil {
+		return *x.LoadAvg_15M
+	}
+	return 0
+}
+
+func (x *ContextL1) GetOpenFileDescriptors() int32 {
+	if x != nil && x.OpenFileDescriptors != nil {
+		return *x.OpenFileDescriptors
+	}
+	return 0
+}
+
+func (x *ContextL1) GetThreadCount() int32 {
+	if x != nil && x.ThreadCount != nil {
+		return *x.ThreadCount
+	}
+	return 0
+}
+
+func (x *ContextL1) GetHostId() string {
+	if x != nil && x.HostId != nil {
+		return *x.HostId
+	}
+	return ""
+}
+
+func (x *ContextL1) GetInstanceType() string {
+	if x != nil && x.InstanceType != nil {
+		return *x.InstanceType
+	}
+	return ""
+}
+
+func (x *ContextL1) GetProcessCpuPct() float32 {
+	if x != nil && x.ProcessCpuPct != nil {
+		return *x.ProcessCpuPct
+	}
+	return 0
+}
+
+func (x *ContextL1) GetProcessMemoryMb() float32 {
+	if x != nil && x.ProcessMemoryMb != nil {
+		return *x.ProcessMemoryMb
+	}
+	return 0
+}
+
+// ContextL2: Model Weights / Model Loading layer signals
 type ContextL2 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	ModelId              *string                `protobuf:"bytes,1,opt,name=model_id,json=modelId,proto3,oneof" json:"model_id,omitempty"`                                               // Model identifier
+	ModelFamily          *string                `protobuf:"bytes,2,opt,name=model_family,json=modelFamily,proto3,oneof" json:"model_family,omitempty"`                                   // Model family (e.g., "llama", "mistral")
+	ModelVersion         *string                `protobuf:"bytes,3,opt,name=model_version,json=modelVersion,proto3,oneof" json:"model_version,omitempty"`                                // Model version string
+	ModelHash            *string                `protobuf:"bytes,4,opt,name=model_hash,json=modelHash,proto3,oneof" json:"model_hash,omitempty"`                                         // SHA256 of model weights
+	Quantization         *string                `protobuf:"bytes,5,opt,name=quantization,proto3,oneof" json:"quantization,omitempty"`                                                    // Quantization scheme (e.g., "q4_k_m")
+	ParameterCount       *int64                 `protobuf:"varint,6,opt,name=parameter_count,json=parameterCount,proto3,oneof" json:"parameter_count,omitempty"`                         // Number of parameters
+	ModelSizeGb          *float32               `protobuf:"fixed32,7,opt,name=model_size_gb,json=modelSizeGb,proto3,oneof" json:"model_size_gb,omitempty"`                               // Model file size (GB)
+	LoadTimeMs           *float32               `protobuf:"fixed32,8,opt,name=load_time_ms,json=loadTimeMs,proto3,oneof" json:"load_time_ms,omitempty"`                                  // Time to load model (ms)
+	VramAllocatedGb      *float32               `protobuf:"fixed32,9,opt,name=vram_allocated_gb,json=vramAllocatedGb,proto3,oneof" json:"vram_allocated_gb,omitempty"`                   // VRAM allocated for model (GB)
+	RamAllocatedGb       *float32               `protobuf:"fixed32,10,opt,name=ram_allocated_gb,json=ramAllocatedGb,proto3,oneof" json:"ram_allocated_gb,omitempty"`                     // RAM allocated for model (GB)
+	Precision            *string                `protobuf:"bytes,11,opt,name=precision,proto3,oneof" json:"precision,omitempty"`                                                         // Numerical precision (fp16, bf16, fp32)
+	Backend              *string                `protobuf:"bytes,12,opt,name=backend,proto3,oneof" json:"backend,omitempty"`                                                             // Inference backend (llama.cpp, vllm, etc.)
+	AdapterId            *string                `protobuf:"bytes,13,opt,name=adapter_id,json=adapterId,proto3,oneof" json:"adapter_id,omitempty"`                                        // LoRA/PEFT adapter ID if loaded
+	AdapterHash          *string                `protobuf:"bytes,14,opt,name=adapter_hash,json=adapterHash,proto3,oneof" json:"adapter_hash,omitempty"`                                  // Hash of loaded adapter
+	WeightsVerified      *bool                  `protobuf:"varint,20,opt,name=weights_verified,json=weightsVerified,proto3,oneof" json:"weights_verified,omitempty"`                     // Whether hash verification passed
+	WeightsLoadLatencyMs *float32               `protobuf:"fixed32,21,opt,name=weights_load_latency_ms,json=weightsLoadLatencyMs,proto3,oneof" json:"weights_load_latency_ms,omitempty"` // Latency for weight loading
+	LayersOffloaded      *int32                 `protobuf:"varint,22,opt,name=layers_offloaded,json=layersOffloaded,proto3,oneof" json:"layers_offloaded,omitempty"`                     // Layers offloaded to CPU
+	DeviceMap            *string                `protobuf:"bytes,24,opt,name=device_map,json=deviceMap,proto3,oneof" json:"device_map,omitempty"`                                        // JSON device map string
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ContextL2) Reset() {
@@ -1313,18 +1515,159 @@ func (*ContextL2) Descriptor() ([]byte, []int) {
 	return file_argus_v1_signal_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *ContextL2) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL2) GetModelId() string {
+	if x != nil && x.ModelId != nil {
+		return *x.ModelId
 	}
 	return ""
 }
 
+func (x *ContextL2) GetModelFamily() string {
+	if x != nil && x.ModelFamily != nil {
+		return *x.ModelFamily
+	}
+	return ""
+}
+
+func (x *ContextL2) GetModelVersion() string {
+	if x != nil && x.ModelVersion != nil {
+		return *x.ModelVersion
+	}
+	return ""
+}
+
+func (x *ContextL2) GetModelHash() string {
+	if x != nil && x.ModelHash != nil {
+		return *x.ModelHash
+	}
+	return ""
+}
+
+func (x *ContextL2) GetQuantization() string {
+	if x != nil && x.Quantization != nil {
+		return *x.Quantization
+	}
+	return ""
+}
+
+func (x *ContextL2) GetParameterCount() int64 {
+	if x != nil && x.ParameterCount != nil {
+		return *x.ParameterCount
+	}
+	return 0
+}
+
+func (x *ContextL2) GetModelSizeGb() float32 {
+	if x != nil && x.ModelSizeGb != nil {
+		return *x.ModelSizeGb
+	}
+	return 0
+}
+
+func (x *ContextL2) GetLoadTimeMs() float32 {
+	if x != nil && x.LoadTimeMs != nil {
+		return *x.LoadTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL2) GetVramAllocatedGb() float32 {
+	if x != nil && x.VramAllocatedGb != nil {
+		return *x.VramAllocatedGb
+	}
+	return 0
+}
+
+func (x *ContextL2) GetRamAllocatedGb() float32 {
+	if x != nil && x.RamAllocatedGb != nil {
+		return *x.RamAllocatedGb
+	}
+	return 0
+}
+
+func (x *ContextL2) GetPrecision() string {
+	if x != nil && x.Precision != nil {
+		return *x.Precision
+	}
+	return ""
+}
+
+func (x *ContextL2) GetBackend() string {
+	if x != nil && x.Backend != nil {
+		return *x.Backend
+	}
+	return ""
+}
+
+func (x *ContextL2) GetAdapterId() string {
+	if x != nil && x.AdapterId != nil {
+		return *x.AdapterId
+	}
+	return ""
+}
+
+func (x *ContextL2) GetAdapterHash() string {
+	if x != nil && x.AdapterHash != nil {
+		return *x.AdapterHash
+	}
+	return ""
+}
+
+func (x *ContextL2) GetWeightsVerified() bool {
+	if x != nil && x.WeightsVerified != nil {
+		return *x.WeightsVerified
+	}
+	return false
+}
+
+func (x *ContextL2) GetWeightsLoadLatencyMs() float32 {
+	if x != nil && x.WeightsLoadLatencyMs != nil {
+		return *x.WeightsLoadLatencyMs
+	}
+	return 0
+}
+
+func (x *ContextL2) GetLayersOffloaded() int32 {
+	if x != nil && x.LayersOffloaded != nil {
+		return *x.LayersOffloaded
+	}
+	return 0
+}
+
+func (x *ContextL2) GetDeviceMap() string {
+	if x != nil && x.DeviceMap != nil {
+		return *x.DeviceMap
+	}
+	return ""
+}
+
+// ContextL3: Tokenizer layer signals
 type ContextL3 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	InputTokens           *int32                 `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens,proto3,oneof" json:"input_tokens,omitempty"`                                   // Token count of input
+	OutputTokens          *int32                 `protobuf:"varint,4,opt,name=output_tokens,json=outputTokens,proto3,oneof" json:"output_tokens,omitempty"`                                // Token count of output
+	TotalTokens           *int32                 `protobuf:"varint,5,opt,name=total_tokens,json=totalTokens,proto3,oneof" json:"total_tokens,omitempty"`                                   // Total tokens
+	TokenizerId           *string                `protobuf:"bytes,6,opt,name=tokenizer_id,json=tokenizerId,proto3,oneof" json:"tokenizer_id,omitempty"`                                    // Tokenizer identifier
+	TokenizerVersion      *string                `protobuf:"bytes,7,opt,name=tokenizer_version,json=tokenizerVersion,proto3,oneof" json:"tokenizer_version,omitempty"`                     // Tokenizer version
+	EncodingTimeMs        *float32               `protobuf:"fixed32,8,opt,name=encoding_time_ms,json=encodingTimeMs,proto3,oneof" json:"encoding_time_ms,omitempty"`                       // Time to encode input (ms)
+	DecodingTimeMs        *float32               `protobuf:"fixed32,9,opt,name=decoding_time_ms,json=decodingTimeMs,proto3,oneof" json:"decoding_time_ms,omitempty"`                       // Time to decode output (ms)
+	ContextWindowSize     *int32                 `protobuf:"varint,10,opt,name=context_window_size,json=contextWindowSize,proto3,oneof" json:"context_window_size,omitempty"`              // Max context window
+	ContextUtilizationPct *float32               `protobuf:"fixed32,11,opt,name=context_utilization_pct,json=contextUtilizationPct,proto3,oneof" json:"context_utilization_pct,omitempty"` // % of context window used
+	TruncatedTokens       *int32                 `protobuf:"varint,12,opt,name=truncated_tokens,json=truncatedTokens,proto3,oneof" json:"truncated_tokens,omitempty"`                      // Tokens removed due to truncation
+	Truncated             *bool                  `protobuf:"varint,13,opt,name=truncated,proto3,oneof" json:"truncated,omitempty"`                                                         // Whether input was truncated
+	ChatTemplate          *string                `protobuf:"bytes,14,opt,name=chat_template,json=chatTemplate,proto3,oneof" json:"chat_template,omitempty"`                                // Chat template applied
+	BosToken              *string                `protobuf:"bytes,15,opt,name=bos_token,json=bosToken,proto3,oneof" json:"bos_token,omitempty"`                                            // Beginning-of-sequence token
+	AvgTokenLength        *float32               `protobuf:"fixed32,19,opt,name=avg_token_length,json=avgTokenLength,proto3,oneof" json:"avg_token_length,omitempty"`                      // Average characters per token
+	UniqueTokenCount      *int32                 `protobuf:"varint,20,opt,name=unique_token_count,json=uniqueTokenCount,proto3,oneof" json:"unique_token_count,omitempty"`                 // Count of unique tokens
+	TokenEntropy          *float32               `protobuf:"fixed32,21,opt,name=token_entropy,json=tokenEntropy,proto3,oneof" json:"token_entropy,omitempty"`                              // Shannon entropy of token distribution
+	SpecialTokenCount     *int32                 `protobuf:"varint,22,opt,name=special_token_count,json=specialTokenCount,proto3,oneof" json:"special_token_count,omitempty"`              // Number of special tokens
+	EncodingName          *string                `protobuf:"bytes,23,opt,name=encoding_name,json=encodingName,proto3,oneof" json:"encoding_name,omitempty"`                                // Encoding name (e.g., "cl100k_base")
+	VocabSize             *int32                 `protobuf:"varint,24,opt,name=vocab_size,json=vocabSize,proto3,oneof" json:"vocab_size,omitempty"`                                        // Vocabulary size
+	CompressionRatio      *float32               `protobuf:"fixed32,25,opt,name=compression_ratio,json=compressionRatio,proto3,oneof" json:"compression_ratio,omitempty"`                  // Chars per token ratio
+	OovRate               *float32               `protobuf:"fixed32,26,opt,name=oov_rate,json=oovRate,proto3,oneof" json:"oov_rate,omitempty"`                                             // Out-of-vocabulary rate
+	HasSpecialTokens      *bool                  `protobuf:"varint,27,opt,name=has_special_tokens,json=hasSpecialTokens,proto3,oneof" json:"has_special_tokens,omitempty"`                 // Whether special tokens present
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *ContextL3) Reset() {
@@ -1357,18 +1700,188 @@ func (*ContextL3) Descriptor() ([]byte, []int) {
 	return file_argus_v1_signal_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *ContextL3) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL3) GetInputTokens() int32 {
+	if x != nil && x.InputTokens != nil {
+		return *x.InputTokens
+	}
+	return 0
+}
+
+func (x *ContextL3) GetOutputTokens() int32 {
+	if x != nil && x.OutputTokens != nil {
+		return *x.OutputTokens
+	}
+	return 0
+}
+
+func (x *ContextL3) GetTotalTokens() int32 {
+	if x != nil && x.TotalTokens != nil {
+		return *x.TotalTokens
+	}
+	return 0
+}
+
+func (x *ContextL3) GetTokenizerId() string {
+	if x != nil && x.TokenizerId != nil {
+		return *x.TokenizerId
 	}
 	return ""
 }
 
+func (x *ContextL3) GetTokenizerVersion() string {
+	if x != nil && x.TokenizerVersion != nil {
+		return *x.TokenizerVersion
+	}
+	return ""
+}
+
+func (x *ContextL3) GetEncodingTimeMs() float32 {
+	if x != nil && x.EncodingTimeMs != nil {
+		return *x.EncodingTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL3) GetDecodingTimeMs() float32 {
+	if x != nil && x.DecodingTimeMs != nil {
+		return *x.DecodingTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL3) GetContextWindowSize() int32 {
+	if x != nil && x.ContextWindowSize != nil {
+		return *x.ContextWindowSize
+	}
+	return 0
+}
+
+func (x *ContextL3) GetContextUtilizationPct() float32 {
+	if x != nil && x.ContextUtilizationPct != nil {
+		return *x.ContextUtilizationPct
+	}
+	return 0
+}
+
+func (x *ContextL3) GetTruncatedTokens() int32 {
+	if x != nil && x.TruncatedTokens != nil {
+		return *x.TruncatedTokens
+	}
+	return 0
+}
+
+func (x *ContextL3) GetTruncated() bool {
+	if x != nil && x.Truncated != nil {
+		return *x.Truncated
+	}
+	return false
+}
+
+func (x *ContextL3) GetChatTemplate() string {
+	if x != nil && x.ChatTemplate != nil {
+		return *x.ChatTemplate
+	}
+	return ""
+}
+
+func (x *ContextL3) GetBosToken() string {
+	if x != nil && x.BosToken != nil {
+		return *x.BosToken
+	}
+	return ""
+}
+
+func (x *ContextL3) GetAvgTokenLength() float32 {
+	if x != nil && x.AvgTokenLength != nil {
+		return *x.AvgTokenLength
+	}
+	return 0
+}
+
+func (x *ContextL3) GetUniqueTokenCount() int32 {
+	if x != nil && x.UniqueTokenCount != nil {
+		return *x.UniqueTokenCount
+	}
+	return 0
+}
+
+func (x *ContextL3) GetTokenEntropy() float32 {
+	if x != nil && x.TokenEntropy != nil {
+		return *x.TokenEntropy
+	}
+	return 0
+}
+
+func (x *ContextL3) GetSpecialTokenCount() int32 {
+	if x != nil && x.SpecialTokenCount != nil {
+		return *x.SpecialTokenCount
+	}
+	return 0
+}
+
+func (x *ContextL3) GetEncodingName() string {
+	if x != nil && x.EncodingName != nil {
+		return *x.EncodingName
+	}
+	return ""
+}
+
+func (x *ContextL3) GetVocabSize() int32 {
+	if x != nil && x.VocabSize != nil {
+		return *x.VocabSize
+	}
+	return 0
+}
+
+func (x *ContextL3) GetCompressionRatio() float32 {
+	if x != nil && x.CompressionRatio != nil {
+		return *x.CompressionRatio
+	}
+	return 0
+}
+
+func (x *ContextL3) GetOovRate() float32 {
+	if x != nil && x.OovRate != nil {
+		return *x.OovRate
+	}
+	return 0
+}
+
+func (x *ContextL3) GetHasSpecialTokens() bool {
+	if x != nil && x.HasSpecialTokens != nil {
+		return *x.HasSpecialTokens
+	}
+	return false
+}
+
+// ContextL4: Transformer / Attention layer signals
 type ContextL4 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	KvCacheUsedMb           *float32               `protobuf:"fixed32,1,opt,name=kv_cache_used_mb,json=kvCacheUsedMb,proto3,oneof" json:"kv_cache_used_mb,omitempty"`                             // KV cache memory used (MB)
+	KvCacheTotalMb          *float32               `protobuf:"fixed32,2,opt,name=kv_cache_total_mb,json=kvCacheTotalMb,proto3,oneof" json:"kv_cache_total_mb,omitempty"`                          // KV cache total capacity (MB)
+	KvCacheHitRate          *float32               `protobuf:"fixed32,3,opt,name=kv_cache_hit_rate,json=kvCacheHitRate,proto3,oneof" json:"kv_cache_hit_rate,omitempty"`                          // Cache hit rate 0.0-1.0
+	NumHeads                *int32                 `protobuf:"varint,4,opt,name=num_heads,json=numHeads,proto3,oneof" json:"num_heads,omitempty"`                                                 // Number of attention heads
+	NumLayers               *int32                 `protobuf:"varint,5,opt,name=num_layers,json=numLayers,proto3,oneof" json:"num_layers,omitempty"`                                              // Number of transformer layers
+	AttentionEntropyMean    *float32               `protobuf:"fixed32,6,opt,name=attention_entropy_mean,json=attentionEntropyMean,proto3,oneof" json:"attention_entropy_mean,omitempty"`          // Mean attention entropy
+	AttentionEntropyMax     *float32               `protobuf:"fixed32,7,opt,name=attention_entropy_max,json=attentionEntropyMax,proto3,oneof" json:"attention_entropy_max,omitempty"`             // Max attention entropy
+	AttentionEntropyMin     *float32               `protobuf:"fixed32,8,opt,name=attention_entropy_min,json=attentionEntropyMin,proto3,oneof" json:"attention_entropy_min,omitempty"`             // Min attention entropy
+	PrefillTimeMs           *float32               `protobuf:"fixed32,11,opt,name=prefill_time_ms,json=prefillTimeMs,proto3,oneof" json:"prefill_time_ms,omitempty"`                              // Prefill phase time (ms)
+	DecodeTimeMs            *float32               `protobuf:"fixed32,12,opt,name=decode_time_ms,json=decodeTimeMs,proto3,oneof" json:"decode_time_ms,omitempty"`                                 // Decode phase time (ms)
+	BatchSize               *int32                 `protobuf:"varint,13,opt,name=batch_size,json=batchSize,proto3,oneof" json:"batch_size,omitempty"`                                             // Inference batch size
+	SequenceLength          *int32                 `protobuf:"varint,14,opt,name=sequence_length,json=sequenceLength,proto3,oneof" json:"sequence_length,omitempty"`                              // Input sequence length
+	ThroughputTokensPerSec  *float32               `protobuf:"fixed32,15,opt,name=throughput_tokens_per_sec,json=throughputTokensPerSec,proto3,oneof" json:"throughput_tokens_per_sec,omitempty"` // Tokens per second
+	MemoryBandwidthGbps     *float32               `protobuf:"fixed32,16,opt,name=memory_bandwidth_gbps,json=memoryBandwidthGbps,proto3,oneof" json:"memory_bandwidth_gbps,omitempty"`            // Memory bandwidth utilization
+	FlashAttention          *bool                  `protobuf:"varint,17,opt,name=flash_attention,json=flashAttention,proto3,oneof" json:"flash_attention,omitempty"`                              // Whether flash attention used
+	PagedAttention          *bool                  `protobuf:"varint,18,opt,name=paged_attention,json=pagedAttention,proto3,oneof" json:"paged_attention,omitempty"`                              // Whether paged attention used
+	SpeculativeTokens       *int32                 `protobuf:"varint,19,opt,name=speculative_tokens,json=speculativeTokens,proto3,oneof" json:"speculative_tokens,omitempty"`                     // Speculative decoding token count
+	SpeculationAcceptRate   *float32               `protobuf:"fixed32,20,opt,name=speculation_accept_rate,json=speculationAcceptRate,proto3,oneof" json:"speculation_accept_rate,omitempty"`      // Speculative token acceptance rate
+	ContextLengthUsed       *int32                 `protobuf:"varint,21,opt,name=context_length_used,json=contextLengthUsed,proto3,oneof" json:"context_length_used,omitempty"`                   // Actual context length processed
+	ActiveSequences         *int32                 `protobuf:"varint,22,opt,name=active_sequences,json=activeSequences,proto3,oneof" json:"active_sequences,omitempty"`                           // Concurrent sequences in batch
+	FlopsUtilized           *float32               `protobuf:"fixed32,23,opt,name=flops_utilized,json=flopsUtilized,proto3,oneof" json:"flops_utilized,omitempty"`                                // FLOPs utilization 0.0-1.0
+	AttentionImplementation *string                `protobuf:"bytes,24,opt,name=attention_implementation,json=attentionImplementation,proto3,oneof" json:"attention_implementation,omitempty"`    // "flash2" | "xformers" | "vanilla"
+	ComputeDtype            *string                `protobuf:"bytes,25,opt,name=compute_dtype,json=computeDtype,proto3,oneof" json:"compute_dtype,omitempty"`                                     // Compute dtype (bf16, fp16, fp32)
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ContextL4) Reset() {
@@ -1401,13 +1914,168 @@ func (*ContextL4) Descriptor() ([]byte, []int) {
 	return file_argus_v1_signal_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *ContextL4) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL4) GetKvCacheUsedMb() float32 {
+	if x != nil && x.KvCacheUsedMb != nil {
+		return *x.KvCacheUsedMb
+	}
+	return 0
+}
+
+func (x *ContextL4) GetKvCacheTotalMb() float32 {
+	if x != nil && x.KvCacheTotalMb != nil {
+		return *x.KvCacheTotalMb
+	}
+	return 0
+}
+
+func (x *ContextL4) GetKvCacheHitRate() float32 {
+	if x != nil && x.KvCacheHitRate != nil {
+		return *x.KvCacheHitRate
+	}
+	return 0
+}
+
+func (x *ContextL4) GetNumHeads() int32 {
+	if x != nil && x.NumHeads != nil {
+		return *x.NumHeads
+	}
+	return 0
+}
+
+func (x *ContextL4) GetNumLayers() int32 {
+	if x != nil && x.NumLayers != nil {
+		return *x.NumLayers
+	}
+	return 0
+}
+
+func (x *ContextL4) GetAttentionEntropyMean() float32 {
+	if x != nil && x.AttentionEntropyMean != nil {
+		return *x.AttentionEntropyMean
+	}
+	return 0
+}
+
+func (x *ContextL4) GetAttentionEntropyMax() float32 {
+	if x != nil && x.AttentionEntropyMax != nil {
+		return *x.AttentionEntropyMax
+	}
+	return 0
+}
+
+func (x *ContextL4) GetAttentionEntropyMin() float32 {
+	if x != nil && x.AttentionEntropyMin != nil {
+		return *x.AttentionEntropyMin
+	}
+	return 0
+}
+
+func (x *ContextL4) GetPrefillTimeMs() float32 {
+	if x != nil && x.PrefillTimeMs != nil {
+		return *x.PrefillTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL4) GetDecodeTimeMs() float32 {
+	if x != nil && x.DecodeTimeMs != nil {
+		return *x.DecodeTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL4) GetBatchSize() int32 {
+	if x != nil && x.BatchSize != nil {
+		return *x.BatchSize
+	}
+	return 0
+}
+
+func (x *ContextL4) GetSequenceLength() int32 {
+	if x != nil && x.SequenceLength != nil {
+		return *x.SequenceLength
+	}
+	return 0
+}
+
+func (x *ContextL4) GetThroughputTokensPerSec() float32 {
+	if x != nil && x.ThroughputTokensPerSec != nil {
+		return *x.ThroughputTokensPerSec
+	}
+	return 0
+}
+
+func (x *ContextL4) GetMemoryBandwidthGbps() float32 {
+	if x != nil && x.MemoryBandwidthGbps != nil {
+		return *x.MemoryBandwidthGbps
+	}
+	return 0
+}
+
+func (x *ContextL4) GetFlashAttention() bool {
+	if x != nil && x.FlashAttention != nil {
+		return *x.FlashAttention
+	}
+	return false
+}
+
+func (x *ContextL4) GetPagedAttention() bool {
+	if x != nil && x.PagedAttention != nil {
+		return *x.PagedAttention
+	}
+	return false
+}
+
+func (x *ContextL4) GetSpeculativeTokens() int32 {
+	if x != nil && x.SpeculativeTokens != nil {
+		return *x.SpeculativeTokens
+	}
+	return 0
+}
+
+func (x *ContextL4) GetSpeculationAcceptRate() float32 {
+	if x != nil && x.SpeculationAcceptRate != nil {
+		return *x.SpeculationAcceptRate
+	}
+	return 0
+}
+
+func (x *ContextL4) GetContextLengthUsed() int32 {
+	if x != nil && x.ContextLengthUsed != nil {
+		return *x.ContextLengthUsed
+	}
+	return 0
+}
+
+func (x *ContextL4) GetActiveSequences() int32 {
+	if x != nil && x.ActiveSequences != nil {
+		return *x.ActiveSequences
+	}
+	return 0
+}
+
+func (x *ContextL4) GetFlopsUtilized() float32 {
+	if x != nil && x.FlopsUtilized != nil {
+		return *x.FlopsUtilized
+	}
+	return 0
+}
+
+func (x *ContextL4) GetAttentionImplementation() string {
+	if x != nil && x.AttentionImplementation != nil {
+		return *x.AttentionImplementation
 	}
 	return ""
 }
 
+func (x *ContextL4) GetComputeDtype() string {
+	if x != nil && x.ComputeDtype != nil {
+		return *x.ComputeDtype
+	}
+	return ""
+}
+
+// ContextL5: Output Decoding layer signals
 type ContextL5 struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Operation       ContextL5_Operation    `protobuf:"varint,1,opt,name=operation,proto3,enum=argus.v1.ContextL5_Operation" json:"operation,omitempty"`
@@ -1424,8 +2092,20 @@ type ContextL5 struct {
 	EntropyVariance *float32               `protobuf:"fixed32,12,opt,name=entropy_variance,json=entropyVariance,proto3,oneof" json:"entropy_variance,omitempty"`
 	TtftMs          float32                `protobuf:"fixed32,13,opt,name=ttft_ms,json=ttftMs,proto3" json:"ttft_ms,omitempty"`
 	Tps             float32                `protobuf:"fixed32,14,opt,name=tps,proto3" json:"tps,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Extension fields
+	TopK                  *int32   `protobuf:"varint,15,opt,name=top_k,json=topK,proto3,oneof" json:"top_k,omitempty"`
+	MinP                  *float32 `protobuf:"fixed32,16,opt,name=min_p,json=minP,proto3,oneof" json:"min_p,omitempty"`
+	RepetitionPenalty     *float32 `protobuf:"fixed32,17,opt,name=repetition_penalty,json=repetitionPenalty,proto3,oneof" json:"repetition_penalty,omitempty"`
+	PresencePenalty       *float32 `protobuf:"fixed32,18,opt,name=presence_penalty,json=presencePenalty,proto3,oneof" json:"presence_penalty,omitempty"`
+	FrequencyPenalty      *float32 `protobuf:"fixed32,19,opt,name=frequency_penalty,json=frequencyPenalty,proto3,oneof" json:"frequency_penalty,omitempty"`
+	Seed                  *int64   `protobuf:"varint,20,opt,name=seed,proto3,oneof" json:"seed,omitempty"`
+	StopSequences         []string `protobuf:"bytes,21,rep,name=stop_sequences,json=stopSequences,proto3" json:"stop_sequences,omitempty"`
+	OutputRepetitionScore *float32 `protobuf:"fixed32,22,opt,name=output_repetition_score,json=outputRepetitionScore,proto3,oneof" json:"output_repetition_score,omitempty"`
+	DistinctNgramsRatio   *float32 `protobuf:"fixed32,23,opt,name=distinct_ngrams_ratio,json=distinctNgramsRatio,proto3,oneof" json:"distinct_ngrams_ratio,omitempty"`
+	Truncated             *bool    `protobuf:"varint,24,opt,name=truncated,proto3,oneof" json:"truncated,omitempty"`
+	FinishReasonDetail    *string  `protobuf:"bytes,25,opt,name=finish_reason_detail,json=finishReasonDetail,proto3,oneof" json:"finish_reason_detail,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *ContextL5) Reset() {
@@ -1556,6 +2236,83 @@ func (x *ContextL5) GetTps() float32 {
 	return 0
 }
 
+func (x *ContextL5) GetTopK() int32 {
+	if x != nil && x.TopK != nil {
+		return *x.TopK
+	}
+	return 0
+}
+
+func (x *ContextL5) GetMinP() float32 {
+	if x != nil && x.MinP != nil {
+		return *x.MinP
+	}
+	return 0
+}
+
+func (x *ContextL5) GetRepetitionPenalty() float32 {
+	if x != nil && x.RepetitionPenalty != nil {
+		return *x.RepetitionPenalty
+	}
+	return 0
+}
+
+func (x *ContextL5) GetPresencePenalty() float32 {
+	if x != nil && x.PresencePenalty != nil {
+		return *x.PresencePenalty
+	}
+	return 0
+}
+
+func (x *ContextL5) GetFrequencyPenalty() float32 {
+	if x != nil && x.FrequencyPenalty != nil {
+		return *x.FrequencyPenalty
+	}
+	return 0
+}
+
+func (x *ContextL5) GetSeed() int64 {
+	if x != nil && x.Seed != nil {
+		return *x.Seed
+	}
+	return 0
+}
+
+func (x *ContextL5) GetStopSequences() []string {
+	if x != nil {
+		return x.StopSequences
+	}
+	return nil
+}
+
+func (x *ContextL5) GetOutputRepetitionScore() float32 {
+	if x != nil && x.OutputRepetitionScore != nil {
+		return *x.OutputRepetitionScore
+	}
+	return 0
+}
+
+func (x *ContextL5) GetDistinctNgramsRatio() float32 {
+	if x != nil && x.DistinctNgramsRatio != nil {
+		return *x.DistinctNgramsRatio
+	}
+	return 0
+}
+
+func (x *ContextL5) GetTruncated() bool {
+	if x != nil && x.Truncated != nil {
+		return *x.Truncated
+	}
+	return false
+}
+
+func (x *ContextL5) GetFinishReasonDetail() string {
+	if x != nil && x.FinishReasonDetail != nil {
+		return *x.FinishReasonDetail
+	}
+	return ""
+}
+
 type LogProbEntry struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Token           string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
@@ -1668,16 +2425,99 @@ func (x *Alternative) GetLogprob() float32 {
 	return 0
 }
 
-type ContextL6 struct {
+// SafetyCategoryScore represents a per-category safety evaluation result
+type SafetyCategoryScore struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
+	Category      string                 `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"` // e.g., "hate", "sexual", "violence"
+	Score         float32                `protobuf:"fixed32,2,opt,name=score,proto3" json:"score,omitempty"`     // 0.0-1.0 probability score
+	Flagged       bool                   `protobuf:"varint,3,opt,name=flagged,proto3" json:"flagged,omitempty"`  // Whether this category was flagged
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *SafetyCategoryScore) Reset() {
+	*x = SafetyCategoryScore{}
+	mi := &file_argus_v1_signal_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SafetyCategoryScore) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SafetyCategoryScore) ProtoMessage() {}
+
+func (x *SafetyCategoryScore) ProtoReflect() protoreflect.Message {
+	mi := &file_argus_v1_signal_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SafetyCategoryScore.ProtoReflect.Descriptor instead.
+func (*SafetyCategoryScore) Descriptor() ([]byte, []int) {
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SafetyCategoryScore) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *SafetyCategoryScore) GetScore() float32 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *SafetyCategoryScore) GetFlagged() bool {
+	if x != nil {
+		return x.Flagged
+	}
+	return false
+}
+
+// ContextL6: Safety / Content Filtering layer signals
+type ContextL6 struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	SafetyScore             *float32               `protobuf:"fixed32,1,opt,name=safety_score,json=safetyScore,proto3,oneof" json:"safety_score,omitempty"`                                       // Aggregate safety score 0.0-1.0
+	Safe                    *bool                  `protobuf:"varint,2,opt,name=safe,proto3,oneof" json:"safe,omitempty"`                                                                         // Whether content passed safety check
+	ActionTaken             *string                `protobuf:"bytes,3,opt,name=action_taken,json=actionTaken,proto3,oneof" json:"action_taken,omitempty"`                                         // "allow" | "block" | "redact" | "warn"
+	ClassifierId            *string                `protobuf:"bytes,4,opt,name=classifier_id,json=classifierId,proto3,oneof" json:"classifier_id,omitempty"`                                      // Classifier model/version ID
+	CategoryScores          []*SafetyCategoryScore `protobuf:"bytes,11,rep,name=category_scores,json=categoryScores,proto3" json:"category_scores,omitempty"`                                     // Per-category scores
+	ToxicityScore           *float32               `protobuf:"fixed32,12,opt,name=toxicity_score,json=toxicityScore,proto3,oneof" json:"toxicity_score,omitempty"`                                // Toxicity probability 0.0-1.0
+	BiasScore               *float32               `protobuf:"fixed32,13,opt,name=bias_score,json=biasScore,proto3,oneof" json:"bias_score,omitempty"`                                            // Bias probability 0.0-1.0
+	PolicyId                *string                `protobuf:"bytes,15,opt,name=policy_id,json=policyId,proto3,oneof" json:"policy_id,omitempty"`                                                 // Policy ID that was evaluated
+	PolicyVersion           *string                `protobuf:"bytes,16,opt,name=policy_version,json=policyVersion,proto3,oneof" json:"policy_version,omitempty"`                                  // Policy version
+	PolicyViolated          *bool                  `protobuf:"varint,17,opt,name=policy_violated,json=policyViolated,proto3,oneof" json:"policy_violated,omitempty"`                              // Whether any policy was violated
+	ViolationType           *string                `protobuf:"bytes,18,opt,name=violation_type,json=violationType,proto3,oneof" json:"violation_type,omitempty"`                                  // Type of violation if any
+	RedactionMethod         *string                `protobuf:"bytes,19,opt,name=redaction_method,json=redactionMethod,proto3,oneof" json:"redaction_method,omitempty"`                            // How content was redacted
+	RedactedTokens          *int32                 `protobuf:"varint,20,opt,name=redacted_tokens,json=redactedTokens,proto3,oneof" json:"redacted_tokens,omitempty"`                              // Number of redacted tokens
+	EvaluationTimeMs        *float32               `protobuf:"fixed32,21,opt,name=evaluation_time_ms,json=evaluationTimeMs,proto3,oneof" json:"evaluation_time_ms,omitempty"`                     // Safety evaluation latency (ms)
+	InputLanguage           *string                `protobuf:"bytes,22,opt,name=input_language,json=inputLanguage,proto3,oneof" json:"input_language,omitempty"`                                  // Detected input language
+	LanguageConfidence      *float32               `protobuf:"fixed32,23,opt,name=language_confidence,json=languageConfidence,proto3,oneof" json:"language_confidence,omitempty"`                 // Language detection confidence
+	JailbreakDetected       *bool                  `protobuf:"varint,24,opt,name=jailbreak_detected,json=jailbreakDetected,proto3,oneof" json:"jailbreak_detected,omitempty"`                     // Whether jailbreak attempt detected
+	JailbreakScore          *float32               `protobuf:"fixed32,25,opt,name=jailbreak_score,json=jailbreakScore,proto3,oneof" json:"jailbreak_score,omitempty"`                             // Jailbreak probability 0.0-1.0
+	PromptInjectionDetected *bool                  `protobuf:"varint,26,opt,name=prompt_injection_detected,json=promptInjectionDetected,proto3,oneof" json:"prompt_injection_detected,omitempty"` // Whether prompt injection detected
+	PromptInjectionScore    *float32               `protobuf:"fixed32,27,opt,name=prompt_injection_score,json=promptInjectionScore,proto3,oneof" json:"prompt_injection_score,omitempty"`         // Prompt injection probability 0.0-1.0
+	PiiTypesDetected        *string                `protobuf:"bytes,28,opt,name=pii_types_detected,json=piiTypesDetected,proto3,oneof" json:"pii_types_detected,omitempty"`                       // Comma-separated PII types found
+	PiiRedacted             *bool                  `protobuf:"varint,29,opt,name=pii_redacted,json=piiRedacted,proto3,oneof" json:"pii_redacted,omitempty"`                                       // Whether PII was redacted
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
 func (x *ContextL6) Reset() {
 	*x = ContextL6{}
-	mi := &file_argus_v1_signal_proto_msgTypes[13]
+	mi := &file_argus_v1_signal_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1689,7 +2529,7 @@ func (x *ContextL6) String() string {
 func (*ContextL6) ProtoMessage() {}
 
 func (x *ContextL6) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[13]
+	mi := &file_argus_v1_signal_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1702,16 +2542,164 @@ func (x *ContextL6) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextL6.ProtoReflect.Descriptor instead.
 func (*ContextL6) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{13}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *ContextL6) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL6) GetSafetyScore() float32 {
+	if x != nil && x.SafetyScore != nil {
+		return *x.SafetyScore
+	}
+	return 0
+}
+
+func (x *ContextL6) GetSafe() bool {
+	if x != nil && x.Safe != nil {
+		return *x.Safe
+	}
+	return false
+}
+
+func (x *ContextL6) GetActionTaken() string {
+	if x != nil && x.ActionTaken != nil {
+		return *x.ActionTaken
 	}
 	return ""
 }
 
+func (x *ContextL6) GetClassifierId() string {
+	if x != nil && x.ClassifierId != nil {
+		return *x.ClassifierId
+	}
+	return ""
+}
+
+func (x *ContextL6) GetCategoryScores() []*SafetyCategoryScore {
+	if x != nil {
+		return x.CategoryScores
+	}
+	return nil
+}
+
+func (x *ContextL6) GetToxicityScore() float32 {
+	if x != nil && x.ToxicityScore != nil {
+		return *x.ToxicityScore
+	}
+	return 0
+}
+
+func (x *ContextL6) GetBiasScore() float32 {
+	if x != nil && x.BiasScore != nil {
+		return *x.BiasScore
+	}
+	return 0
+}
+
+func (x *ContextL6) GetPolicyId() string {
+	if x != nil && x.PolicyId != nil {
+		return *x.PolicyId
+	}
+	return ""
+}
+
+func (x *ContextL6) GetPolicyVersion() string {
+	if x != nil && x.PolicyVersion != nil {
+		return *x.PolicyVersion
+	}
+	return ""
+}
+
+func (x *ContextL6) GetPolicyViolated() bool {
+	if x != nil && x.PolicyViolated != nil {
+		return *x.PolicyViolated
+	}
+	return false
+}
+
+func (x *ContextL6) GetViolationType() string {
+	if x != nil && x.ViolationType != nil {
+		return *x.ViolationType
+	}
+	return ""
+}
+
+func (x *ContextL6) GetRedactionMethod() string {
+	if x != nil && x.RedactionMethod != nil {
+		return *x.RedactionMethod
+	}
+	return ""
+}
+
+func (x *ContextL6) GetRedactedTokens() int32 {
+	if x != nil && x.RedactedTokens != nil {
+		return *x.RedactedTokens
+	}
+	return 0
+}
+
+func (x *ContextL6) GetEvaluationTimeMs() float32 {
+	if x != nil && x.EvaluationTimeMs != nil {
+		return *x.EvaluationTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL6) GetInputLanguage() string {
+	if x != nil && x.InputLanguage != nil {
+		return *x.InputLanguage
+	}
+	return ""
+}
+
+func (x *ContextL6) GetLanguageConfidence() float32 {
+	if x != nil && x.LanguageConfidence != nil {
+		return *x.LanguageConfidence
+	}
+	return 0
+}
+
+func (x *ContextL6) GetJailbreakDetected() bool {
+	if x != nil && x.JailbreakDetected != nil {
+		return *x.JailbreakDetected
+	}
+	return false
+}
+
+func (x *ContextL6) GetJailbreakScore() float32 {
+	if x != nil && x.JailbreakScore != nil {
+		return *x.JailbreakScore
+	}
+	return 0
+}
+
+func (x *ContextL6) GetPromptInjectionDetected() bool {
+	if x != nil && x.PromptInjectionDetected != nil {
+		return *x.PromptInjectionDetected
+	}
+	return false
+}
+
+func (x *ContextL6) GetPromptInjectionScore() float32 {
+	if x != nil && x.PromptInjectionScore != nil {
+		return *x.PromptInjectionScore
+	}
+	return 0
+}
+
+func (x *ContextL6) GetPiiTypesDetected() string {
+	if x != nil && x.PiiTypesDetected != nil {
+		return *x.PiiTypesDetected
+	}
+	return ""
+}
+
+func (x *ContextL6) GetPiiRedacted() bool {
+	if x != nil && x.PiiRedacted != nil {
+		return *x.PiiRedacted
+	}
+	return false
+}
+
+// ContextL7: RAG / Retrieval layer signals
 type ContextL7 struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Operation        ContextL7_Operation    `protobuf:"varint,1,opt,name=operation,proto3,enum=argus.v1.ContextL7_Operation" json:"operation,omitempty"`
@@ -1726,13 +2714,27 @@ type ContextL7 struct {
 	RerankerApplied  bool                   `protobuf:"varint,10,opt,name=reranker_applied,json=rerankerApplied,proto3" json:"reranker_applied,omitempty"`
 	RerankerDelta    *float32               `protobuf:"fixed32,11,opt,name=reranker_delta,json=rerankerDelta,proto3,oneof" json:"reranker_delta,omitempty"`
 	LatencyBreakdown *LatencyBreakdown      `protobuf:"bytes,12,opt,name=latency_breakdown,json=latencyBreakdown,proto3" json:"latency_breakdown,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Extension fields
+	QueryCacheHit        *bool    `protobuf:"varint,13,opt,name=query_cache_hit,json=queryCacheHit,proto3,oneof" json:"query_cache_hit,omitempty"`
+	QueryCacheKey        *string  `protobuf:"bytes,14,opt,name=query_cache_key,json=queryCacheKey,proto3,oneof" json:"query_cache_key,omitempty"`
+	CitationsUsed        *int32   `protobuf:"varint,15,opt,name=citations_used,json=citationsUsed,proto3,oneof" json:"citations_used,omitempty"`
+	CitationOverlapScore *float32 `protobuf:"fixed32,16,opt,name=citation_overlap_score,json=citationOverlapScore,proto3,oneof" json:"citation_overlap_score,omitempty"`
+	IndexName            *string  `protobuf:"bytes,17,opt,name=index_name,json=indexName,proto3,oneof" json:"index_name,omitempty"`
+	IndexType            *string  `protobuf:"bytes,18,opt,name=index_type,json=indexType,proto3,oneof" json:"index_type,omitempty"`
+	IndexDocumentCount   *int64   `protobuf:"varint,19,opt,name=index_document_count,json=indexDocumentCount,proto3,oneof" json:"index_document_count,omitempty"`
+	IndexFreshnessHours  *float32 `protobuf:"fixed32,20,opt,name=index_freshness_hours,json=indexFreshnessHours,proto3,oneof" json:"index_freshness_hours,omitempty"`
+	RerankerScore        *float32 `protobuf:"fixed32,21,opt,name=reranker_score,json=rerankerScore,proto3,oneof" json:"reranker_score,omitempty"`
+	RerankerModel        *string  `protobuf:"bytes,22,opt,name=reranker_model,json=rerankerModel,proto3,oneof" json:"reranker_model,omitempty"`
+	HybridSearch         *bool    `protobuf:"varint,23,opt,name=hybrid_search,json=hybridSearch,proto3,oneof" json:"hybrid_search,omitempty"`
+	SparseWeight         *float32 `protobuf:"fixed32,24,opt,name=sparse_weight,json=sparseWeight,proto3,oneof" json:"sparse_weight,omitempty"`
+	DenseWeight          *float32 `protobuf:"fixed32,25,opt,name=dense_weight,json=denseWeight,proto3,oneof" json:"dense_weight,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ContextL7) Reset() {
 	*x = ContextL7{}
-	mi := &file_argus_v1_signal_proto_msgTypes[14]
+	mi := &file_argus_v1_signal_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1744,7 +2746,7 @@ func (x *ContextL7) String() string {
 func (*ContextL7) ProtoMessage() {}
 
 func (x *ContextL7) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[14]
+	mi := &file_argus_v1_signal_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1757,7 +2759,7 @@ func (x *ContextL7) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextL7.ProtoReflect.Descriptor instead.
 func (*ContextL7) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{14}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ContextL7) GetOperation() ContextL7_Operation {
@@ -1844,6 +2846,97 @@ func (x *ContextL7) GetLatencyBreakdown() *LatencyBreakdown {
 	return nil
 }
 
+func (x *ContextL7) GetQueryCacheHit() bool {
+	if x != nil && x.QueryCacheHit != nil {
+		return *x.QueryCacheHit
+	}
+	return false
+}
+
+func (x *ContextL7) GetQueryCacheKey() string {
+	if x != nil && x.QueryCacheKey != nil {
+		return *x.QueryCacheKey
+	}
+	return ""
+}
+
+func (x *ContextL7) GetCitationsUsed() int32 {
+	if x != nil && x.CitationsUsed != nil {
+		return *x.CitationsUsed
+	}
+	return 0
+}
+
+func (x *ContextL7) GetCitationOverlapScore() float32 {
+	if x != nil && x.CitationOverlapScore != nil {
+		return *x.CitationOverlapScore
+	}
+	return 0
+}
+
+func (x *ContextL7) GetIndexName() string {
+	if x != nil && x.IndexName != nil {
+		return *x.IndexName
+	}
+	return ""
+}
+
+func (x *ContextL7) GetIndexType() string {
+	if x != nil && x.IndexType != nil {
+		return *x.IndexType
+	}
+	return ""
+}
+
+func (x *ContextL7) GetIndexDocumentCount() int64 {
+	if x != nil && x.IndexDocumentCount != nil {
+		return *x.IndexDocumentCount
+	}
+	return 0
+}
+
+func (x *ContextL7) GetIndexFreshnessHours() float32 {
+	if x != nil && x.IndexFreshnessHours != nil {
+		return *x.IndexFreshnessHours
+	}
+	return 0
+}
+
+func (x *ContextL7) GetRerankerScore() float32 {
+	if x != nil && x.RerankerScore != nil {
+		return *x.RerankerScore
+	}
+	return 0
+}
+
+func (x *ContextL7) GetRerankerModel() string {
+	if x != nil && x.RerankerModel != nil {
+		return *x.RerankerModel
+	}
+	return ""
+}
+
+func (x *ContextL7) GetHybridSearch() bool {
+	if x != nil && x.HybridSearch != nil {
+		return *x.HybridSearch
+	}
+	return false
+}
+
+func (x *ContextL7) GetSparseWeight() float32 {
+	if x != nil && x.SparseWeight != nil {
+		return *x.SparseWeight
+	}
+	return 0
+}
+
+func (x *ContextL7) GetDenseWeight() float32 {
+	if x != nil && x.DenseWeight != nil {
+		return *x.DenseWeight
+	}
+	return 0
+}
+
 type LatencyBreakdown struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EmbeddingMs   float32                `protobuf:"fixed32,1,opt,name=embedding_ms,json=embeddingMs,proto3" json:"embedding_ms,omitempty"`
@@ -1855,7 +2948,7 @@ type LatencyBreakdown struct {
 
 func (x *LatencyBreakdown) Reset() {
 	*x = LatencyBreakdown{}
-	mi := &file_argus_v1_signal_proto_msgTypes[15]
+	mi := &file_argus_v1_signal_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1867,7 +2960,7 @@ func (x *LatencyBreakdown) String() string {
 func (*LatencyBreakdown) ProtoMessage() {}
 
 func (x *LatencyBreakdown) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[15]
+	mi := &file_argus_v1_signal_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1880,7 +2973,7 @@ func (x *LatencyBreakdown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LatencyBreakdown.ProtoReflect.Descriptor instead.
 func (*LatencyBreakdown) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{15}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *LatencyBreakdown) GetEmbeddingMs() float32 {
@@ -1904,6 +2997,7 @@ func (x *LatencyBreakdown) GetRerankMs() float32 {
 	return 0
 }
 
+// ContextL8: Agent / Orchestration layer signals
 type ContextL8 struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	Operation            ContextL8_Operation    `protobuf:"varint,1,opt,name=operation,proto3,enum=argus.v1.ContextL8_Operation" json:"operation,omitempty"`
@@ -1918,13 +3012,28 @@ type ContextL8 struct {
 	PermissionsUsed      []string               `protobuf:"bytes,10,rep,name=permissions_used,json=permissionsUsed,proto3" json:"permissions_used,omitempty"`
 	PermissionsRequested []string               `protobuf:"bytes,11,rep,name=permissions_requested,json=permissionsRequested,proto3" json:"permissions_requested,omitempty"`
 	DataFlowTags         []string               `protobuf:"bytes,12,rep,name=data_flow_tags,json=dataFlowTags,proto3" json:"data_flow_tags,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Extension fields
+	TaskId              *string  `protobuf:"bytes,13,opt,name=task_id,json=taskId,proto3,oneof" json:"task_id,omitempty"`
+	ParentTaskId        *string  `protobuf:"bytes,14,opt,name=parent_task_id,json=parentTaskId,proto3,oneof" json:"parent_task_id,omitempty"`
+	TaskDepth           *int32   `protobuf:"varint,15,opt,name=task_depth,json=taskDepth,proto3,oneof" json:"task_depth,omitempty"`
+	SubtaskCount        *int32   `protobuf:"varint,16,opt,name=subtask_count,json=subtaskCount,proto3,oneof" json:"subtask_count,omitempty"`
+	MemoryOperation     *string  `protobuf:"bytes,17,opt,name=memory_operation,json=memoryOperation,proto3,oneof" json:"memory_operation,omitempty"`
+	MemoryItemsRead     *int32   `protobuf:"varint,18,opt,name=memory_items_read,json=memoryItemsRead,proto3,oneof" json:"memory_items_read,omitempty"`
+	MemoryItemsWritten  *int32   `protobuf:"varint,19,opt,name=memory_items_written,json=memoryItemsWritten,proto3,oneof" json:"memory_items_written,omitempty"`
+	CodeLanguage        *string  `protobuf:"bytes,20,opt,name=code_language,json=codeLanguage,proto3,oneof" json:"code_language,omitempty"`
+	CodeExecuted        *bool    `protobuf:"varint,21,opt,name=code_executed,json=codeExecuted,proto3,oneof" json:"code_executed,omitempty"`
+	CodeExitCode        *int32   `protobuf:"varint,22,opt,name=code_exit_code,json=codeExitCode,proto3,oneof" json:"code_exit_code,omitempty"`
+	CodeExecutionTimeMs *float32 `protobuf:"fixed32,23,opt,name=code_execution_time_ms,json=codeExecutionTimeMs,proto3,oneof" json:"code_execution_time_ms,omitempty"`
+	Sandboxed           *bool    `protobuf:"varint,24,opt,name=sandboxed,proto3,oneof" json:"sandboxed,omitempty"`
+	CapabilitiesUsed    []string `protobuf:"bytes,25,rep,name=capabilities_used,json=capabilitiesUsed,proto3" json:"capabilities_used,omitempty"`
+	OrchestratorType    *string  `protobuf:"bytes,26,opt,name=orchestrator_type,json=orchestratorType,proto3,oneof" json:"orchestrator_type,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ContextL8) Reset() {
 	*x = ContextL8{}
-	mi := &file_argus_v1_signal_proto_msgTypes[16]
+	mi := &file_argus_v1_signal_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1936,7 +3045,7 @@ func (x *ContextL8) String() string {
 func (*ContextL8) ProtoMessage() {}
 
 func (x *ContextL8) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[16]
+	mi := &file_argus_v1_signal_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1949,7 +3058,7 @@ func (x *ContextL8) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextL8.ProtoReflect.Descriptor instead.
 func (*ContextL8) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{16}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ContextL8) GetOperation() ContextL8_Operation {
@@ -2036,16 +3145,139 @@ func (x *ContextL8) GetDataFlowTags() []string {
 	return nil
 }
 
+func (x *ContextL8) GetTaskId() string {
+	if x != nil && x.TaskId != nil {
+		return *x.TaskId
+	}
+	return ""
+}
+
+func (x *ContextL8) GetParentTaskId() string {
+	if x != nil && x.ParentTaskId != nil {
+		return *x.ParentTaskId
+	}
+	return ""
+}
+
+func (x *ContextL8) GetTaskDepth() int32 {
+	if x != nil && x.TaskDepth != nil {
+		return *x.TaskDepth
+	}
+	return 0
+}
+
+func (x *ContextL8) GetSubtaskCount() int32 {
+	if x != nil && x.SubtaskCount != nil {
+		return *x.SubtaskCount
+	}
+	return 0
+}
+
+func (x *ContextL8) GetMemoryOperation() string {
+	if x != nil && x.MemoryOperation != nil {
+		return *x.MemoryOperation
+	}
+	return ""
+}
+
+func (x *ContextL8) GetMemoryItemsRead() int32 {
+	if x != nil && x.MemoryItemsRead != nil {
+		return *x.MemoryItemsRead
+	}
+	return 0
+}
+
+func (x *ContextL8) GetMemoryItemsWritten() int32 {
+	if x != nil && x.MemoryItemsWritten != nil {
+		return *x.MemoryItemsWritten
+	}
+	return 0
+}
+
+func (x *ContextL8) GetCodeLanguage() string {
+	if x != nil && x.CodeLanguage != nil {
+		return *x.CodeLanguage
+	}
+	return ""
+}
+
+func (x *ContextL8) GetCodeExecuted() bool {
+	if x != nil && x.CodeExecuted != nil {
+		return *x.CodeExecuted
+	}
+	return false
+}
+
+func (x *ContextL8) GetCodeExitCode() int32 {
+	if x != nil && x.CodeExitCode != nil {
+		return *x.CodeExitCode
+	}
+	return 0
+}
+
+func (x *ContextL8) GetCodeExecutionTimeMs() float32 {
+	if x != nil && x.CodeExecutionTimeMs != nil {
+		return *x.CodeExecutionTimeMs
+	}
+	return 0
+}
+
+func (x *ContextL8) GetSandboxed() bool {
+	if x != nil && x.Sandboxed != nil {
+		return *x.Sandboxed
+	}
+	return false
+}
+
+func (x *ContextL8) GetCapabilitiesUsed() []string {
+	if x != nil {
+		return x.CapabilitiesUsed
+	}
+	return nil
+}
+
+func (x *ContextL8) GetOrchestratorType() string {
+	if x != nil && x.OrchestratorType != nil {
+		return *x.OrchestratorType
+	}
+	return ""
+}
+
+// ContextL9: API Gateway layer signals
 type ContextL9 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Method             *string                `protobuf:"bytes,1,opt,name=method,proto3,oneof" json:"method,omitempty"`                                                        // HTTP method (GET, POST, etc.)
+	Path               *string                `protobuf:"bytes,2,opt,name=path,proto3,oneof" json:"path,omitempty"`                                                            // Request path
+	StatusCode         *int32                 `protobuf:"varint,3,opt,name=status_code,json=statusCode,proto3,oneof" json:"status_code,omitempty"`                             // HTTP response status code
+	LatencyMs          *float32               `protobuf:"fixed32,4,opt,name=latency_ms,json=latencyMs,proto3,oneof" json:"latency_ms,omitempty"`                               // End-to-end request latency (ms)
+	ClientIp           *string                `protobuf:"bytes,5,opt,name=client_ip,json=clientIp,proto3,oneof" json:"client_ip,omitempty"`                                    // Client IP address
+	UserAgent          *string                `protobuf:"bytes,6,opt,name=user_agent,json=userAgent,proto3,oneof" json:"user_agent,omitempty"`                                 // Client user agent
+	ApiKeyId           *string                `protobuf:"bytes,7,opt,name=api_key_id,json=apiKeyId,proto3,oneof" json:"api_key_id,omitempty"`                                  // API key identifier (hashed)
+	ApiVersion         *string                `protobuf:"bytes,8,opt,name=api_version,json=apiVersion,proto3,oneof" json:"api_version,omitempty"`                              // API version (e.g., "v1")
+	RequestSizeBytes   *int64                 `protobuf:"varint,9,opt,name=request_size_bytes,json=requestSizeBytes,proto3,oneof" json:"request_size_bytes,omitempty"`         // Request body size (bytes)
+	ResponseSizeBytes  *int64                 `protobuf:"varint,10,opt,name=response_size_bytes,json=responseSizeBytes,proto3,oneof" json:"response_size_bytes,omitempty"`     // Response body size (bytes)
+	CacheHit           *bool                  `protobuf:"varint,11,opt,name=cache_hit,json=cacheHit,proto3,oneof" json:"cache_hit,omitempty"`                                  // Whether response was cached
+	CacheKey           *string                `protobuf:"bytes,12,opt,name=cache_key,json=cacheKey,proto3,oneof" json:"cache_key,omitempty"`                                   // Cache key used
+	RateLimitRemaining *float32               `protobuf:"fixed32,13,opt,name=rate_limit_remaining,json=rateLimitRemaining,proto3,oneof" json:"rate_limit_remaining,omitempty"` // Remaining rate limit quota
+	RateLimitResetMs   *float32               `protobuf:"fixed32,14,opt,name=rate_limit_reset_ms,json=rateLimitResetMs,proto3,oneof" json:"rate_limit_reset_ms,omitempty"`     // Time until rate limit reset (ms)
+	RateLimited        *bool                  `protobuf:"varint,15,opt,name=rate_limited,json=rateLimited,proto3,oneof" json:"rate_limited,omitempty"`                         // Whether request was rate limited
+	AuthMethod         *string                `protobuf:"bytes,16,opt,name=auth_method,json=authMethod,proto3,oneof" json:"auth_method,omitempty"`                             // Authentication method used
+	Authenticated      *bool                  `protobuf:"varint,17,opt,name=authenticated,proto3,oneof" json:"authenticated,omitempty"`                                        // Whether request was authenticated
+	ClientId           *string                `protobuf:"bytes,18,opt,name=client_id,json=clientId,proto3,oneof" json:"client_id,omitempty"`                                   // OAuth client ID
+	RequestId          *string                `protobuf:"bytes,19,opt,name=request_id,json=requestId,proto3,oneof" json:"request_id,omitempty"`                                // Gateway-assigned request ID
+	UpstreamId         *string                `protobuf:"bytes,20,opt,name=upstream_id,json=upstreamId,proto3,oneof" json:"upstream_id,omitempty"`                             // Upstream service identifier
+	UpstreamLatencyMs  *float32               `protobuf:"fixed32,21,opt,name=upstream_latency_ms,json=upstreamLatencyMs,proto3,oneof" json:"upstream_latency_ms,omitempty"`    // Latency to upstream service (ms)
+	SslTerminated      *bool                  `protobuf:"varint,22,opt,name=ssl_terminated,json=sslTerminated,proto3,oneof" json:"ssl_terminated,omitempty"`                   // Whether SSL terminated at gateway
+	Protocol           *string                `protobuf:"bytes,23,opt,name=protocol,proto3,oneof" json:"protocol,omitempty"`                                                   // Protocol (http/1.1, h2, grpc)
+	Region             *string                `protobuf:"bytes,24,opt,name=region,proto3,oneof" json:"region,omitempty"`                                                       // Gateway region
+	EndpointAlias      *string                `protobuf:"bytes,25,opt,name=endpoint_alias,json=endpointAlias,proto3,oneof" json:"endpoint_alias,omitempty"`                    // Logical endpoint name
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ContextL9) Reset() {
 	*x = ContextL9{}
-	mi := &file_argus_v1_signal_proto_msgTypes[17]
+	mi := &file_argus_v1_signal_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2057,7 +3289,7 @@ func (x *ContextL9) String() string {
 func (*ContextL9) ProtoMessage() {}
 
 func (x *ContextL9) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[17]
+	mi := &file_argus_v1_signal_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2070,26 +3302,218 @@ func (x *ContextL9) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextL9.ProtoReflect.Descriptor instead.
 func (*ContextL9) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{17}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *ContextL9) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL9) GetMethod() string {
+	if x != nil && x.Method != nil {
+		return *x.Method
 	}
 	return ""
 }
 
+func (x *ContextL9) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	return ""
+}
+
+func (x *ContextL9) GetStatusCode() int32 {
+	if x != nil && x.StatusCode != nil {
+		return *x.StatusCode
+	}
+	return 0
+}
+
+func (x *ContextL9) GetLatencyMs() float32 {
+	if x != nil && x.LatencyMs != nil {
+		return *x.LatencyMs
+	}
+	return 0
+}
+
+func (x *ContextL9) GetClientIp() string {
+	if x != nil && x.ClientIp != nil {
+		return *x.ClientIp
+	}
+	return ""
+}
+
+func (x *ContextL9) GetUserAgent() string {
+	if x != nil && x.UserAgent != nil {
+		return *x.UserAgent
+	}
+	return ""
+}
+
+func (x *ContextL9) GetApiKeyId() string {
+	if x != nil && x.ApiKeyId != nil {
+		return *x.ApiKeyId
+	}
+	return ""
+}
+
+func (x *ContextL9) GetApiVersion() string {
+	if x != nil && x.ApiVersion != nil {
+		return *x.ApiVersion
+	}
+	return ""
+}
+
+func (x *ContextL9) GetRequestSizeBytes() int64 {
+	if x != nil && x.RequestSizeBytes != nil {
+		return *x.RequestSizeBytes
+	}
+	return 0
+}
+
+func (x *ContextL9) GetResponseSizeBytes() int64 {
+	if x != nil && x.ResponseSizeBytes != nil {
+		return *x.ResponseSizeBytes
+	}
+	return 0
+}
+
+func (x *ContextL9) GetCacheHit() bool {
+	if x != nil && x.CacheHit != nil {
+		return *x.CacheHit
+	}
+	return false
+}
+
+func (x *ContextL9) GetCacheKey() string {
+	if x != nil && x.CacheKey != nil {
+		return *x.CacheKey
+	}
+	return ""
+}
+
+func (x *ContextL9) GetRateLimitRemaining() float32 {
+	if x != nil && x.RateLimitRemaining != nil {
+		return *x.RateLimitRemaining
+	}
+	return 0
+}
+
+func (x *ContextL9) GetRateLimitResetMs() float32 {
+	if x != nil && x.RateLimitResetMs != nil {
+		return *x.RateLimitResetMs
+	}
+	return 0
+}
+
+func (x *ContextL9) GetRateLimited() bool {
+	if x != nil && x.RateLimited != nil {
+		return *x.RateLimited
+	}
+	return false
+}
+
+func (x *ContextL9) GetAuthMethod() string {
+	if x != nil && x.AuthMethod != nil {
+		return *x.AuthMethod
+	}
+	return ""
+}
+
+func (x *ContextL9) GetAuthenticated() bool {
+	if x != nil && x.Authenticated != nil {
+		return *x.Authenticated
+	}
+	return false
+}
+
+func (x *ContextL9) GetClientId() string {
+	if x != nil && x.ClientId != nil {
+		return *x.ClientId
+	}
+	return ""
+}
+
+func (x *ContextL9) GetRequestId() string {
+	if x != nil && x.RequestId != nil {
+		return *x.RequestId
+	}
+	return ""
+}
+
+func (x *ContextL9) GetUpstreamId() string {
+	if x != nil && x.UpstreamId != nil {
+		return *x.UpstreamId
+	}
+	return ""
+}
+
+func (x *ContextL9) GetUpstreamLatencyMs() float32 {
+	if x != nil && x.UpstreamLatencyMs != nil {
+		return *x.UpstreamLatencyMs
+	}
+	return 0
+}
+
+func (x *ContextL9) GetSslTerminated() bool {
+	if x != nil && x.SslTerminated != nil {
+		return *x.SslTerminated
+	}
+	return false
+}
+
+func (x *ContextL9) GetProtocol() string {
+	if x != nil && x.Protocol != nil {
+		return *x.Protocol
+	}
+	return ""
+}
+
+func (x *ContextL9) GetRegion() string {
+	if x != nil && x.Region != nil {
+		return *x.Region
+	}
+	return ""
+}
+
+func (x *ContextL9) GetEndpointAlias() string {
+	if x != nil && x.EndpointAlias != nil {
+		return *x.EndpointAlias
+	}
+	return ""
+}
+
+// ContextL10: Application layer signals
 type ContextL10 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Placeholder   string                 `protobuf:"bytes,1,opt,name=placeholder,proto3" json:"placeholder,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	UserId            *string                `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3,oneof" json:"user_id,omitempty"`                                                                                                    // End user identifier (hashed)
+	SessionId         *string                `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3,oneof" json:"session_id,omitempty"`                                                                                           // Session identifier
+	ConversationId    *string                `protobuf:"bytes,3,opt,name=conversation_id,json=conversationId,proto3,oneof" json:"conversation_id,omitempty"`                                                                            // Conversation/thread ID
+	EventType         *string                `protobuf:"bytes,4,opt,name=event_type,json=eventType,proto3,oneof" json:"event_type,omitempty"`                                                                                           // Application event type
+	Component         *string                `protobuf:"bytes,5,opt,name=component,proto3,oneof" json:"component,omitempty"`                                                                                                            // UI/service component name
+	Action            *string                `protobuf:"bytes,6,opt,name=action,proto3,oneof" json:"action,omitempty"`                                                                                                                  // User action (click, submit, etc.)
+	FeatureId         *string                `protobuf:"bytes,7,opt,name=feature_id,json=featureId,proto3,oneof" json:"feature_id,omitempty"`                                                                                           // Feature or experiment ID
+	AbVariant         *string                `protobuf:"bytes,8,opt,name=ab_variant,json=abVariant,proto3,oneof" json:"ab_variant,omitempty"`                                                                                           // A/B test variant
+	RequestRetryCount *int32                 `protobuf:"varint,9,opt,name=request_retry_count,json=requestRetryCount,proto3,oneof" json:"request_retry_count,omitempty"`                                                                // Client retry count
+	ClientLatencyMs   *float32               `protobuf:"fixed32,10,opt,name=client_latency_ms,json=clientLatencyMs,proto3,oneof" json:"client_latency_ms,omitempty"`                                                                    // Client-perceived latency (ms)
+	ErrorCode         *string                `protobuf:"bytes,11,opt,name=error_code,json=errorCode,proto3,oneof" json:"error_code,omitempty"`                                                                                          // Application error code
+	ErrorMessage      *string                `protobuf:"bytes,12,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`                                                                                 // Application error message
+	ErrorRecovered    *bool                  `protobuf:"varint,13,opt,name=error_recovered,json=errorRecovered,proto3,oneof" json:"error_recovered,omitempty"`                                                                          // Whether error was recovered
+	Platform          *string                `protobuf:"bytes,14,opt,name=platform,proto3,oneof" json:"platform,omitempty"`                                                                                                             // Client platform (web, ios, android)
+	AppVersion        *string                `protobuf:"bytes,15,opt,name=app_version,json=appVersion,proto3,oneof" json:"app_version,omitempty"`                                                                                       // Application version
+	Locale            *string                `protobuf:"bytes,16,opt,name=locale,proto3,oneof" json:"locale,omitempty"`                                                                                                                 // User locale/language
+	Timezone          *string                `protobuf:"bytes,17,opt,name=timezone,proto3,oneof" json:"timezone,omitempty"`                                                                                                             // User timezone
+	FeatureFlags      map[string]string      `protobuf:"bytes,18,rep,name=feature_flags,json=featureFlags,proto3" json:"feature_flags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`             // Active feature flags
+	CustomAttributes  map[string]string      `protobuf:"bytes,19,rep,name=custom_attributes,json=customAttributes,proto3" json:"custom_attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Custom application attributes
+	PageId            *string                `protobuf:"bytes,20,opt,name=page_id,json=pageId,proto3,oneof" json:"page_id,omitempty"`                                                                                                   // Page or view identifier
+	Referrer          *string                `protobuf:"bytes,21,opt,name=referrer,proto3,oneof" json:"referrer,omitempty"`                                                                                                             // Referring URL or source
+	SatisfactionScore *float32               `protobuf:"fixed32,22,opt,name=satisfaction_score,json=satisfactionScore,proto3,oneof" json:"satisfaction_score,omitempty"`                                                                // User satisfaction rating 1.0-5.0
+	FeedbackProvided  *bool                  `protobuf:"varint,23,opt,name=feedback_provided,json=feedbackProvided,proto3,oneof" json:"feedback_provided,omitempty"`                                                                    // Whether user provided feedback
+	DeploymentId      *string                `protobuf:"bytes,24,opt,name=deployment_id,json=deploymentId,proto3,oneof" json:"deployment_id,omitempty"`                                                                                 // Deployment/release identifier
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ContextL10) Reset() {
 	*x = ContextL10{}
-	mi := &file_argus_v1_signal_proto_msgTypes[18]
+	mi := &file_argus_v1_signal_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2101,7 +3525,7 @@ func (x *ContextL10) String() string {
 func (*ContextL10) ProtoMessage() {}
 
 func (x *ContextL10) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[18]
+	mi := &file_argus_v1_signal_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2114,16 +3538,178 @@ func (x *ContextL10) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextL10.ProtoReflect.Descriptor instead.
 func (*ContextL10) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{18}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{19}
 }
 
-func (x *ContextL10) GetPlaceholder() string {
-	if x != nil {
-		return x.Placeholder
+func (x *ContextL10) GetUserId() string {
+	if x != nil && x.UserId != nil {
+		return *x.UserId
 	}
 	return ""
 }
 
+func (x *ContextL10) GetSessionId() string {
+	if x != nil && x.SessionId != nil {
+		return *x.SessionId
+	}
+	return ""
+}
+
+func (x *ContextL10) GetConversationId() string {
+	if x != nil && x.ConversationId != nil {
+		return *x.ConversationId
+	}
+	return ""
+}
+
+func (x *ContextL10) GetEventType() string {
+	if x != nil && x.EventType != nil {
+		return *x.EventType
+	}
+	return ""
+}
+
+func (x *ContextL10) GetComponent() string {
+	if x != nil && x.Component != nil {
+		return *x.Component
+	}
+	return ""
+}
+
+func (x *ContextL10) GetAction() string {
+	if x != nil && x.Action != nil {
+		return *x.Action
+	}
+	return ""
+}
+
+func (x *ContextL10) GetFeatureId() string {
+	if x != nil && x.FeatureId != nil {
+		return *x.FeatureId
+	}
+	return ""
+}
+
+func (x *ContextL10) GetAbVariant() string {
+	if x != nil && x.AbVariant != nil {
+		return *x.AbVariant
+	}
+	return ""
+}
+
+func (x *ContextL10) GetRequestRetryCount() int32 {
+	if x != nil && x.RequestRetryCount != nil {
+		return *x.RequestRetryCount
+	}
+	return 0
+}
+
+func (x *ContextL10) GetClientLatencyMs() float32 {
+	if x != nil && x.ClientLatencyMs != nil {
+		return *x.ClientLatencyMs
+	}
+	return 0
+}
+
+func (x *ContextL10) GetErrorCode() string {
+	if x != nil && x.ErrorCode != nil {
+		return *x.ErrorCode
+	}
+	return ""
+}
+
+func (x *ContextL10) GetErrorMessage() string {
+	if x != nil && x.ErrorMessage != nil {
+		return *x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *ContextL10) GetErrorRecovered() bool {
+	if x != nil && x.ErrorRecovered != nil {
+		return *x.ErrorRecovered
+	}
+	return false
+}
+
+func (x *ContextL10) GetPlatform() string {
+	if x != nil && x.Platform != nil {
+		return *x.Platform
+	}
+	return ""
+}
+
+func (x *ContextL10) GetAppVersion() string {
+	if x != nil && x.AppVersion != nil {
+		return *x.AppVersion
+	}
+	return ""
+}
+
+func (x *ContextL10) GetLocale() string {
+	if x != nil && x.Locale != nil {
+		return *x.Locale
+	}
+	return ""
+}
+
+func (x *ContextL10) GetTimezone() string {
+	if x != nil && x.Timezone != nil {
+		return *x.Timezone
+	}
+	return ""
+}
+
+func (x *ContextL10) GetFeatureFlags() map[string]string {
+	if x != nil {
+		return x.FeatureFlags
+	}
+	return nil
+}
+
+func (x *ContextL10) GetCustomAttributes() map[string]string {
+	if x != nil {
+		return x.CustomAttributes
+	}
+	return nil
+}
+
+func (x *ContextL10) GetPageId() string {
+	if x != nil && x.PageId != nil {
+		return *x.PageId
+	}
+	return ""
+}
+
+func (x *ContextL10) GetReferrer() string {
+	if x != nil && x.Referrer != nil {
+		return *x.Referrer
+	}
+	return ""
+}
+
+func (x *ContextL10) GetSatisfactionScore() float32 {
+	if x != nil && x.SatisfactionScore != nil {
+		return *x.SatisfactionScore
+	}
+	return 0
+}
+
+func (x *ContextL10) GetFeedbackProvided() bool {
+	if x != nil && x.FeedbackProvided != nil {
+		return *x.FeedbackProvided
+	}
+	return false
+}
+
+func (x *ContextL10) GetDeploymentId() string {
+	if x != nil && x.DeploymentId != nil {
+		return *x.DeploymentId
+	}
+	return ""
+}
+
+// ContextLDecision: Policy decision signals from Kairos
 type ContextLDecision struct {
 	state             protoimpl.MessageState             `protogen:"open.v1"`
 	Decision          ContextLDecision_Decision          `protobuf:"varint,1,opt,name=decision,proto3,enum=argus.v1.ContextLDecision_Decision" json:"decision,omitempty"`
@@ -2133,13 +3719,21 @@ type ContextLDecision struct {
 	PolicyVersion     string                             `protobuf:"bytes,5,opt,name=policy_version,json=policyVersion,proto3" json:"policy_version,omitempty"`              // Policy version used for decision
 	PolicyName        string                             `protobuf:"bytes,6,opt,name=policy_name,json=policyName,proto3" json:"policy_name,omitempty"`                       // Which policy was applied
 	EvaluationTimeMs  float32                            `protobuf:"fixed32,7,opt,name=evaluation_time_ms,json=evaluationTimeMs,proto3" json:"evaluation_time_ms,omitempty"` // How long evaluation took
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Audit chain extension fields
+	PolicyId           *string  `protobuf:"bytes,8,opt,name=policy_id,json=policyId,proto3,oneof" json:"policy_id,omitempty"`                                  // Policy ID (stable reference)
+	TriggeringRuleId   *string  `protobuf:"bytes,9,opt,name=triggering_rule_id,json=triggeringRuleId,proto3,oneof" json:"triggering_rule_id,omitempty"`        // ID of the rule that triggered
+	TriggeringSignalId *string  `protobuf:"bytes,10,opt,name=triggering_signal_id,json=triggeringSignalId,proto3,oneof" json:"triggering_signal_id,omitempty"` // Signal that triggered evaluation
+	FailedOpen         *bool    `protobuf:"varint,11,opt,name=failed_open,json=failedOpen,proto3,oneof" json:"failed_open,omitempty"`                          // Whether policy failed open (allow on error)
+	DecisionTraceId    *string  `protobuf:"bytes,12,opt,name=decision_trace_id,json=decisionTraceId,proto3,oneof" json:"decision_trace_id,omitempty"`          // Trace ID for decision audit chain
+	AlertThreshold     *float32 `protobuf:"fixed32,13,opt,name=alert_threshold,json=alertThreshold,proto3,oneof" json:"alert_threshold,omitempty"`             // Alert threshold at time of decision
+	MatchedIndicators  []string `protobuf:"bytes,14,rep,name=matched_indicators,json=matchedIndicators,proto3" json:"matched_indicators,omitempty"`            // IOC/indicator IDs matched
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ContextLDecision) Reset() {
 	*x = ContextLDecision{}
-	mi := &file_argus_v1_signal_proto_msgTypes[19]
+	mi := &file_argus_v1_signal_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2151,7 +3745,7 @@ func (x *ContextLDecision) String() string {
 func (*ContextLDecision) ProtoMessage() {}
 
 func (x *ContextLDecision) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[19]
+	mi := &file_argus_v1_signal_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2164,7 +3758,7 @@ func (x *ContextLDecision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextLDecision.ProtoReflect.Descriptor instead.
 func (*ContextLDecision) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{19}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ContextLDecision) GetDecision() ContextLDecision_Decision {
@@ -2216,6 +3810,55 @@ func (x *ContextLDecision) GetEvaluationTimeMs() float32 {
 	return 0
 }
 
+func (x *ContextLDecision) GetPolicyId() string {
+	if x != nil && x.PolicyId != nil {
+		return *x.PolicyId
+	}
+	return ""
+}
+
+func (x *ContextLDecision) GetTriggeringRuleId() string {
+	if x != nil && x.TriggeringRuleId != nil {
+		return *x.TriggeringRuleId
+	}
+	return ""
+}
+
+func (x *ContextLDecision) GetTriggeringSignalId() string {
+	if x != nil && x.TriggeringSignalId != nil {
+		return *x.TriggeringSignalId
+	}
+	return ""
+}
+
+func (x *ContextLDecision) GetFailedOpen() bool {
+	if x != nil && x.FailedOpen != nil {
+		return *x.FailedOpen
+	}
+	return false
+}
+
+func (x *ContextLDecision) GetDecisionTraceId() string {
+	if x != nil && x.DecisionTraceId != nil {
+		return *x.DecisionTraceId
+	}
+	return ""
+}
+
+func (x *ContextLDecision) GetAlertThreshold() float32 {
+	if x != nil && x.AlertThreshold != nil {
+		return *x.AlertThreshold
+	}
+	return 0
+}
+
+func (x *ContextLDecision) GetMatchedIndicators() []string {
+	if x != nil {
+		return x.MatchedIndicators
+	}
+	return nil
+}
+
 // BaselineProfile represents statistical baseline metrics for (app_id, layer, category)
 type BaselineProfile struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2238,7 +3881,7 @@ type BaselineProfile struct {
 
 func (x *BaselineProfile) Reset() {
 	*x = BaselineProfile{}
-	mi := &file_argus_v1_signal_proto_msgTypes[20]
+	mi := &file_argus_v1_signal_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2250,7 +3893,7 @@ func (x *BaselineProfile) String() string {
 func (*BaselineProfile) ProtoMessage() {}
 
 func (x *BaselineProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_argus_v1_signal_proto_msgTypes[20]
+	mi := &file_argus_v1_signal_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2263,7 +3906,7 @@ func (x *BaselineProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BaselineProfile.ProtoReflect.Descriptor instead.
 func (*BaselineProfile) Descriptor() ([]byte, []int) {
-	return file_argus_v1_signal_proto_rawDescGZIP(), []int{20}
+	return file_argus_v1_signal_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *BaselineProfile) GetAppId() string {
@@ -2441,15 +4084,209 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\x05_cityB\v\n" +
 	"\t_latitudeB\f\n" +
 	"\n" +
-	"_longitude\"-\n" +
-	"\tContextL1\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\"-\n" +
-	"\tContextL2\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\"-\n" +
-	"\tContextL3\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\"-\n" +
-	"\tContextL4\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\"\xa2\x05\n" +
+	"_longitude\"\xd1\v\n" +
+	"\tContextL1\x12'\n" +
+	"\rcpu_usage_pct\x18\x01 \x01(\x02H\x00R\vcpuUsagePct\x88\x01\x01\x12)\n" +
+	"\x0ememory_used_mb\x18\x02 \x01(\x02H\x01R\fmemoryUsedMb\x88\x01\x01\x12+\n" +
+	"\x0fmemory_total_mb\x18\x03 \x01(\x02H\x02R\rmemoryTotalMb\x88\x01\x01\x123\n" +
+	"\x13gpu_utilization_pct\x18\x04 \x01(\x02H\x03R\x11gpuUtilizationPct\x88\x01\x01\x120\n" +
+	"\x12gpu_memory_used_mb\x18\x05 \x01(\x02H\x04R\x0fgpuMemoryUsedMb\x88\x01\x01\x122\n" +
+	"\x13gpu_memory_total_mb\x18\x06 \x01(\x02H\x05R\x10gpuMemoryTotalMb\x88\x01\x01\x12/\n" +
+	"\x11gpu_temperature_c\x18\a \x01(\x02H\x06R\x0fgpuTemperatureC\x88\x01\x01\x12,\n" +
+	"\x10gpu_power_draw_w\x18\b \x01(\x02H\aR\rgpuPowerDrawW\x88\x01\x01\x12 \n" +
+	"\tgpu_count\x18\t \x01(\x05H\bR\bgpuCount\x88\x01\x01\x12 \n" +
+	"\tgpu_model\x18\n" +
+	" \x01(\tH\tR\bgpuModel\x88\x01\x01\x12)\n" +
+	"\x0edisk_read_mbps\x18\v \x01(\x02H\n" +
+	"R\fdiskReadMbps\x88\x01\x01\x12+\n" +
+	"\x0fdisk_write_mbps\x18\f \x01(\x02H\vR\rdiskWriteMbps\x88\x01\x01\x12#\n" +
+	"\vnet_rx_mbps\x18\r \x01(\x02H\fR\tnetRxMbps\x88\x01\x01\x12#\n" +
+	"\vnet_tx_mbps\x18\x0e \x01(\x02H\rR\tnetTxMbps\x88\x01\x01\x12'\n" +
+	"\rcpu_steal_pct\x18\x10 \x01(\x02H\x0eR\vcpuStealPct\x88\x01\x01\x12#\n" +
+	"\vload_avg_1m\x18\x11 \x01(\x02H\x0fR\tloadAvg1m\x88\x01\x01\x12#\n" +
+	"\vload_avg_5m\x18\x12 \x01(\x02H\x10R\tloadAvg5m\x88\x01\x01\x12%\n" +
+	"\fload_avg_15m\x18\x13 \x01(\x02H\x11R\n" +
+	"loadAvg15m\x88\x01\x01\x127\n" +
+	"\x15open_file_descriptors\x18\x14 \x01(\x05H\x12R\x13openFileDescriptors\x88\x01\x01\x12&\n" +
+	"\fthread_count\x18\x15 \x01(\x05H\x13R\vthreadCount\x88\x01\x01\x12\x1c\n" +
+	"\ahost_id\x18\x16 \x01(\tH\x14R\x06hostId\x88\x01\x01\x12(\n" +
+	"\rinstance_type\x18\x18 \x01(\tH\x15R\finstanceType\x88\x01\x01\x12+\n" +
+	"\x0fprocess_cpu_pct\x18\x19 \x01(\x02H\x16R\rprocessCpuPct\x88\x01\x01\x12/\n" +
+	"\x11process_memory_mb\x18\x1a \x01(\x02H\x17R\x0fprocessMemoryMb\x88\x01\x01B\x10\n" +
+	"\x0e_cpu_usage_pctB\x11\n" +
+	"\x0f_memory_used_mbB\x12\n" +
+	"\x10_memory_total_mbB\x16\n" +
+	"\x14_gpu_utilization_pctB\x15\n" +
+	"\x13_gpu_memory_used_mbB\x16\n" +
+	"\x14_gpu_memory_total_mbB\x14\n" +
+	"\x12_gpu_temperature_cB\x13\n" +
+	"\x11_gpu_power_draw_wB\f\n" +
+	"\n" +
+	"_gpu_countB\f\n" +
+	"\n" +
+	"_gpu_modelB\x11\n" +
+	"\x0f_disk_read_mbpsB\x12\n" +
+	"\x10_disk_write_mbpsB\x0e\n" +
+	"\f_net_rx_mbpsB\x0e\n" +
+	"\f_net_tx_mbpsB\x10\n" +
+	"\x0e_cpu_steal_pctB\x0e\n" +
+	"\f_load_avg_1mB\x0e\n" +
+	"\f_load_avg_5mB\x0f\n" +
+	"\r_load_avg_15mB\x18\n" +
+	"\x16_open_file_descriptorsB\x0f\n" +
+	"\r_thread_countB\n" +
+	"\n" +
+	"\b_host_idB\x10\n" +
+	"\x0e_instance_typeB\x12\n" +
+	"\x10_process_cpu_pctB\x14\n" +
+	"\x12_process_memory_mb\"\xb7\b\n" +
+	"\tContextL2\x12\x1e\n" +
+	"\bmodel_id\x18\x01 \x01(\tH\x00R\amodelId\x88\x01\x01\x12&\n" +
+	"\fmodel_family\x18\x02 \x01(\tH\x01R\vmodelFamily\x88\x01\x01\x12(\n" +
+	"\rmodel_version\x18\x03 \x01(\tH\x02R\fmodelVersion\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"model_hash\x18\x04 \x01(\tH\x03R\tmodelHash\x88\x01\x01\x12'\n" +
+	"\fquantization\x18\x05 \x01(\tH\x04R\fquantization\x88\x01\x01\x12,\n" +
+	"\x0fparameter_count\x18\x06 \x01(\x03H\x05R\x0eparameterCount\x88\x01\x01\x12'\n" +
+	"\rmodel_size_gb\x18\a \x01(\x02H\x06R\vmodelSizeGb\x88\x01\x01\x12%\n" +
+	"\fload_time_ms\x18\b \x01(\x02H\aR\n" +
+	"loadTimeMs\x88\x01\x01\x12/\n" +
+	"\x11vram_allocated_gb\x18\t \x01(\x02H\bR\x0fvramAllocatedGb\x88\x01\x01\x12-\n" +
+	"\x10ram_allocated_gb\x18\n" +
+	" \x01(\x02H\tR\x0eramAllocatedGb\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\v \x01(\tH\n" +
+	"R\tprecision\x88\x01\x01\x12\x1d\n" +
+	"\abackend\x18\f \x01(\tH\vR\abackend\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"adapter_id\x18\r \x01(\tH\fR\tadapterId\x88\x01\x01\x12&\n" +
+	"\fadapter_hash\x18\x0e \x01(\tH\rR\vadapterHash\x88\x01\x01\x12.\n" +
+	"\x10weights_verified\x18\x14 \x01(\bH\x0eR\x0fweightsVerified\x88\x01\x01\x12:\n" +
+	"\x17weights_load_latency_ms\x18\x15 \x01(\x02H\x0fR\x14weightsLoadLatencyMs\x88\x01\x01\x12.\n" +
+	"\x10layers_offloaded\x18\x16 \x01(\x05H\x10R\x0flayersOffloaded\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"device_map\x18\x18 \x01(\tH\x11R\tdeviceMap\x88\x01\x01B\v\n" +
+	"\t_model_idB\x0f\n" +
+	"\r_model_familyB\x10\n" +
+	"\x0e_model_versionB\r\n" +
+	"\v_model_hashB\x0f\n" +
+	"\r_quantizationB\x12\n" +
+	"\x10_parameter_countB\x10\n" +
+	"\x0e_model_size_gbB\x0f\n" +
+	"\r_load_time_msB\x14\n" +
+	"\x12_vram_allocated_gbB\x13\n" +
+	"\x11_ram_allocated_gbB\f\n" +
+	"\n" +
+	"_precisionB\n" +
+	"\n" +
+	"\b_backendB\r\n" +
+	"\v_adapter_idB\x0f\n" +
+	"\r_adapter_hashB\x13\n" +
+	"\x11_weights_verifiedB\x1a\n" +
+	"\x18_weights_load_latency_msB\x13\n" +
+	"\x11_layers_offloadedB\r\n" +
+	"\v_device_map\"\x8f\v\n" +
+	"\tContextL3\x12&\n" +
+	"\finput_tokens\x18\x01 \x01(\x05H\x00R\vinputTokens\x88\x01\x01\x12(\n" +
+	"\routput_tokens\x18\x04 \x01(\x05H\x01R\foutputTokens\x88\x01\x01\x12&\n" +
+	"\ftotal_tokens\x18\x05 \x01(\x05H\x02R\vtotalTokens\x88\x01\x01\x12&\n" +
+	"\ftokenizer_id\x18\x06 \x01(\tH\x03R\vtokenizerId\x88\x01\x01\x120\n" +
+	"\x11tokenizer_version\x18\a \x01(\tH\x04R\x10tokenizerVersion\x88\x01\x01\x12-\n" +
+	"\x10encoding_time_ms\x18\b \x01(\x02H\x05R\x0eencodingTimeMs\x88\x01\x01\x12-\n" +
+	"\x10decoding_time_ms\x18\t \x01(\x02H\x06R\x0edecodingTimeMs\x88\x01\x01\x123\n" +
+	"\x13context_window_size\x18\n" +
+	" \x01(\x05H\aR\x11contextWindowSize\x88\x01\x01\x12;\n" +
+	"\x17context_utilization_pct\x18\v \x01(\x02H\bR\x15contextUtilizationPct\x88\x01\x01\x12.\n" +
+	"\x10truncated_tokens\x18\f \x01(\x05H\tR\x0ftruncatedTokens\x88\x01\x01\x12!\n" +
+	"\ttruncated\x18\r \x01(\bH\n" +
+	"R\ttruncated\x88\x01\x01\x12(\n" +
+	"\rchat_template\x18\x0e \x01(\tH\vR\fchatTemplate\x88\x01\x01\x12 \n" +
+	"\tbos_token\x18\x0f \x01(\tH\fR\bbosToken\x88\x01\x01\x12-\n" +
+	"\x10avg_token_length\x18\x13 \x01(\x02H\rR\x0eavgTokenLength\x88\x01\x01\x121\n" +
+	"\x12unique_token_count\x18\x14 \x01(\x05H\x0eR\x10uniqueTokenCount\x88\x01\x01\x12(\n" +
+	"\rtoken_entropy\x18\x15 \x01(\x02H\x0fR\ftokenEntropy\x88\x01\x01\x123\n" +
+	"\x13special_token_count\x18\x16 \x01(\x05H\x10R\x11specialTokenCount\x88\x01\x01\x12(\n" +
+	"\rencoding_name\x18\x17 \x01(\tH\x11R\fencodingName\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"vocab_size\x18\x18 \x01(\x05H\x12R\tvocabSize\x88\x01\x01\x120\n" +
+	"\x11compression_ratio\x18\x19 \x01(\x02H\x13R\x10compressionRatio\x88\x01\x01\x12\x1e\n" +
+	"\boov_rate\x18\x1a \x01(\x02H\x14R\aoovRate\x88\x01\x01\x121\n" +
+	"\x12has_special_tokens\x18\x1b \x01(\bH\x15R\x10hasSpecialTokens\x88\x01\x01B\x0f\n" +
+	"\r_input_tokensB\x10\n" +
+	"\x0e_output_tokensB\x0f\n" +
+	"\r_total_tokensB\x0f\n" +
+	"\r_tokenizer_idB\x14\n" +
+	"\x12_tokenizer_versionB\x13\n" +
+	"\x11_encoding_time_msB\x13\n" +
+	"\x11_decoding_time_msB\x16\n" +
+	"\x14_context_window_sizeB\x1a\n" +
+	"\x18_context_utilization_pctB\x13\n" +
+	"\x11_truncated_tokensB\f\n" +
+	"\n" +
+	"_truncatedB\x10\n" +
+	"\x0e_chat_templateB\f\n" +
+	"\n" +
+	"_bos_tokenB\x13\n" +
+	"\x11_avg_token_lengthB\x15\n" +
+	"\x13_unique_token_countB\x10\n" +
+	"\x0e_token_entropyB\x16\n" +
+	"\x14_special_token_countB\x10\n" +
+	"\x0e_encoding_nameB\r\n" +
+	"\v_vocab_sizeB\x14\n" +
+	"\x12_compression_ratioB\v\n" +
+	"\t_oov_rateB\x15\n" +
+	"\x13_has_special_tokens\"\xf0\f\n" +
+	"\tContextL4\x12,\n" +
+	"\x10kv_cache_used_mb\x18\x01 \x01(\x02H\x00R\rkvCacheUsedMb\x88\x01\x01\x12.\n" +
+	"\x11kv_cache_total_mb\x18\x02 \x01(\x02H\x01R\x0ekvCacheTotalMb\x88\x01\x01\x12.\n" +
+	"\x11kv_cache_hit_rate\x18\x03 \x01(\x02H\x02R\x0ekvCacheHitRate\x88\x01\x01\x12 \n" +
+	"\tnum_heads\x18\x04 \x01(\x05H\x03R\bnumHeads\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"num_layers\x18\x05 \x01(\x05H\x04R\tnumLayers\x88\x01\x01\x129\n" +
+	"\x16attention_entropy_mean\x18\x06 \x01(\x02H\x05R\x14attentionEntropyMean\x88\x01\x01\x127\n" +
+	"\x15attention_entropy_max\x18\a \x01(\x02H\x06R\x13attentionEntropyMax\x88\x01\x01\x127\n" +
+	"\x15attention_entropy_min\x18\b \x01(\x02H\aR\x13attentionEntropyMin\x88\x01\x01\x12+\n" +
+	"\x0fprefill_time_ms\x18\v \x01(\x02H\bR\rprefillTimeMs\x88\x01\x01\x12)\n" +
+	"\x0edecode_time_ms\x18\f \x01(\x02H\tR\fdecodeTimeMs\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"batch_size\x18\r \x01(\x05H\n" +
+	"R\tbatchSize\x88\x01\x01\x12,\n" +
+	"\x0fsequence_length\x18\x0e \x01(\x05H\vR\x0esequenceLength\x88\x01\x01\x12>\n" +
+	"\x19throughput_tokens_per_sec\x18\x0f \x01(\x02H\fR\x16throughputTokensPerSec\x88\x01\x01\x127\n" +
+	"\x15memory_bandwidth_gbps\x18\x10 \x01(\x02H\rR\x13memoryBandwidthGbps\x88\x01\x01\x12,\n" +
+	"\x0fflash_attention\x18\x11 \x01(\bH\x0eR\x0eflashAttention\x88\x01\x01\x12,\n" +
+	"\x0fpaged_attention\x18\x12 \x01(\bH\x0fR\x0epagedAttention\x88\x01\x01\x122\n" +
+	"\x12speculative_tokens\x18\x13 \x01(\x05H\x10R\x11speculativeTokens\x88\x01\x01\x12;\n" +
+	"\x17speculation_accept_rate\x18\x14 \x01(\x02H\x11R\x15speculationAcceptRate\x88\x01\x01\x123\n" +
+	"\x13context_length_used\x18\x15 \x01(\x05H\x12R\x11contextLengthUsed\x88\x01\x01\x12.\n" +
+	"\x10active_sequences\x18\x16 \x01(\x05H\x13R\x0factiveSequences\x88\x01\x01\x12*\n" +
+	"\x0eflops_utilized\x18\x17 \x01(\x02H\x14R\rflopsUtilized\x88\x01\x01\x12>\n" +
+	"\x18attention_implementation\x18\x18 \x01(\tH\x15R\x17attentionImplementation\x88\x01\x01\x12(\n" +
+	"\rcompute_dtype\x18\x19 \x01(\tH\x16R\fcomputeDtype\x88\x01\x01B\x13\n" +
+	"\x11_kv_cache_used_mbB\x14\n" +
+	"\x12_kv_cache_total_mbB\x14\n" +
+	"\x12_kv_cache_hit_rateB\f\n" +
+	"\n" +
+	"_num_headsB\r\n" +
+	"\v_num_layersB\x19\n" +
+	"\x17_attention_entropy_meanB\x18\n" +
+	"\x16_attention_entropy_maxB\x18\n" +
+	"\x16_attention_entropy_minB\x12\n" +
+	"\x10_prefill_time_msB\x11\n" +
+	"\x0f_decode_time_msB\r\n" +
+	"\v_batch_sizeB\x12\n" +
+	"\x10_sequence_lengthB\x1c\n" +
+	"\x1a_throughput_tokens_per_secB\x18\n" +
+	"\x16_memory_bandwidth_gbpsB\x12\n" +
+	"\x10_flash_attentionB\x12\n" +
+	"\x10_paged_attentionB\x15\n" +
+	"\x13_speculative_tokensB\x1a\n" +
+	"\x18_speculation_accept_rateB\x16\n" +
+	"\x14_context_length_usedB\x13\n" +
+	"\x11_active_sequencesB\x11\n" +
+	"\x0f_flops_utilizedB\x1b\n" +
+	"\x19_attention_implementationB\x10\n" +
+	"\x0e_compute_dtype\"\xb8\n" +
+	"\n" +
 	"\tContextL5\x12;\n" +
 	"\toperation\x18\x01 \x01(\x0e2\x1d.argus.v1.ContextL5.OperationR\toperation\x12#\n" +
 	"\routput_tokens\x18\x02 \x01(\x05R\foutputTokens\x12!\n" +
@@ -2466,7 +4303,19 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\fentropy_mean\x18\v \x01(\x02H\x02R\ventropyMean\x88\x01\x01\x12.\n" +
 	"\x10entropy_variance\x18\f \x01(\x02H\x03R\x0fentropyVariance\x88\x01\x01\x12\x17\n" +
 	"\attft_ms\x18\r \x01(\x02R\x06ttftMs\x12\x10\n" +
-	"\x03tps\x18\x0e \x01(\x02R\x03tps\"E\n" +
+	"\x03tps\x18\x0e \x01(\x02R\x03tps\x12\x18\n" +
+	"\x05top_k\x18\x0f \x01(\x05H\x04R\x04topK\x88\x01\x01\x12\x18\n" +
+	"\x05min_p\x18\x10 \x01(\x02H\x05R\x04minP\x88\x01\x01\x122\n" +
+	"\x12repetition_penalty\x18\x11 \x01(\x02H\x06R\x11repetitionPenalty\x88\x01\x01\x12.\n" +
+	"\x10presence_penalty\x18\x12 \x01(\x02H\aR\x0fpresencePenalty\x88\x01\x01\x120\n" +
+	"\x11frequency_penalty\x18\x13 \x01(\x02H\bR\x10frequencyPenalty\x88\x01\x01\x12\x17\n" +
+	"\x04seed\x18\x14 \x01(\x03H\tR\x04seed\x88\x01\x01\x12%\n" +
+	"\x0estop_sequences\x18\x15 \x03(\tR\rstopSequences\x12;\n" +
+	"\x17output_repetition_score\x18\x16 \x01(\x02H\n" +
+	"R\x15outputRepetitionScore\x88\x01\x01\x127\n" +
+	"\x15distinct_ngrams_ratio\x18\x17 \x01(\x02H\vR\x13distinctNgramsRatio\x88\x01\x01\x12!\n" +
+	"\ttruncated\x18\x18 \x01(\bH\fR\ttruncated\x88\x01\x01\x125\n" +
+	"\x14finish_reason_detail\x18\x19 \x01(\tH\rR\x12finishReasonDetail\x88\x01\x01\"E\n" +
 	"\tOperation\x12\x19\n" +
 	"\x15OPERATION_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -2475,16 +4324,76 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\r_mean_logprobB\x0e\n" +
 	"\f_min_logprobB\x0f\n" +
 	"\r_entropy_meanB\x13\n" +
-	"\x11_entropy_variance\"\x80\x01\n" +
+	"\x11_entropy_varianceB\b\n" +
+	"\x06_top_kB\b\n" +
+	"\x06_min_pB\x15\n" +
+	"\x13_repetition_penaltyB\x13\n" +
+	"\x11_presence_penaltyB\x14\n" +
+	"\x12_frequency_penaltyB\a\n" +
+	"\x05_seedB\x1a\n" +
+	"\x18_output_repetition_scoreB\x18\n" +
+	"\x16_distinct_ngrams_ratioB\f\n" +
+	"\n" +
+	"_truncatedB\x17\n" +
+	"\x15_finish_reason_detail\"\x80\x01\n" +
 	"\fLogProbEntry\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
 	"\alogprob\x18\x02 \x01(\x02R\alogprob\x12@\n" +
 	"\x10top_alternatives\x18\x03 \x03(\v2\x15.argus.v1.AlternativeR\x0ftopAlternatives\"=\n" +
 	"\vAlternative\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
-	"\alogprob\x18\x02 \x01(\x02R\alogprob\"-\n" +
-	"\tContextL6\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\"\x9b\x05\n" +
+	"\alogprob\x18\x02 \x01(\x02R\alogprob\"a\n" +
+	"\x13SafetyCategoryScore\x12\x1a\n" +
+	"\bcategory\x18\x01 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05score\x18\x02 \x01(\x02R\x05score\x12\x18\n" +
+	"\aflagged\x18\x03 \x01(\bR\aflagged\"\xa8\v\n" +
+	"\tContextL6\x12&\n" +
+	"\fsafety_score\x18\x01 \x01(\x02H\x00R\vsafetyScore\x88\x01\x01\x12\x17\n" +
+	"\x04safe\x18\x02 \x01(\bH\x01R\x04safe\x88\x01\x01\x12&\n" +
+	"\faction_taken\x18\x03 \x01(\tH\x02R\vactionTaken\x88\x01\x01\x12(\n" +
+	"\rclassifier_id\x18\x04 \x01(\tH\x03R\fclassifierId\x88\x01\x01\x12F\n" +
+	"\x0fcategory_scores\x18\v \x03(\v2\x1d.argus.v1.SafetyCategoryScoreR\x0ecategoryScores\x12*\n" +
+	"\x0etoxicity_score\x18\f \x01(\x02H\x04R\rtoxicityScore\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"bias_score\x18\r \x01(\x02H\x05R\tbiasScore\x88\x01\x01\x12 \n" +
+	"\tpolicy_id\x18\x0f \x01(\tH\x06R\bpolicyId\x88\x01\x01\x12*\n" +
+	"\x0epolicy_version\x18\x10 \x01(\tH\aR\rpolicyVersion\x88\x01\x01\x12,\n" +
+	"\x0fpolicy_violated\x18\x11 \x01(\bH\bR\x0epolicyViolated\x88\x01\x01\x12*\n" +
+	"\x0eviolation_type\x18\x12 \x01(\tH\tR\rviolationType\x88\x01\x01\x12.\n" +
+	"\x10redaction_method\x18\x13 \x01(\tH\n" +
+	"R\x0fredactionMethod\x88\x01\x01\x12,\n" +
+	"\x0fredacted_tokens\x18\x14 \x01(\x05H\vR\x0eredactedTokens\x88\x01\x01\x121\n" +
+	"\x12evaluation_time_ms\x18\x15 \x01(\x02H\fR\x10evaluationTimeMs\x88\x01\x01\x12*\n" +
+	"\x0einput_language\x18\x16 \x01(\tH\rR\rinputLanguage\x88\x01\x01\x124\n" +
+	"\x13language_confidence\x18\x17 \x01(\x02H\x0eR\x12languageConfidence\x88\x01\x01\x122\n" +
+	"\x12jailbreak_detected\x18\x18 \x01(\bH\x0fR\x11jailbreakDetected\x88\x01\x01\x12,\n" +
+	"\x0fjailbreak_score\x18\x19 \x01(\x02H\x10R\x0ejailbreakScore\x88\x01\x01\x12?\n" +
+	"\x19prompt_injection_detected\x18\x1a \x01(\bH\x11R\x17promptInjectionDetected\x88\x01\x01\x129\n" +
+	"\x16prompt_injection_score\x18\x1b \x01(\x02H\x12R\x14promptInjectionScore\x88\x01\x01\x121\n" +
+	"\x12pii_types_detected\x18\x1c \x01(\tH\x13R\x10piiTypesDetected\x88\x01\x01\x12&\n" +
+	"\fpii_redacted\x18\x1d \x01(\bH\x14R\vpiiRedacted\x88\x01\x01B\x0f\n" +
+	"\r_safety_scoreB\a\n" +
+	"\x05_safeB\x0f\n" +
+	"\r_action_takenB\x10\n" +
+	"\x0e_classifier_idB\x11\n" +
+	"\x0f_toxicity_scoreB\r\n" +
+	"\v_bias_scoreB\f\n" +
+	"\n" +
+	"_policy_idB\x11\n" +
+	"\x0f_policy_versionB\x12\n" +
+	"\x10_policy_violatedB\x11\n" +
+	"\x0f_violation_typeB\x13\n" +
+	"\x11_redaction_methodB\x12\n" +
+	"\x10_redacted_tokensB\x15\n" +
+	"\x13_evaluation_time_msB\x11\n" +
+	"\x0f_input_languageB\x16\n" +
+	"\x14_language_confidenceB\x15\n" +
+	"\x13_jailbreak_detectedB\x12\n" +
+	"\x10_jailbreak_scoreB\x1c\n" +
+	"\x1a_prompt_injection_detectedB\x19\n" +
+	"\x17_prompt_injection_scoreB\x15\n" +
+	"\x13_pii_types_detectedB\x0f\n" +
+	"\r_pii_redacted\"\xea\v\n" +
 	"\tContextL7\x12;\n" +
 	"\toperation\x18\x01 \x01(\x0e2\x1d.argus.v1.ContextL7.OperationR\toperation\x12\x1d\n" +
 	"\n" +
@@ -2499,7 +4408,23 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\x10reranker_applied\x18\n" +
 	" \x01(\bR\x0frerankerApplied\x12*\n" +
 	"\x0ereranker_delta\x18\v \x01(\x02H\x00R\rrerankerDelta\x88\x01\x01\x12G\n" +
-	"\x11latency_breakdown\x18\f \x01(\v2\x1a.argus.v1.LatencyBreakdownR\x10latencyBreakdown\"f\n" +
+	"\x11latency_breakdown\x18\f \x01(\v2\x1a.argus.v1.LatencyBreakdownR\x10latencyBreakdown\x12+\n" +
+	"\x0fquery_cache_hit\x18\r \x01(\bH\x01R\rqueryCacheHit\x88\x01\x01\x12+\n" +
+	"\x0fquery_cache_key\x18\x0e \x01(\tH\x02R\rqueryCacheKey\x88\x01\x01\x12*\n" +
+	"\x0ecitations_used\x18\x0f \x01(\x05H\x03R\rcitationsUsed\x88\x01\x01\x129\n" +
+	"\x16citation_overlap_score\x18\x10 \x01(\x02H\x04R\x14citationOverlapScore\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"index_name\x18\x11 \x01(\tH\x05R\tindexName\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"index_type\x18\x12 \x01(\tH\x06R\tindexType\x88\x01\x01\x125\n" +
+	"\x14index_document_count\x18\x13 \x01(\x03H\aR\x12indexDocumentCount\x88\x01\x01\x127\n" +
+	"\x15index_freshness_hours\x18\x14 \x01(\x02H\bR\x13indexFreshnessHours\x88\x01\x01\x12*\n" +
+	"\x0ereranker_score\x18\x15 \x01(\x02H\tR\rrerankerScore\x88\x01\x01\x12*\n" +
+	"\x0ereranker_model\x18\x16 \x01(\tH\n" +
+	"R\rrerankerModel\x88\x01\x01\x12(\n" +
+	"\rhybrid_search\x18\x17 \x01(\bH\vR\fhybridSearch\x88\x01\x01\x12(\n" +
+	"\rsparse_weight\x18\x18 \x01(\x02H\fR\fsparseWeight\x88\x01\x01\x12&\n" +
+	"\fdense_weight\x18\x19 \x01(\x02H\rR\vdenseWeight\x88\x01\x01\"f\n" +
 	"\tOperation\x12\x19\n" +
 	"\x15OPERATION_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rVECTOR_SEARCH\x10\x01\x12\n" +
@@ -2507,11 +4432,24 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\x06RERANK\x10\x02\x12\x10\n" +
 	"\fCHUNK_INJECT\x10\x03\x12\r\n" +
 	"\tEMBEDDING\x10\x04B\x11\n" +
-	"\x0f_reranker_delta\"o\n" +
+	"\x0f_reranker_deltaB\x12\n" +
+	"\x10_query_cache_hitB\x12\n" +
+	"\x10_query_cache_keyB\x11\n" +
+	"\x0f_citations_usedB\x19\n" +
+	"\x17_citation_overlap_scoreB\r\n" +
+	"\v_index_nameB\r\n" +
+	"\v_index_typeB\x17\n" +
+	"\x15_index_document_countB\x18\n" +
+	"\x16_index_freshness_hoursB\x11\n" +
+	"\x0f_reranker_scoreB\x11\n" +
+	"\x0f_reranker_modelB\x10\n" +
+	"\x0e_hybrid_searchB\x10\n" +
+	"\x0e_sparse_weightB\x0f\n" +
+	"\r_dense_weight\"o\n" +
 	"\x10LatencyBreakdown\x12!\n" +
 	"\fembedding_ms\x18\x01 \x01(\x02R\vembeddingMs\x12\x1b\n" +
 	"\tsearch_ms\x18\x02 \x01(\x02R\bsearchMs\x12\x1b\n" +
-	"\trerank_ms\x18\x03 \x01(\x02R\brerankMs\"\xda\x05\n" +
+	"\trerank_ms\x18\x03 \x01(\x02R\brerankMs\"\xbe\f\n" +
 	"\tContextL8\x12;\n" +
 	"\toperation\x18\x01 \x01(\x0e2\x1d.argus.v1.ContextL8.OperationR\toperation\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12#\n" +
@@ -2529,7 +4467,23 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\x10permissions_used\x18\n" +
 	" \x03(\tR\x0fpermissionsUsed\x123\n" +
 	"\x15permissions_requested\x18\v \x03(\tR\x14permissionsRequested\x12$\n" +
-	"\x0edata_flow_tags\x18\f \x03(\tR\fdataFlowTags\x1a@\n" +
+	"\x0edata_flow_tags\x18\f \x03(\tR\fdataFlowTags\x12\x1c\n" +
+	"\atask_id\x18\r \x01(\tH\x02R\x06taskId\x88\x01\x01\x12)\n" +
+	"\x0eparent_task_id\x18\x0e \x01(\tH\x03R\fparentTaskId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"task_depth\x18\x0f \x01(\x05H\x04R\ttaskDepth\x88\x01\x01\x12(\n" +
+	"\rsubtask_count\x18\x10 \x01(\x05H\x05R\fsubtaskCount\x88\x01\x01\x12.\n" +
+	"\x10memory_operation\x18\x11 \x01(\tH\x06R\x0fmemoryOperation\x88\x01\x01\x12/\n" +
+	"\x11memory_items_read\x18\x12 \x01(\x05H\aR\x0fmemoryItemsRead\x88\x01\x01\x125\n" +
+	"\x14memory_items_written\x18\x13 \x01(\x05H\bR\x12memoryItemsWritten\x88\x01\x01\x12(\n" +
+	"\rcode_language\x18\x14 \x01(\tH\tR\fcodeLanguage\x88\x01\x01\x12(\n" +
+	"\rcode_executed\x18\x15 \x01(\bH\n" +
+	"R\fcodeExecuted\x88\x01\x01\x12)\n" +
+	"\x0ecode_exit_code\x18\x16 \x01(\x05H\vR\fcodeExitCode\x88\x01\x01\x128\n" +
+	"\x16code_execution_time_ms\x18\x17 \x01(\x02H\fR\x13codeExecutionTimeMs\x88\x01\x01\x12!\n" +
+	"\tsandboxed\x18\x18 \x01(\bH\rR\tsandboxed\x88\x01\x01\x12+\n" +
+	"\x11capabilities_used\x18\x19 \x03(\tR\x10capabilitiesUsed\x120\n" +
+	"\x11orchestrator_type\x18\x1a \x01(\tH\x0eR\x10orchestratorType\x88\x01\x01\x1a@\n" +
 	"\x12ToolArgumentsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"d\n" +
@@ -2541,12 +4495,152 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\n" +
 	"DELEGATION\x10\x04B\r\n" +
 	"\v_tool_errorB\x0e\n" +
-	"\f_total_steps\"-\n" +
-	"\tContextL9\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\".\n" +
+	"\f_total_stepsB\n" +
 	"\n" +
-	"ContextL10\x12 \n" +
-	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\"\x85\x04\n" +
+	"\b_task_idB\x11\n" +
+	"\x0f_parent_task_idB\r\n" +
+	"\v_task_depthB\x10\n" +
+	"\x0e_subtask_countB\x13\n" +
+	"\x11_memory_operationB\x14\n" +
+	"\x12_memory_items_readB\x17\n" +
+	"\x15_memory_items_writtenB\x10\n" +
+	"\x0e_code_languageB\x10\n" +
+	"\x0e_code_executedB\x11\n" +
+	"\x0f_code_exit_codeB\x19\n" +
+	"\x17_code_execution_time_msB\f\n" +
+	"\n" +
+	"_sandboxedB\x14\n" +
+	"\x12_orchestrator_type\"\x82\v\n" +
+	"\tContextL9\x12\x1b\n" +
+	"\x06method\x18\x01 \x01(\tH\x00R\x06method\x88\x01\x01\x12\x17\n" +
+	"\x04path\x18\x02 \x01(\tH\x01R\x04path\x88\x01\x01\x12$\n" +
+	"\vstatus_code\x18\x03 \x01(\x05H\x02R\n" +
+	"statusCode\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"latency_ms\x18\x04 \x01(\x02H\x03R\tlatencyMs\x88\x01\x01\x12 \n" +
+	"\tclient_ip\x18\x05 \x01(\tH\x04R\bclientIp\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"user_agent\x18\x06 \x01(\tH\x05R\tuserAgent\x88\x01\x01\x12!\n" +
+	"\n" +
+	"api_key_id\x18\a \x01(\tH\x06R\bapiKeyId\x88\x01\x01\x12$\n" +
+	"\vapi_version\x18\b \x01(\tH\aR\n" +
+	"apiVersion\x88\x01\x01\x121\n" +
+	"\x12request_size_bytes\x18\t \x01(\x03H\bR\x10requestSizeBytes\x88\x01\x01\x123\n" +
+	"\x13response_size_bytes\x18\n" +
+	" \x01(\x03H\tR\x11responseSizeBytes\x88\x01\x01\x12 \n" +
+	"\tcache_hit\x18\v \x01(\bH\n" +
+	"R\bcacheHit\x88\x01\x01\x12 \n" +
+	"\tcache_key\x18\f \x01(\tH\vR\bcacheKey\x88\x01\x01\x125\n" +
+	"\x14rate_limit_remaining\x18\r \x01(\x02H\fR\x12rateLimitRemaining\x88\x01\x01\x122\n" +
+	"\x13rate_limit_reset_ms\x18\x0e \x01(\x02H\rR\x10rateLimitResetMs\x88\x01\x01\x12&\n" +
+	"\frate_limited\x18\x0f \x01(\bH\x0eR\vrateLimited\x88\x01\x01\x12$\n" +
+	"\vauth_method\x18\x10 \x01(\tH\x0fR\n" +
+	"authMethod\x88\x01\x01\x12)\n" +
+	"\rauthenticated\x18\x11 \x01(\bH\x10R\rauthenticated\x88\x01\x01\x12 \n" +
+	"\tclient_id\x18\x12 \x01(\tH\x11R\bclientId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"request_id\x18\x13 \x01(\tH\x12R\trequestId\x88\x01\x01\x12$\n" +
+	"\vupstream_id\x18\x14 \x01(\tH\x13R\n" +
+	"upstreamId\x88\x01\x01\x123\n" +
+	"\x13upstream_latency_ms\x18\x15 \x01(\x02H\x14R\x11upstreamLatencyMs\x88\x01\x01\x12*\n" +
+	"\x0essl_terminated\x18\x16 \x01(\bH\x15R\rsslTerminated\x88\x01\x01\x12\x1f\n" +
+	"\bprotocol\x18\x17 \x01(\tH\x16R\bprotocol\x88\x01\x01\x12\x1b\n" +
+	"\x06region\x18\x18 \x01(\tH\x17R\x06region\x88\x01\x01\x12*\n" +
+	"\x0eendpoint_alias\x18\x19 \x01(\tH\x18R\rendpointAlias\x88\x01\x01B\t\n" +
+	"\a_methodB\a\n" +
+	"\x05_pathB\x0e\n" +
+	"\f_status_codeB\r\n" +
+	"\v_latency_msB\f\n" +
+	"\n" +
+	"_client_ipB\r\n" +
+	"\v_user_agentB\r\n" +
+	"\v_api_key_idB\x0e\n" +
+	"\f_api_versionB\x15\n" +
+	"\x13_request_size_bytesB\x16\n" +
+	"\x14_response_size_bytesB\f\n" +
+	"\n" +
+	"_cache_hitB\f\n" +
+	"\n" +
+	"_cache_keyB\x17\n" +
+	"\x15_rate_limit_remainingB\x16\n" +
+	"\x14_rate_limit_reset_msB\x0f\n" +
+	"\r_rate_limitedB\x0e\n" +
+	"\f_auth_methodB\x10\n" +
+	"\x0e_authenticatedB\f\n" +
+	"\n" +
+	"_client_idB\r\n" +
+	"\v_request_idB\x0e\n" +
+	"\f_upstream_idB\x16\n" +
+	"\x14_upstream_latency_msB\x11\n" +
+	"\x0f_ssl_terminatedB\v\n" +
+	"\t_protocolB\t\n" +
+	"\a_regionB\x11\n" +
+	"\x0f_endpoint_alias\"\xef\v\n" +
+	"\n" +
+	"ContextL10\x12\x1c\n" +
+	"\auser_id\x18\x01 \x01(\tH\x00R\x06userId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tH\x01R\tsessionId\x88\x01\x01\x12,\n" +
+	"\x0fconversation_id\x18\x03 \x01(\tH\x02R\x0econversationId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"event_type\x18\x04 \x01(\tH\x03R\teventType\x88\x01\x01\x12!\n" +
+	"\tcomponent\x18\x05 \x01(\tH\x04R\tcomponent\x88\x01\x01\x12\x1b\n" +
+	"\x06action\x18\x06 \x01(\tH\x05R\x06action\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"feature_id\x18\a \x01(\tH\x06R\tfeatureId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"ab_variant\x18\b \x01(\tH\aR\tabVariant\x88\x01\x01\x123\n" +
+	"\x13request_retry_count\x18\t \x01(\x05H\bR\x11requestRetryCount\x88\x01\x01\x12/\n" +
+	"\x11client_latency_ms\x18\n" +
+	" \x01(\x02H\tR\x0fclientLatencyMs\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"error_code\x18\v \x01(\tH\n" +
+	"R\terrorCode\x88\x01\x01\x12(\n" +
+	"\rerror_message\x18\f \x01(\tH\vR\ferrorMessage\x88\x01\x01\x12,\n" +
+	"\x0ferror_recovered\x18\r \x01(\bH\fR\x0eerrorRecovered\x88\x01\x01\x12\x1f\n" +
+	"\bplatform\x18\x0e \x01(\tH\rR\bplatform\x88\x01\x01\x12$\n" +
+	"\vapp_version\x18\x0f \x01(\tH\x0eR\n" +
+	"appVersion\x88\x01\x01\x12\x1b\n" +
+	"\x06locale\x18\x10 \x01(\tH\x0fR\x06locale\x88\x01\x01\x12\x1f\n" +
+	"\btimezone\x18\x11 \x01(\tH\x10R\btimezone\x88\x01\x01\x12K\n" +
+	"\rfeature_flags\x18\x12 \x03(\v2&.argus.v1.ContextL10.FeatureFlagsEntryR\ffeatureFlags\x12W\n" +
+	"\x11custom_attributes\x18\x13 \x03(\v2*.argus.v1.ContextL10.CustomAttributesEntryR\x10customAttributes\x12\x1c\n" +
+	"\apage_id\x18\x14 \x01(\tH\x11R\x06pageId\x88\x01\x01\x12\x1f\n" +
+	"\breferrer\x18\x15 \x01(\tH\x12R\breferrer\x88\x01\x01\x122\n" +
+	"\x12satisfaction_score\x18\x16 \x01(\x02H\x13R\x11satisfactionScore\x88\x01\x01\x120\n" +
+	"\x11feedback_provided\x18\x17 \x01(\bH\x14R\x10feedbackProvided\x88\x01\x01\x12(\n" +
+	"\rdeployment_id\x18\x18 \x01(\tH\x15R\fdeploymentId\x88\x01\x01\x1a?\n" +
+	"\x11FeatureFlagsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aC\n" +
+	"\x15CustomAttributesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\n" +
+	"\n" +
+	"\b_user_idB\r\n" +
+	"\v_session_idB\x12\n" +
+	"\x10_conversation_idB\r\n" +
+	"\v_event_typeB\f\n" +
+	"\n" +
+	"_componentB\t\n" +
+	"\a_actionB\r\n" +
+	"\v_feature_idB\r\n" +
+	"\v_ab_variantB\x16\n" +
+	"\x14_request_retry_countB\x14\n" +
+	"\x12_client_latency_msB\r\n" +
+	"\v_error_codeB\x10\n" +
+	"\x0e_error_messageB\x12\n" +
+	"\x10_error_recoveredB\v\n" +
+	"\t_platformB\x0e\n" +
+	"\f_app_versionB\t\n" +
+	"\a_localeB\v\n" +
+	"\t_timezoneB\n" +
+	"\n" +
+	"\b_page_idB\v\n" +
+	"\t_referrerB\x15\n" +
+	"\x13_satisfaction_scoreB\x14\n" +
+	"\x12_feedback_providedB\x10\n" +
+	"\x0e_deployment_id\"\xbd\a\n" +
 	"\x10ContextLDecision\x12?\n" +
 	"\bdecision\x18\x01 \x01(\x0e2#.argus.v1.ContextLDecision.DecisionR\bdecision\x12\x1e\n" +
 	"\n" +
@@ -2557,7 +4651,16 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\x0epolicy_version\x18\x05 \x01(\tR\rpolicyVersion\x12\x1f\n" +
 	"\vpolicy_name\x18\x06 \x01(\tR\n" +
 	"policyName\x12,\n" +
-	"\x12evaluation_time_ms\x18\a \x01(\x02R\x10evaluationTimeMs\"E\n" +
+	"\x12evaluation_time_ms\x18\a \x01(\x02R\x10evaluationTimeMs\x12 \n" +
+	"\tpolicy_id\x18\b \x01(\tH\x00R\bpolicyId\x88\x01\x01\x121\n" +
+	"\x12triggering_rule_id\x18\t \x01(\tH\x01R\x10triggeringRuleId\x88\x01\x01\x125\n" +
+	"\x14triggering_signal_id\x18\n" +
+	" \x01(\tH\x02R\x12triggeringSignalId\x88\x01\x01\x12$\n" +
+	"\vfailed_open\x18\v \x01(\bH\x03R\n" +
+	"failedOpen\x88\x01\x01\x12/\n" +
+	"\x11decision_trace_id\x18\f \x01(\tH\x04R\x0fdecisionTraceId\x88\x01\x01\x12,\n" +
+	"\x0falert_threshold\x18\r \x01(\x02H\x05R\x0ealertThreshold\x88\x01\x01\x12-\n" +
+	"\x12matched_indicators\x18\x0e \x03(\tR\x11matchedIndicators\"E\n" +
 	"\bDecision\x12\x18\n" +
 	"\x14DECISION_UNSPECIFIED\x10\x00\x12\t\n" +
 	"\x05ALLOW\x10\x01\x12\b\n" +
@@ -2568,7 +4671,14 @@ const file_argus_v1_signal_proto_rawDesc = "" +
 	"\x12ACTION_UNSPECIFIED\x10\x00\x12\f\n" +
 	"\bSUPPRESS\x10\x01\x12\f\n" +
 	"\bESCALATE\x10\x02\x12\x0f\n" +
-	"\vINVESTIGATE\x10\x03\"\xd7\x02\n" +
+	"\vINVESTIGATE\x10\x03B\f\n" +
+	"\n" +
+	"_policy_idB\x15\n" +
+	"\x13_triggering_rule_idB\x17\n" +
+	"\x15_triggering_signal_idB\x0e\n" +
+	"\f_failed_openB\x14\n" +
+	"\x12_decision_trace_idB\x12\n" +
+	"\x10_alert_threshold\"\xd7\x02\n" +
 	"\x0fBaselineProfile\x12\x15\n" +
 	"\x06app_id\x18\x01 \x01(\tR\x05appId\x12%\n" +
 	"\x05layer\x18\x02 \x01(\x0e2\x0f.argus.v1.LayerR\x05layer\x12\x1a\n" +
@@ -2629,7 +4739,7 @@ func file_argus_v1_signal_proto_rawDescGZIP() []byte {
 }
 
 var file_argus_v1_signal_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_argus_v1_signal_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_argus_v1_signal_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_argus_v1_signal_proto_goTypes = []any{
 	(Layer)(0),                              // 0: argus.v1.Layer
 	(Severity)(0),                           // 1: argus.v1.Severity
@@ -2652,34 +4762,37 @@ var file_argus_v1_signal_proto_goTypes = []any{
 	(*ContextL5)(nil),                       // 18: argus.v1.ContextL5
 	(*LogProbEntry)(nil),                    // 19: argus.v1.LogProbEntry
 	(*Alternative)(nil),                     // 20: argus.v1.Alternative
-	(*ContextL6)(nil),                       // 21: argus.v1.ContextL6
-	(*ContextL7)(nil),                       // 22: argus.v1.ContextL7
-	(*LatencyBreakdown)(nil),                // 23: argus.v1.LatencyBreakdown
-	(*ContextL8)(nil),                       // 24: argus.v1.ContextL8
-	(*ContextL9)(nil),                       // 25: argus.v1.ContextL9
-	(*ContextL10)(nil),                      // 26: argus.v1.ContextL10
-	(*ContextLDecision)(nil),                // 27: argus.v1.ContextLDecision
-	(*BaselineProfile)(nil),                 // 28: argus.v1.BaselineProfile
-	nil,                                     // 29: argus.v1.ContextL8.ToolArgumentsEntry
-	(*timestamppb.Timestamp)(nil),           // 30: google.protobuf.Timestamp
+	(*SafetyCategoryScore)(nil),             // 21: argus.v1.SafetyCategoryScore
+	(*ContextL6)(nil),                       // 22: argus.v1.ContextL6
+	(*ContextL7)(nil),                       // 23: argus.v1.ContextL7
+	(*LatencyBreakdown)(nil),                // 24: argus.v1.LatencyBreakdown
+	(*ContextL8)(nil),                       // 25: argus.v1.ContextL8
+	(*ContextL9)(nil),                       // 26: argus.v1.ContextL9
+	(*ContextL10)(nil),                      // 27: argus.v1.ContextL10
+	(*ContextLDecision)(nil),                // 28: argus.v1.ContextLDecision
+	(*BaselineProfile)(nil),                 // 29: argus.v1.BaselineProfile
+	nil,                                     // 30: argus.v1.ContextL8.ToolArgumentsEntry
+	nil,                                     // 31: argus.v1.ContextL10.FeatureFlagsEntry
+	nil,                                     // 32: argus.v1.ContextL10.CustomAttributesEntry
+	(*timestamppb.Timestamp)(nil),           // 33: google.protobuf.Timestamp
 }
 var file_argus_v1_signal_proto_depIdxs = []int32{
 	9,  // 0: argus.v1.ArgusSignal.source:type_name -> argus.v1.Source
 	0,  // 1: argus.v1.ArgusSignal.layer:type_name -> argus.v1.Layer
 	1,  // 2: argus.v1.ArgusSignal.severity:type_name -> argus.v1.Severity
-	30, // 3: argus.v1.ArgusSignal.timestamp:type_name -> google.protobuf.Timestamp
-	30, // 4: argus.v1.ArgusSignal.ingested_at:type_name -> google.protobuf.Timestamp
+	33, // 3: argus.v1.ArgusSignal.timestamp:type_name -> google.protobuf.Timestamp
+	33, // 4: argus.v1.ArgusSignal.ingested_at:type_name -> google.protobuf.Timestamp
 	14, // 5: argus.v1.ArgusSignal.context_l1:type_name -> argus.v1.ContextL1
 	15, // 6: argus.v1.ArgusSignal.context_l2:type_name -> argus.v1.ContextL2
 	16, // 7: argus.v1.ArgusSignal.context_l3:type_name -> argus.v1.ContextL3
 	17, // 8: argus.v1.ArgusSignal.context_l4:type_name -> argus.v1.ContextL4
 	18, // 9: argus.v1.ArgusSignal.context_l5:type_name -> argus.v1.ContextL5
-	21, // 10: argus.v1.ArgusSignal.context_l6:type_name -> argus.v1.ContextL6
-	22, // 11: argus.v1.ArgusSignal.context_l7:type_name -> argus.v1.ContextL7
-	24, // 12: argus.v1.ArgusSignal.context_l8:type_name -> argus.v1.ContextL8
-	25, // 13: argus.v1.ArgusSignal.context_l9:type_name -> argus.v1.ContextL9
-	26, // 14: argus.v1.ArgusSignal.context_l10:type_name -> argus.v1.ContextL10
-	27, // 15: argus.v1.ArgusSignal.context_l_decision:type_name -> argus.v1.ContextLDecision
+	22, // 10: argus.v1.ArgusSignal.context_l6:type_name -> argus.v1.ContextL6
+	23, // 11: argus.v1.ArgusSignal.context_l7:type_name -> argus.v1.ContextL7
+	25, // 12: argus.v1.ArgusSignal.context_l8:type_name -> argus.v1.ContextL8
+	26, // 13: argus.v1.ArgusSignal.context_l9:type_name -> argus.v1.ContextL9
+	27, // 14: argus.v1.ArgusSignal.context_l10:type_name -> argus.v1.ContextL10
+	28, // 15: argus.v1.ArgusSignal.context_l_decision:type_name -> argus.v1.ContextLDecision
 	10, // 16: argus.v1.ArgusSignal.provider:type_name -> argus.v1.Provider
 	11, // 17: argus.v1.ArgusSignal.enrichment:type_name -> argus.v1.Enrichment
 	2,  // 18: argus.v1.ArgusSignal.data_classification:type_name -> argus.v1.DataClassification
@@ -2688,20 +4801,23 @@ var file_argus_v1_signal_proto_depIdxs = []int32{
 	3,  // 21: argus.v1.ContextL5.operation:type_name -> argus.v1.ContextL5.Operation
 	19, // 22: argus.v1.ContextL5.logprobs:type_name -> argus.v1.LogProbEntry
 	20, // 23: argus.v1.LogProbEntry.top_alternatives:type_name -> argus.v1.Alternative
-	4,  // 24: argus.v1.ContextL7.operation:type_name -> argus.v1.ContextL7.Operation
-	23, // 25: argus.v1.ContextL7.latency_breakdown:type_name -> argus.v1.LatencyBreakdown
-	5,  // 26: argus.v1.ContextL8.operation:type_name -> argus.v1.ContextL8.Operation
-	29, // 27: argus.v1.ContextL8.tool_arguments:type_name -> argus.v1.ContextL8.ToolArgumentsEntry
-	6,  // 28: argus.v1.ContextLDecision.decision:type_name -> argus.v1.ContextLDecision.Decision
-	7,  // 29: argus.v1.ContextLDecision.recommended_action:type_name -> argus.v1.ContextLDecision.RecommendedAction
-	0,  // 30: argus.v1.BaselineProfile.layer:type_name -> argus.v1.Layer
-	30, // 31: argus.v1.BaselineProfile.computed_at:type_name -> google.protobuf.Timestamp
-	30, // 32: argus.v1.BaselineProfile.expires_at:type_name -> google.protobuf.Timestamp
-	33, // [33:33] is the sub-list for method output_type
-	33, // [33:33] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	21, // 24: argus.v1.ContextL6.category_scores:type_name -> argus.v1.SafetyCategoryScore
+	4,  // 25: argus.v1.ContextL7.operation:type_name -> argus.v1.ContextL7.Operation
+	24, // 26: argus.v1.ContextL7.latency_breakdown:type_name -> argus.v1.LatencyBreakdown
+	5,  // 27: argus.v1.ContextL8.operation:type_name -> argus.v1.ContextL8.Operation
+	30, // 28: argus.v1.ContextL8.tool_arguments:type_name -> argus.v1.ContextL8.ToolArgumentsEntry
+	31, // 29: argus.v1.ContextL10.feature_flags:type_name -> argus.v1.ContextL10.FeatureFlagsEntry
+	32, // 30: argus.v1.ContextL10.custom_attributes:type_name -> argus.v1.ContextL10.CustomAttributesEntry
+	6,  // 31: argus.v1.ContextLDecision.decision:type_name -> argus.v1.ContextLDecision.Decision
+	7,  // 32: argus.v1.ContextLDecision.recommended_action:type_name -> argus.v1.ContextLDecision.RecommendedAction
+	0,  // 33: argus.v1.BaselineProfile.layer:type_name -> argus.v1.Layer
+	33, // 34: argus.v1.BaselineProfile.computed_at:type_name -> google.protobuf.Timestamp
+	33, // 35: argus.v1.BaselineProfile.expires_at:type_name -> google.protobuf.Timestamp
+	36, // [36:36] is the sub-list for method output_type
+	36, // [36:36] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_argus_v1_signal_proto_init() }
@@ -2725,16 +4841,24 @@ func file_argus_v1_signal_proto_init() {
 	file_argus_v1_signal_proto_msgTypes[2].OneofWrappers = []any{}
 	file_argus_v1_signal_proto_msgTypes[3].OneofWrappers = []any{}
 	file_argus_v1_signal_proto_msgTypes[5].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[6].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[7].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[8].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[9].OneofWrappers = []any{}
 	file_argus_v1_signal_proto_msgTypes[10].OneofWrappers = []any{}
 	file_argus_v1_signal_proto_msgTypes[14].OneofWrappers = []any{}
-	file_argus_v1_signal_proto_msgTypes[16].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[15].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[17].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[18].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[19].OneofWrappers = []any{}
+	file_argus_v1_signal_proto_msgTypes[20].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_argus_v1_signal_proto_rawDesc), len(file_argus_v1_signal_proto_rawDesc)),
 			NumEnums:      8,
-			NumMessages:   22,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
