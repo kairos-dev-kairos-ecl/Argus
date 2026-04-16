@@ -116,7 +116,7 @@ message Enrichment {
   repeated ThreatIntelMatch threat_intel = 1;  // TI matches
   optional GeoData geo = 2;                     // Geo-IP if applicable
   optional float baseline_deviation = 3;        // Z-score from baseline
-  optional float risk_score = 4;                // Composite risk score (0.0–1.0)
+  optional float risk_score = 4;                // Composite risk score (0.0-1.0)
 }
 
 message ThreatIntelMatch {
@@ -133,23 +133,110 @@ message GeoData {
   optional float longitude = 5;
 }
 
-// Placeholder context messages (to be expanded per-layer)
+// ContextL1: Hardware / Infrastructure layer signals
 message ContextL1 {
-  string placeholder = 1;
+  optional float cpu_usage_pct = 1;          // CPU utilization 0-100
+  optional float memory_used_mb = 2;         // RAM consumed (MB)
+  optional float memory_total_mb = 3;        // Total RAM (MB)
+  optional float gpu_utilization_pct = 4;    // GPU compute utilization 0-100
+  optional float gpu_memory_used_mb = 5;     // GPU VRAM consumed (MB)
+  optional float gpu_memory_total_mb = 6;    // GPU VRAM total (MB)
+  optional float gpu_temperature_c = 7;      // GPU temperature (Celsius)
+  optional float gpu_power_draw_w = 8;       // GPU power draw (watts)
+  optional int32 gpu_count = 9;              // Number of GPUs
+  optional string gpu_model = 10;            // GPU model name
+  optional float disk_read_mbps = 11;        // Disk read throughput (MB/s)
+  optional float disk_write_mbps = 12;       // Disk write throughput (MB/s)
+  optional float net_rx_mbps = 13;           // Network receive (MB/s)
+  optional float net_tx_mbps = 14;           // Network transmit (MB/s)
+  optional float cpu_steal_pct = 16;         // CPU steal time (VM environments)
+  optional float load_avg_1m = 17;           // 1-minute load average
+  optional float load_avg_5m = 18;           // 5-minute load average
+  optional float load_avg_15m = 19;          // 15-minute load average
+  optional int32 open_file_descriptors = 20; // Open file descriptor count
+  optional int32 thread_count = 21;          // Total thread count
+  optional string host_id = 22;              // Host identifier
+  optional string instance_type = 24;        // Cloud instance type (e.g., "g4dn.xlarge")
+  optional float process_cpu_pct = 25;       // Per-process CPU usage
+  optional float process_memory_mb = 26;     // Per-process memory (MB)
 }
 
+// ContextL2: Model Weights / Model Loading layer signals
 message ContextL2 {
-  string placeholder = 1;
+  optional string model_id = 1;              // Model identifier
+  optional string model_family = 2;          // Model family (e.g., "llama", "mistral")
+  optional string model_version = 3;         // Model version string
+  optional string model_hash = 4;            // SHA256 of model weights
+  optional string quantization = 5;          // Quantization scheme (e.g., "q4_k_m")
+  optional int64 parameter_count = 6;        // Number of parameters
+  optional float model_size_gb = 7;          // Model file size (GB)
+  optional float load_time_ms = 8;           // Time to load model (ms)
+  optional float vram_allocated_gb = 9;      // VRAM allocated for model (GB)
+  optional float ram_allocated_gb = 10;      // RAM allocated for model (GB)
+  optional string precision = 11;            // Numerical precision (fp16, bf16, fp32)
+  optional string backend = 12;              // Inference backend (llama.cpp, vllm, etc.)
+  optional string adapter_id = 13;           // LoRA/PEFT adapter ID if loaded
+  optional string adapter_hash = 14;         // Hash of loaded adapter
+  optional bool weights_verified = 20;       // Whether hash verification passed
+  optional float weights_load_latency_ms = 21; // Latency for weight loading
+  optional int32 layers_offloaded = 22;      // Layers offloaded to CPU
+  optional string device_map = 24;           // JSON device map string
 }
 
+// ContextL3: Tokenizer layer signals
 message ContextL3 {
-  string placeholder = 1;
+  optional int32 input_tokens = 1;           // Token count of input
+  optional int32 output_tokens = 4;          // Token count of output
+  optional int32 total_tokens = 5;           // Total tokens
+  optional string tokenizer_id = 6;          // Tokenizer identifier
+  optional string tokenizer_version = 7;     // Tokenizer version
+  optional float encoding_time_ms = 8;       // Time to encode input (ms)
+  optional float decoding_time_ms = 9;       // Time to decode output (ms)
+  optional int32 context_window_size = 10;   // Max context window
+  optional float context_utilization_pct = 11; // % of context window used
+  optional int32 truncated_tokens = 12;      // Tokens removed due to truncation
+  optional bool truncated = 13;              // Whether input was truncated
+  optional string chat_template = 14;        // Chat template applied
+  optional string bos_token = 15;            // Beginning-of-sequence token
+  optional float avg_token_length = 19;      // Average characters per token
+  optional int32 unique_token_count = 20;    // Count of unique tokens
+  optional float token_entropy = 21;         // Shannon entropy of token distribution
+  optional int32 special_token_count = 22;   // Number of special tokens
+  optional string encoding_name = 23;        // Encoding name (e.g., "cl100k_base")
+  optional int32 vocab_size = 24;            // Vocabulary size
+  optional float compression_ratio = 25;     // Chars per token ratio
+  optional float oov_rate = 26;              // Out-of-vocabulary rate
+  optional bool has_special_tokens = 27;     // Whether special tokens present
 }
 
+// ContextL4: Transformer / Attention layer signals
 message ContextL4 {
-  string placeholder = 1;
+  optional float kv_cache_used_mb = 1;       // KV cache memory used (MB)
+  optional float kv_cache_total_mb = 2;      // KV cache total capacity (MB)
+  optional float kv_cache_hit_rate = 3;      // Cache hit rate 0.0-1.0
+  optional int32 num_heads = 4;              // Number of attention heads
+  optional int32 num_layers = 5;             // Number of transformer layers
+  optional float attention_entropy_mean = 6; // Mean attention entropy
+  optional float attention_entropy_max = 7;  // Max attention entropy
+  optional float attention_entropy_min = 8;  // Min attention entropy
+  optional float prefill_time_ms = 11;       // Prefill phase time (ms)
+  optional float decode_time_ms = 12;        // Decode phase time (ms)
+  optional int32 batch_size = 13;            // Inference batch size
+  optional int32 sequence_length = 14;       // Input sequence length
+  optional float throughput_tokens_per_sec = 15; // Tokens per second
+  optional float memory_bandwidth_gbps = 16; // Memory bandwidth utilization
+  optional bool flash_attention = 17;        // Whether flash attention used
+  optional bool paged_attention = 18;        // Whether paged attention used
+  optional int32 speculative_tokens = 19;    // Speculative decoding token count
+  optional float speculation_accept_rate = 20; // Speculative token acceptance rate
+  optional int32 context_length_used = 21;   // Actual context length processed
+  optional int32 active_sequences = 22;      // Concurrent sequences in batch
+  optional float flops_utilized = 23;        // FLOPs utilization 0.0-1.0
+  optional string attention_implementation = 24; // "flash2" | "xformers" | "vanilla"
+  optional string compute_dtype = 25;        // Compute dtype (bf16, fp16, fp32)
 }
 
+// ContextL5: Output Decoding layer signals
 message ContextL5 {
   enum Operation {
     OPERATION_UNSPECIFIED = 0;
@@ -171,6 +258,18 @@ message ContextL5 {
   optional float entropy_variance = 12;
   float ttft_ms = 13;
   float tps = 14;
+  // Extension fields
+  optional int32 top_k = 15;
+  optional float min_p = 16;
+  optional float repetition_penalty = 17;
+  optional float presence_penalty = 18;
+  optional float frequency_penalty = 19;
+  optional int64 seed = 20;
+  repeated string stop_sequences = 21;
+  optional float output_repetition_score = 22;
+  optional float distinct_ngrams_ratio = 23;
+  optional bool truncated = 24;
+  optional string finish_reason_detail = 25;
 }
 
 message LogProbEntry {
@@ -184,10 +283,40 @@ message Alternative {
   float logprob = 2;
 }
 
-message ContextL6 {
-  string placeholder = 1;
+// SafetyCategoryScore represents a per-category safety evaluation result
+message SafetyCategoryScore {
+  string category = 1;   // e.g., "hate", "sexual", "violence"
+  float score = 2;        // 0.0-1.0 probability score
+  bool flagged = 3;       // Whether this category was flagged
 }
 
+// ContextL6: Safety / Content Filtering layer signals
+message ContextL6 {
+  optional float safety_score = 1;            // Aggregate safety score 0.0-1.0
+  optional bool safe = 2;                     // Whether content passed safety check
+  optional string action_taken = 3;           // "allow" | "block" | "redact" | "warn"
+  optional string classifier_id = 4;          // Classifier model/version ID
+  repeated SafetyCategoryScore category_scores = 11; // Per-category scores
+  optional float toxicity_score = 12;         // Toxicity probability 0.0-1.0
+  optional float bias_score = 13;             // Bias probability 0.0-1.0
+  optional string policy_id = 15;             // Policy ID that was evaluated
+  optional string policy_version = 16;        // Policy version
+  optional bool policy_violated = 17;         // Whether any policy was violated
+  optional string violation_type = 18;        // Type of violation if any
+  optional string redaction_method = 19;      // How content was redacted
+  optional int32 redacted_tokens = 20;        // Number of redacted tokens
+  optional float evaluation_time_ms = 21;     // Safety evaluation latency (ms)
+  optional string input_language = 22;        // Detected input language
+  optional float language_confidence = 23;    // Language detection confidence
+  optional bool jailbreak_detected = 24;      // Whether jailbreak attempt detected
+  optional float jailbreak_score = 25;        // Jailbreak probability 0.0-1.0
+  optional bool prompt_injection_detected = 26; // Whether prompt injection detected
+  optional float prompt_injection_score = 27; // Prompt injection probability 0.0-1.0
+  optional string pii_types_detected = 28;    // Comma-separated PII types found
+  optional bool pii_redacted = 29;            // Whether PII was redacted
+}
+
+// ContextL7: RAG / Retrieval layer signals
 message ContextL7 {
   enum Operation {
     OPERATION_UNSPECIFIED = 0;
@@ -209,6 +338,20 @@ message ContextL7 {
   bool reranker_applied = 10;
   optional float reranker_delta = 11;
   LatencyBreakdown latency_breakdown = 12;
+  // Extension fields
+  optional bool query_cache_hit = 13;
+  optional string query_cache_key = 14;
+  optional int32 citations_used = 15;
+  optional float citation_overlap_score = 16;
+  optional string index_name = 17;
+  optional string index_type = 18;
+  optional int64 index_document_count = 19;
+  optional float index_freshness_hours = 20;
+  optional float reranker_score = 21;
+  optional string reranker_model = 22;
+  optional bool hybrid_search = 23;
+  optional float sparse_weight = 24;
+  optional float dense_weight = 25;
 }
 
 message LatencyBreakdown {
@@ -217,6 +360,7 @@ message LatencyBreakdown {
   float rerank_ms = 3;
 }
 
+// ContextL8: Agent / Orchestration layer signals
 message ContextL8 {
   enum Operation {
     OPERATION_UNSPECIFIED = 0;
@@ -238,16 +382,81 @@ message ContextL8 {
   repeated string permissions_used = 10;
   repeated string permissions_requested = 11;
   repeated string data_flow_tags = 12;
+  // Extension fields
+  optional string task_id = 13;
+  optional string parent_task_id = 14;
+  optional int32 task_depth = 15;
+  optional int32 subtask_count = 16;
+  optional string memory_operation = 17;
+  optional int32 memory_items_read = 18;
+  optional int32 memory_items_written = 19;
+  optional string code_language = 20;
+  optional bool code_executed = 21;
+  optional int32 code_exit_code = 22;
+  optional float code_execution_time_ms = 23;
+  optional bool sandboxed = 24;
+  repeated string capabilities_used = 25;
+  optional string orchestrator_type = 26;
 }
 
+// ContextL9: API Gateway layer signals
 message ContextL9 {
-  string placeholder = 1;
+  optional string method = 1;                // HTTP method (GET, POST, etc.)
+  optional string path = 2;                  // Request path
+  optional int32 status_code = 3;            // HTTP response status code
+  optional float latency_ms = 4;             // End-to-end request latency (ms)
+  optional string client_ip = 5;             // Client IP address
+  optional string user_agent = 6;            // Client user agent
+  optional string api_key_id = 7;            // API key identifier (hashed)
+  optional string api_version = 8;           // API version (e.g., "v1")
+  optional int64 request_size_bytes = 9;     // Request body size (bytes)
+  optional int64 response_size_bytes = 10;   // Response body size (bytes)
+  optional bool cache_hit = 11;              // Whether response was cached
+  optional string cache_key = 12;            // Cache key used
+  optional float rate_limit_remaining = 13;  // Remaining rate limit quota
+  optional float rate_limit_reset_ms = 14;   // Time until rate limit reset (ms)
+  optional bool rate_limited = 15;           // Whether request was rate limited
+  optional string auth_method = 16;          // Authentication method used
+  optional bool authenticated = 17;          // Whether request was authenticated
+  optional string client_id = 18;            // OAuth client ID
+  optional string request_id = 19;           // Gateway-assigned request ID
+  optional string upstream_id = 20;          // Upstream service identifier
+  optional float upstream_latency_ms = 21;   // Latency to upstream service (ms)
+  optional bool ssl_terminated = 22;         // Whether SSL terminated at gateway
+  optional string protocol = 23;             // Protocol (http/1.1, h2, grpc)
+  optional string region = 24;              // Gateway region
+  optional string endpoint_alias = 25;       // Logical endpoint name
 }
 
+// ContextL10: Application layer signals
 message ContextL10 {
-  string placeholder = 1;
+  optional string user_id = 1;               // End user identifier (hashed)
+  optional string session_id = 2;            // Session identifier
+  optional string conversation_id = 3;       // Conversation/thread ID
+  optional string event_type = 4;            // Application event type
+  optional string component = 5;             // UI/service component name
+  optional string action = 6;                // User action (click, submit, etc.)
+  optional string feature_id = 7;            // Feature or experiment ID
+  optional string ab_variant = 8;            // A/B test variant
+  optional int32 request_retry_count = 9;    // Client retry count
+  optional float client_latency_ms = 10;     // Client-perceived latency (ms)
+  optional string error_code = 11;           // Application error code
+  optional string error_message = 12;        // Application error message
+  optional bool error_recovered = 13;        // Whether error was recovered
+  optional string platform = 14;             // Client platform (web, ios, android)
+  optional string app_version = 15;          // Application version
+  optional string locale = 16;               // User locale/language
+  optional string timezone = 17;             // User timezone
+  map<string, string> feature_flags = 18;    // Active feature flags
+  map<string, string> custom_attributes = 19; // Custom application attributes
+  optional string page_id = 20;              // Page or view identifier
+  optional string referrer = 21;             // Referring URL or source
+  optional float satisfaction_score = 22;    // User satisfaction rating 1.0-5.0
+  optional bool feedback_provided = 23;      // Whether user provided feedback
+  optional string deployment_id = 24;        // Deployment/release identifier
 }
 
+// ContextLDecision: Policy decision signals from Kairos
 message ContextLDecision {
   enum Decision {
     DECISION_UNSPECIFIED = 0;
@@ -270,6 +479,14 @@ message ContextLDecision {
   string policy_version = 5;      // Policy version used for decision
   string policy_name = 6;         // Which policy was applied
   float evaluation_time_ms = 7;   // How long evaluation took
+  // Audit chain extension fields
+  optional string policy_id = 8;              // Policy ID (stable reference)
+  optional string triggering_rule_id = 9;     // ID of the rule that triggered
+  optional string triggering_signal_id = 10;  // Signal that triggered evaluation
+  optional bool failed_open = 11;             // Whether policy failed open (allow on error)
+  optional string decision_trace_id = 12;     // Trace ID for decision audit chain
+  optional float alert_threshold = 13;        // Alert threshold at time of decision
+  repeated string matched_indicators = 14;    // IOC/indicator IDs matched
 }
 
 // BaselineProfile represents statistical baseline metrics for (app_id, layer, category)
