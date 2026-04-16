@@ -1,6 +1,6 @@
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-16 - Completed quick task 260416-lxk: proto schema rewrite (all 10 layers + LDecision)
+> Last activity: 2026-04-16 - Completed quick task 260416-m9t: build stabilization + signal validation tests (all 11 layers)
 
 ---
 
@@ -31,9 +31,9 @@
 
 ### Proto Schema
 - `proto/argus/v1/signal.proto` — ArgusSignal (L1–L10 + LDecision)
-- **Known issue:** L1, L2, L3, L4, L6, L9, L10 are placeholder stubs (`string placeholder = 1`)
-- Only L5, L7, L8 have real field definitions
+- All 11 context layers have real field definitions (completed in 260416-lxk)
 - `gen/go/argus/v1/` — Generated Go stubs (from current proto)
+- Round-trip validated via `tests/unit/signal/signal_layers_test.go` (all 11 pass)
 
 ### SDK
 - `sdk/client.py` — Python ArgusClient (httpx, async)
@@ -53,7 +53,7 @@
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| 14 packages won't compile | Critical | Proto field mismatches, missing client package, Redis mock types |
+| 14 packages won't compile | RESOLVED | Fixed in quick task 260416-m9t — all packages build clean |
 | Proto L1/L2/L3/L4/L6/L9/L10 are placeholders | RESOLVED | Completed in quick task 260416-lxk |
 | ClickHouse DDL drifted from proto | High | Has columns with no corresponding proto fields |
 | Missing API endpoints (10+) | High | Frontend blocked |
@@ -74,8 +74,8 @@
 
 ## Blockers/Concerns
 
-- Proto rewrite must happen before build stabilization (Phase 2 depends on Phase 1)
 - Go stub regeneration requires `buf` CLI installed
+- ClickHouse DDL has drifted from proto schema (needs sync)
 
 ---
 
@@ -84,3 +84,4 @@
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Proto schema rewrite — all 10 layers + LDecision (14 reqs) | 2026-04-16 | f1606bc | 260416-lxk-proto-schema-rewrite-covering-all-10-lay |
+| 2 | Build stabilization + signal validation tests (all 11 layers) | 2026-04-16 | 8edbd43 | 260416-m9t-build-stabilization-and-signal-validatio |
