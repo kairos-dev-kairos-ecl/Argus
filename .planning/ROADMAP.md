@@ -43,9 +43,27 @@
 ---
 
 ### Phase 3: API Completeness
-**Goal:** Implement all missing backend endpoints required by the frontend.
+**Goal:** Implement all missing backend endpoints required by the frontend — bedrock quality, no stubs, no TODOs.
 
-**Status:** Not started
+**Status:** Planning
+**Plans:** 5 plans
+
+**Requirements:**
+- REQ-P3-01: ClickHouse insert column sync — SignalsInsertColumns matches schema.go DDL
+- REQ-P3-02: Layer status response shape — returns string enums and green/yellow/gray status
+- REQ-P3-03: Trace response shape — returns spans[] with Span type, not signals[]
+- REQ-P3-04: Query response shape — returns rows as objects with execution_time_ms
+- REQ-P3-05: Rules routing fix — stub handlers delegate to real ServeListRules/ServeCreateRule
+- REQ-P3-06: Apps CRUD — real handlers backed by PostgreSQL with API key generation
+- REQ-P3-07: Health endpoint — check ClickHouse, PostgreSQL, Redis connectivity
+- REQ-P3-08: Integration tests — verify all fixed/new endpoint response shapes
+
+Plans:
+- [ ] 03-01-PLAN.md — ClickHouse column sync (Wave 0, blocks everything)
+- [ ] 03-02-PLAN.md — Response shape fixes for layer status, trace, query (Wave 1)
+- [ ] 03-03-PLAN.md — Rules routing fix + Apps CRUD (Wave 2)
+- [ ] 03-04-PLAN.md — Health endpoint expansion (Wave 2)
+- [ ] 03-05-PLAN.md — Integration tests (Wave 3)
 
 ---
 
@@ -81,3 +99,11 @@
 | REQ-P1-12 | 1 | Proto stubs regenerated |
 | REQ-P1-13 | 1 | ClickHouse DDL aligned |
 | REQ-P1-14 | 1 | SDK signal_builder.py updated |
+| REQ-P3-01 | 3 | ClickHouse insert column sync |
+| REQ-P3-02 | 3 | Layer status response shape fix |
+| REQ-P3-03 | 3 | Trace response shape fix |
+| REQ-P3-04 | 3 | Query response shape fix |
+| REQ-P3-05 | 3 | Rules routing fix |
+| REQ-P3-06 | 3 | Apps CRUD implementation |
+| REQ-P3-07 | 3 | Health endpoint expansion |
+| REQ-P3-08 | 3 | Integration tests |
