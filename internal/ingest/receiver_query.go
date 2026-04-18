@@ -437,16 +437,18 @@ type LayerStatusResponse struct {
 
 // LayerStatus represents the health/activity status of one L1-L10 layer.
 type LayerStatus struct {
-	Layer        int32  `json:"layer"`
-	Name         string `json:"name"`
-	SignalCount  int64  `json:"signal_count"`
-	LastSeenAt   string `json:"last_seen_at,omitempty"`
-	Status       string `json:"status"` // "active", "idle", "unknown"
+	Layer          string  `json:"layer"`
+	Status         string  `json:"status"`
+	LastSignalTime *string `json:"last_signal_time"`
+	SignalCount5m  int64   `json:"signal_count_5min"`
+	ErrorMessage   string  `json:"error_message,omitempty"`
 }
 
-var layerNames = map[int32]string{
-	1: "Hardware", 2: "Model", 3: "Tokenizer", 4: "Transformer",
-	5: "Output", 6: "Safety", 7: "RAG", 8: "Agents", 9: "API", 10: "Application",
+var layerEnumStrings = map[int32]string{
+	1: "L1_HARDWARE", 2: "L2_MODEL_WEIGHTS", 3: "L3_TOKENIZER",
+	4: "L4_TRANSFORMER", 5: "L5_OUTPUT_DECODING", 6: "L6_SAFETY",
+	7: "L7_RAG_RETRIEVAL", 8: "L8_AGENTS", 9: "L9_API_GATEWAY",
+	10: "L10_APPLICATION",
 }
 
 // handleGetLayerStatus handles GET /api/v1/layers/status.
@@ -458,7 +460,7 @@ func (h *QueryHandler) handleGetLayerStatus(w http.ResponseWriter, r *http.Reque
 	if h.ch == nil {
 		resp := LayerStatusResponse{Layers: make([]LayerStatus, 0, 10)}
 		for i := int32(1); i <= 10; i++ {
-			resp.Layers = append(resp.Layers, LayerStatus{Layer: i, Name: layerNames[i], Status: "unknown"})
+			resp.Layers = append(resp.Layers, LayerStatus{Layer: layerEnumStrings[i], Status: "gray"})
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(resp)
@@ -502,16 +504,23 @@ func (h *QueryHandler) handleGetLayerStatus(w http.ResponseWriter, r *http.Reque
 
 	resp := LayerStatusResponse{Layers: make([]LayerStatus, 0, 10)}
 	for i := int32(1); i <= 10; i++ {
-		status := "idle"
+		var status string
+		var lastSignalTime *string
+		if ls, ok := lastSeen[i]; ok {
+			lastSignalTime = &ls
+		}
 		if counts[i] > 0 {
-			status = "active"
+			status = "green"
+		} else if lastSignalTime != nil {
+			status = "yellow"
+		} else {
+			status = "gray"
 		}
 		resp.Layers = append(resp.Layers, LayerStatus{
-			Layer:       i,
-			Name:        layerNames[i],
-			SignalCount: counts[i],
-			LastSeenAt:  lastSeen[i],
-			Status:      status,
+			Layer:          layerEnumStrings[i],
+			Status:         status,
+			LastSignalTime: lastSignalTime,
+			SignalCount5m:  counts[i],
 		})
 	}
 
@@ -521,8 +530,32 @@ func (h *QueryHandler) handleGetLayerStatus(w http.ResponseWriter, r *http.Reque
 
 // TraceResponse is the JSON response for GET /api/v1/traces/{traceId}.
 type TraceResponse struct {
-	TraceID string            `json:"trace_id"`
-	Signals []*v1.ArgusSignal `json:"signals"`
+	TraceID    string      `json:"trace_id"`
+	Spans      []SpanView  `json:"spans"`
+	Detections []Detection `json:"detections"`
+	DurationMs int64       `json:"duration_ms"`
+}
+
+// SpanView is a frontend-compatible view of a signal as a trace span.
+type SpanView struct {
+	SignalID       string  `json:"signal_id"`
+	Layer          string  `json:"layer"`
+	StartTime      string  `json:"start_time"`
+	DurationMs     float64 `json:"duration_ms"`
+	ParentSignalID string  `json:"parent_signal_id,omitempty"`
+	Status         string  `json:"status"`
+	Message        string  `json:"message"`
+}
+
+// Detection is a detection event associated with a trace.
+type Detection struct {
+	DetectionID string  `json:"detection_id"`
+	RuleID      string  `json:"rule_id"`
+	RuleName    string  `json:"rule_name"`
+	SignalID     string  `json:"signal_id"`
+	Confidence  float64 `json:"confidence"`
+	Severity    int     `json:"severity"`
+	MatchedAt   string  `json:"matched_at"`
 }
 
 // handleGetTrace handles GET /api/v1/traces/{traceId}.
@@ -594,8 +627,57 @@ LIMIT 1000`
 		return
 	}
 
+	spans := make([]SpanView, 0, len(signals))
+	var minTs, maxTs time.Time
+	for _, sig := range signals {
+		ts := sig.Timestamp.AsTime()
+		if minTs.IsZero() || ts.Before(minTs) {
+			minTs = ts
+		}
+		if maxTs.IsZero() || ts.After(maxTs) {
+			maxTs = ts
+		}
+
+		status := "ok"
+		if sig.Severity >= 4 {
+			status = "error"
+		}
+
+		layer := layerEnumStrings[int32(sig.Layer)]
+		if layer == "" {
+			layer = "L10_APPLICATION"
+		}
+
+		var durMs float64
+		if sig.DurationMs != nil {
+			durMs = float64(*sig.DurationMs)
+		}
+
+		span := SpanView{
+			SignalID:   sig.SignalId,
+			Layer:      layer,
+			StartTime:  ts.UTC().Format(time.RFC3339Nano),
+			DurationMs: durMs,
+			Status:     status,
+			Message:    sig.Category,
+		}
+		if sig.ParentSpanId != "" {
+			span.ParentSignalID = sig.ParentSpanId
+		}
+		spans = append(spans, span)
+	}
+	durationMs := int64(0)
+	if !minTs.IsZero() && !maxTs.IsZero() {
+		durationMs = maxTs.Sub(minTs).Milliseconds()
+	}
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(TraceResponse{TraceID: traceID, Signals: signals})
+	json.NewEncoder(w).Encode(TraceResponse{
+		TraceID:    traceID,
+		Spans:      spans,
+		Detections: []Detection{},
+		DurationMs: durationMs,
+	})
 }
 
 // scanSignalRow scans a single ClickHouse row (from the signals SELECT query) into an ArgusSignal.
@@ -777,9 +859,9 @@ type QueryRequest struct {
 
 // QueryResultResponse is the JSON response for POST /api/v1/query.
 type QueryResultResponse struct {
-	Columns  []string        `json:"columns"`
-	Rows     [][]interface{} `json:"rows"`
-	RowCount int             `json:"row_count"`
+	Rows            []map[string]interface{} `json:"rows"`
+	Total           int                      `json:"total"`
+	ExecutionTimeMs int64                    `json:"execution_time_ms"`
 }
 
 // ddlPatterns lists forbidden SQL statement prefixes (DDL and mutating DML).
@@ -834,6 +916,8 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 		req.SQL = fmt.Sprintf("%s LIMIT %d", req.SQL, limit)
 	}
 
+	startTime := time.Now()
+
 	// Execute with 30s timeout
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -854,8 +938,8 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 		columns[i] = ct.Name()
 	}
 
-	// Scan all rows
-	var resultRows [][]interface{}
+	// Scan all rows into map[string]interface{} objects
+	var resultRows []map[string]interface{}
 	for rows.Next() {
 		values := make([]interface{}, len(columns))
 		ptrs := make([]interface{}, len(columns))
@@ -865,7 +949,11 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(ptrs...); err != nil {
 			continue
 		}
-		resultRows = append(resultRows, values)
+		row := make(map[string]interface{}, len(columns))
+		for i, col := range columns {
+			row[col] = values[i]
+		}
+		resultRows = append(resultRows, row)
 	}
 	if err := rows.Err(); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -874,14 +962,15 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resultRows == nil {
-		resultRows = [][]interface{}{}
+		resultRows = []map[string]interface{}{}
 	}
 
+	execMs := time.Since(startTime).Milliseconds()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(QueryResultResponse{
-		Columns:  columns,
-		Rows:     resultRows,
-		RowCount: len(resultRows),
+		Rows:            resultRows,
+		Total:           len(resultRows),
+		ExecutionTimeMs: execMs,
 	})
 }
 

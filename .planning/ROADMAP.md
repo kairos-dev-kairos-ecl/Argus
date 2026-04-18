@@ -60,7 +60,7 @@
 
 Plans:
 - [x] 03-01-PLAN.md — ClickHouse column sync (Wave 0, blocks everything)
-- [ ] 03-02-PLAN.md — Response shape fixes for layer status, trace, query (Wave 1)
+- [x] 03-02-PLAN.md — Response shape fixes for layer status, trace, query (Wave 1)
 - [ ] 03-03-PLAN.md — Rules routing fix + Apps CRUD (Wave 2)
 - [ ] 03-04-PLAN.md — Health endpoint expansion (Wave 2)
 - [ ] 03-05-PLAN.md — Integration tests (Wave 3)
