@@ -72,6 +72,7 @@ class ArgusClient:
         sdk_version: str = "0.1.0",
         environment: str = "test",
         timeout: float = 30.0,
+        api_key: Optional[str] = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.app_id = app_id
@@ -79,6 +80,7 @@ class ArgusClient:
         self.sdk_version = sdk_version
         self.environment = environment
         self.timeout = timeout
+        self.api_key = api_key
         self.instance_id = str(uuid.uuid4())[:8]
         self.session: Optional[httpx.AsyncClient] = None
         self._trace_id: Optional[str] = None
@@ -159,12 +161,16 @@ class ArgusClient:
         payload = signal.SerializeToString()
 
         try:
+            headers = {"Content-Type": "application/protobuf"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+
             response = await self.session.post(
-                f"{self.base_url}/api/v1/signals",
+                f"{self.base_url}/v1/signals",
                 content=payload,
-                headers={"Content-Type": "application/protobuf"},
+                headers=headers,
             )
-            return response.status_code in (200, 202)
+            return response.status_code in (200, 201, 202)
         except Exception as e:
             print(f"Error emitting signal: {e}")
             return False
@@ -222,12 +228,16 @@ class ArgusClient:
         payload_json = MessageToJson(signal)
 
         try:
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+
             response = await self.session.post(
-                f"{self.base_url}/api/v1/signals",
+                f"{self.base_url}/v1/signals",
                 content=payload_json,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
-            return response.status_code in (200, 202)
+            return response.status_code in (200, 201, 202)
         except Exception as e:
             print(f"Error emitting signal: {e}")
             return False

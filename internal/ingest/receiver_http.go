@@ -18,31 +18,35 @@ import (
 
 // HTTPReceiver implements HTTP handlers for signal ingestion.
 type HTTPReceiver struct {
-	queue   *Queue
-	auth    *AuthValidator
-	metrics *metrics.Ingest
-	log     *zap.Logger
+	queue       *Queue
+	auth        *AuthValidator
+	metrics     *metrics.Ingest
+	log         *zap.Logger
+	broadcaster *SignalBroadcaster
 }
 
 // NewHTTPReceiver creates a new HTTP ingest receiver.
-func NewHTTPReceiver(queue *Queue, auth *AuthValidator, metrics *metrics.Ingest, log *zap.Logger) *HTTPReceiver {
+func NewHTTPReceiver(queue *Queue, auth *AuthValidator, metrics *metrics.Ingest, broadcaster *SignalBroadcaster, log *zap.Logger) *HTTPReceiver {
 	if log == nil {
 		log = zap.NewNop()
 	}
 	return &HTTPReceiver{
-		queue:   queue,
-		auth:    auth,
-		metrics: metrics,
-		log:     log,
+		queue:       queue,
+		auth:        auth,
+		metrics:     metrics,
+		broadcaster: broadcaster,
+		log:         log,
 	}
 }
 
 // RegisterRoutes mounts HTTP receiver routes onto the chi mux.
 // All routes are protected by auth middleware.
 func (r *HTTPReceiver) RegisterRoutes(mux *chi.Mux) {
-	// Wrap routes with auth middleware
-	handler := r.auth.HTTPMiddleware()(http.HandlerFunc(r.handlePostSignals))
-	mux.Post("/v1/signals", http.HandlerFunc(handler.ServeHTTP))
+	// Wrap handler with auth middleware
+	wrappedHandler := r.auth.HTTPMiddleware()(http.HandlerFunc(r.handlePostSignals))
+	mux.Post("/v1/signals", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		wrappedHandler.ServeHTTP(w, req)
+	}))
 }
 
 // handlePostSignals handles POST /v1/signals.
@@ -204,6 +208,10 @@ func (r *HTTPReceiver) handlePostSignals(w http.ResponseWriter, req *http.Reques
 			acceptedCount++
 			if r.metrics != nil && r.metrics.SignalsReceived != nil {
 				r.metrics.SignalsReceived.WithLabelValues("http").Inc()
+			}
+			// Publish signal to WebSocket broadcaster for real-time streaming
+			if r.broadcaster != nil {
+				r.broadcaster.Publish(sig)
 			}
 		}
 	}

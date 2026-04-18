@@ -95,16 +95,20 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		log.Info("ClickHouse connected")
 	}
 
-	// Connect to PostgreSQL (optional)
+	// Connect to PostgreSQL (optional but needed for auth)
 	pgDSN := viper.GetString("database.postgres.dsn")
+	var pg *storage.Postgres
 	var pgPool *pgxpool.Pool
 	if pgDSN != "" {
-		pgPool, err = pgxpool.New(ctx, pgDSN)
+		pg, err = storage.NewPostgres(ctx, pgDSN)
 		if err != nil {
-			log.Warn("PostgreSQL unavailable - detection alerts will not persist", zap.Error(err))
+			log.Warn("PostgreSQL unavailable - detection alerts and auth will not persist", zap.Error(err))
 		} else {
-			defer pgPool.Close()
+			defer pg.Close()
 			log.Info("PostgreSQL connected")
+
+			// Get the pool for migrations
+			pgPool = pg.Pool
 
 			// Run pending migrations so all tables exist before the server
 			// starts accepting requests. Safe to call on every startup (idempotent).
@@ -265,11 +269,53 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
 	queryHandler.RegisterRoutes(r)
 
-	// Signal Broadcaster and WebSocket streaming
+	// Signal Broadcaster and WebSocket streaming (create first so HTTP receiver can use it)
 	broadcaster := ingest.NewSignalBroadcaster()
 	go broadcaster.Run(ctx)
 	wsHandler := ingest.NewWebSocketHandler(broadcaster, log)
 	wsHandler.RegisterRoutes(r)
+
+	// HTTP Signal Ingest Receiver (add to query API for full functionality)
+	if pg != nil && ch != nil {
+		// Create ingest-specific metrics registry
+		ingestReg := prometheus.NewRegistry()
+		ingestMetrics := metrics.NewIngest(ingestReg)
+
+		// Create ingest queue for signal batching
+		queueCapacity := viper.GetInt("ingest.queue.capacity")
+		if queueCapacity <= 0 {
+			queueCapacity = 100000
+		}
+		queue := ingest.NewQueue(queueCapacity, ingestMetrics)
+
+		// Create batch writer for ClickHouse persistence
+		batchSize := viper.GetInt("storage.batch.size")
+		if batchSize <= 0 {
+			batchSize = 500
+		}
+		batchInterval := viper.GetDuration("storage.batch.interval")
+		if batchInterval <= 0 {
+			batchInterval = 2 * time.Second
+		}
+		storageMetrics := metrics.NewStorage(ingestReg)
+		batchWriter, err := storage.NewBatchWriter(ctx, ch, batchSize, batchInterval, storageMetrics, log)
+		if err != nil {
+			log.Warn("failed to create batch writer for HTTP ingest", zap.Error(err))
+		} else {
+			// Start drain worker to process queued signals
+			go storage.DrainWorker(ctx, queue, batchWriter, log)
+		}
+
+		// Create auth validator for API key validation
+		authValidator := ingest.NewAuthValidator(pg, log)
+
+		// Create HTTP receiver for signal ingest
+		httpReceiver := ingest.NewHTTPReceiver(queue, authValidator, ingestMetrics, broadcaster, log)
+		httpReceiver.RegisterRoutes(r)
+
+		// Register ingest metrics endpoint
+		r.Handle("/metrics/ingest", promhttp.HandlerFor(ingestReg, promhttp.HandlerOpts{Registry: ingestReg}))
+	}
 
 	// Bind listener first so we know the port is available before logging
 	ln, err := net.Listen("tcp", httpAddr)

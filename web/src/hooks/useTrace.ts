@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { apiClient } from '../lib/axios-client'
 import type { Trace } from '../types/index'
 
 /**
@@ -18,7 +18,7 @@ export function useTrace(traceID: string) {
         setLoading(true)
         setError(null)
         // GET /api/v1/traces/{trace_id}
-        const response = await axios.get(`/api/v1/traces/${traceID}`)
+        const response = await apiClient.get(`/traces/${traceID}`)
         setTrace(response.data)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch trace'

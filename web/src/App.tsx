@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MainLayout } from './layouts/MainLayout'
@@ -52,16 +52,38 @@ function App() {
   const { initializeStatuses } = useLayerStore()
   const { refreshToken } = useAuthStore()
   const queryClient = useMemo(() => new QueryClient(), [])
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
-    initializeStatuses()
+    const initialize = async () => {
+      initializeStatuses()
 
-    // Attempt silent token refresh on app load to restore session from
-    // existing HttpOnly refresh cookie. Failure is expected when not logged in.
-    refreshToken().catch(() => {
-      // Not authenticated — ProtectedRoute will redirect to /login
-    })
-  }, [])
+      // Attempt silent token refresh on app load to restore session from
+      // existing HttpOnly refresh cookie. Failure is expected when not logged in.
+      try {
+        await refreshToken()
+      } catch (error) {
+        // Not authenticated — ProtectedRoute will redirect to /login
+      } finally {
+        // Mark initialization complete - allow routes to render
+        setIsInitialized(true)
+      }
+    }
+
+    initialize()
+  }, [initializeStatuses, refreshToken])
+
+  // Show loading screen while initializing
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
+          <p className="text-muted-foreground">Initializing application...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

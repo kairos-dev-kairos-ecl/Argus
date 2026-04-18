@@ -25,19 +25,30 @@ export const SignalRow: React.FC<SignalRowProps> = ({ signal, style }) => {
   }
 
   // Format timestamp to HH:mm:ss.SSS
-  const formatTime = (timestamp: string): string => {
-    try {
-      const date = new Date(timestamp)
-      return date.toLocaleTimeString('en-US', {
+  const formatTime = (timestamp: string | { seconds: number; nanos: number }): string => {
+    // Handle protobuf timestamp format
+    if (typeof timestamp === 'object' && 'seconds' in timestamp) {
+      return new Date(timestamp.seconds * 1000).toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        fractionalSecondDigits: 3
+        second: '2-digit'
       })
-    } catch {
-      return 'N/A'
     }
+    // Handle ISO8601 string format
+    if (typeof timestamp === 'string') {
+      try {
+        const date = new Date(timestamp)
+        return date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        })
+      } catch {
+        return 'N/A'
+      }
+    }
+    return 'N/A'
   }
 
   return (

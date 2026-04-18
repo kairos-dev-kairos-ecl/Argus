@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import axios from 'axios'
+import { apiClient } from '../lib/axios-client'
 import type { QueryResult } from '../types/index'
 
 /**
@@ -23,8 +24,8 @@ export function useQuery() {
       setError(null)
 
       // POST /api/v1/query with SQL and limit
-      const response = await axios.post(
-        '/api/v1/query',
+      const response = await apiClient.post(
+        '/query',
         {
           sql: sql.trim(),
           limit: 10000
@@ -35,7 +36,7 @@ export function useQuery() {
       )
 
       setResult(response.data as QueryResult)
-    } catch (err) {
+    } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 400) {
           const errorMsg = (err.response.data as any)?.error || 'Invalid query'

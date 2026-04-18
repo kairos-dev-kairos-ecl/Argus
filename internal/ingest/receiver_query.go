@@ -661,8 +661,8 @@ LIMIT 1000`
 			Status:     status,
 			Message:    sig.Category,
 		}
-		if sig.ParentSpanId != "" {
-			span.ParentSignalID = sig.ParentSpanId
+		if sig.ParentSpanId != nil && *sig.ParentSpanId != "" {
+			span.ParentSignalID = *sig.ParentSpanId
 		}
 		spans = append(spans, span)
 	}

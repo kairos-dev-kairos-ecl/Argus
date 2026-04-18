@@ -1,39 +1,51 @@
 // Layer type representing the 10-layer LLM system taxonomy
 export type Layer =
   | 'L1_HARDWARE'
-  | 'L2_KERNEL'
-  | 'L3_RUNTIME'
-  | 'L4_NETWORK'
-  | 'L5_CONTAINER'
-  | 'L6_MIDDLEWARE'
-  | 'L7_APPLICATION'
-  | 'L8_LLM_FRAMEWORK'
-  | 'L9_LLM_API'
-  | 'L10_SEMANTIC'
+  | 'L2_MODEL_WEIGHTS'
+  | 'L3_TOKENIZER'
+  | 'L4_TRANSFORMER'
+  | 'L5_OUTPUT_DECODING'
+  | 'L6_SAFETY'
+  | 'L7_RAG_RETRIEVAL'
+  | 'L8_AGENTS'
+  | 'L9_API_GATEWAY'
+  | 'L10_APPLICATION'
 
 export const LAYERS: Layer[] = [
   'L1_HARDWARE',
-  'L2_KERNEL',
-  'L3_RUNTIME',
-  'L4_NETWORK',
-  'L5_CONTAINER',
-  'L6_MIDDLEWARE',
-  'L7_APPLICATION',
-  'L8_LLM_FRAMEWORK',
-  'L9_LLM_API',
-  'L10_SEMANTIC'
+  'L2_MODEL_WEIGHTS',
+  'L3_TOKENIZER',
+  'L4_TRANSFORMER',
+  'L5_OUTPUT_DECODING',
+  'L6_SAFETY',
+  'L7_RAG_RETRIEVAL',
+  'L8_AGENTS',
+  'L9_API_GATEWAY',
+  'L10_APPLICATION'
 ]
+
+// Helper to convert numeric layer (1-10) to Layer name
+export function getLayerName(layerNum: number): Layer {
+  return LAYERS[layerNum - 1] || 'L10_APPLICATION'
+}
 
 // ArgusSignal matches backend wire format - core signal envelope
 export interface ArgusSignal {
   signal_id: string // ULID
   trace_id: string // UUID
-  layer: Layer
+  span_id: string
+  layer: number // 1-10 (maps to L1-L10)
   category: string
   severity: number // 1-5
-  timestamp: string // ISO8601
-  source_app_id: string
-  message: string
+  timestamp: { seconds: number; nanos: number } | string // ISO8601 or protobuf timestamp
+  ingested_at?: { seconds: number; nanos: number }
+  source?: {
+    app_id: string
+    app_version: string
+    sdk_version: string
+    environment: string
+  }
+  message?: string
   enrichment?: {
     baseline_deviation: number | null // z-score
     correlation_tags: string[]

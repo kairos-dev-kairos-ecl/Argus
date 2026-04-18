@@ -20,18 +20,18 @@ export type ReasoningNodeType =
  */
 function determineNodeType(span: Span, layer: Layer): ReasoningNodeType {
   // Infer from layer and message content
-  const messageType = span.message.toLowerCase()
+  const messageType = span.message?.toLowerCase() || ''
 
-  // L9_LLM_API, L8_LLM_FRAMEWORK typically = Inference
-  if (layer === 'L9_LLM_API' || layer === 'L8_LLM_FRAMEWORK') {
+  // L9_API_GATEWAY, L8_AGENTS typically = Inference
+  if (layer === 'L9_API_GATEWAY' || layer === 'L8_AGENTS') {
     if (messageType.includes('tool') || messageType.includes('function')) return 'tool_call'
     if (messageType.includes('safety')) return 'safety_check'
     if (messageType.includes('decision')) return 'decision'
     return 'inference'
   }
 
-  // L10_SEMANTIC = Retrieval
-  if (layer === 'L10_SEMANTIC') {
+  // L7_RAG_RETRIEVAL = Retrieval
+  if (layer === 'L7_RAG_RETRIEVAL') {
     if (messageType.includes('retrieval') || messageType.includes('embedding')) return 'retrieval'
     if (messageType.includes('grounding')) return 'retrieval'
   }
@@ -40,7 +40,7 @@ function determineNodeType(span: Span, layer: Layer): ReasoningNodeType {
   if (messageType.includes('detection') || messageType.includes('threat')) return 'detection_hit'
 
   // Early layers: Input
-  if (layer === 'L1_HARDWARE' || layer === 'L2_KERNEL' || layer === 'L3_RUNTIME') return 'input'
+  if (layer === 'L1_HARDWARE' || layer === 'L2_MODEL_WEIGHTS' || layer === 'L3_TOKENIZER') return 'input'
 
   // Default: infer from message
   if (messageType.includes('retriev')) return 'retrieval'

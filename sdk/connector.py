@@ -58,6 +58,7 @@ class DirectConnector(BaseConnector):
             app_version=config.get("app_version", "0.1.0"),
             environment=config.get("environment", "dev"),
             timeout=config.get("timeout", 30.0),
+            api_key=config.get("api_key"),
         )
         self._session_entered = False
 
@@ -73,7 +74,9 @@ class DirectConnector(BaseConnector):
             # Ensure session is initialized before sending
             await self._ensure_session()
 
-            success = await self.client.emit_signal(
+            # Use emit_signal_json to send JSON format (protobuf-JSON)
+            # The HTTP receiver at /v1/signals expects JSON, not binary protobuf
+            success = await self.client.emit_signal_json(
                 layer=signal.get("layer"),
                 category=signal.get("category"),
                 severity=signal.get("severity", Severity.INFO),

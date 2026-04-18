@@ -83,7 +83,7 @@ func AuthMiddleware(cfg MiddlewareConfig) func(next http.Handler) http.Handler {
 			claims, err := cfg.TokenManager.VerifyAccessToken(tokenString)
 			if err != nil {
 				// Token might be expired but valid signature
-				if cfg.TokenManager.IsTokenExpired(claims) && cfg.SessionStore != nil {
+				if claims != nil && cfg.TokenManager.IsTokenExpired(claims) && cfg.SessionStore != nil {
 					// Try to refresh silently
 					if cfg.Logger != nil {
 						cfg.Logger.Debug("access token expired, attempting refresh",

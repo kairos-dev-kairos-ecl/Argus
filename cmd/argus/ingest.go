@@ -164,13 +164,21 @@ func runIngest(cmd *cobra.Command, args []string) error {
 	httpAddr := viper.GetString("server.http.addr")
 	httpRouter := chi.NewRouter()
 
+	// Create broadcaster for WebSocket signal streaming
+	broadcaster := ingest.NewSignalBroadcaster()
+	go broadcaster.Run(ctx)
+
 	// Create HTTP receiver (requires auth)
-	httpReceiver := ingest.NewHTTPReceiver(queue, authValidator, ingestMetrics, log)
+	httpReceiver := ingest.NewHTTPReceiver(queue, authValidator, ingestMetrics, broadcaster, log)
 	httpReceiver.RegisterRoutes(httpRouter)
 
 	// Create OTLP receiver (no auth required for OTLP)
 	otlpReceiver := ingest.NewOTLPReceiver(queue, ingestMetrics, log)
 	otlpReceiver.RegisterRoutes(httpRouter)
+
+	// Register WebSocket signal streaming handler
+	wsHandler := ingest.NewWebSocketHandler(broadcaster, log)
+	wsHandler.RegisterRoutes(httpRouter)
 
 	// Prometheus metrics endpoint
 	httpRouter.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))

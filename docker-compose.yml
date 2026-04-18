@@ -91,7 +91,7 @@ services:
       dockerfile: Dockerfile
     image: argusxdr/argus:latest
     container_name: argus-server
-    command: ["api", "--dev"]
+    command: ["api", "--dev"]  # Run API with integrated HTTP ingest receivers
     ports:
       - "5001:5001"   # gRPC
       - "8080:8080"   # HTTP (signals, traces, metrics, API)

@@ -23,9 +23,10 @@ export const SignalStream: React.FC = () => {
   // Filter signals based on current filter criteria
   const filtered: ArgusSignal[] = useMemo(() => {
     return signals.filter((s) => {
-      // Filter by layers
+      // Filter by layers (layer is now a number 1-10)
       if (filter.layers && filter.layers.length > 0) {
-        if (!filter.layers.includes(s.layer)) return false
+        // Convert numeric layer to string for comparison
+        if (!filter.layers.some(l => l.startsWith(`L${s.layer}`))) return false
       }
 
       // Filter by minimum severity
@@ -38,9 +39,12 @@ export const SignalStream: React.FC = () => {
         if (s.category !== filter.category) return false
       }
 
-      // Filter by search text in message
+      // Filter by search text in category or message
       if (filter.search && filter.search !== '') {
-        if (!s.message.toLowerCase().includes(filter.search.toLowerCase())) {
+        const searchLower = filter.search.toLowerCase()
+        const messageMatch = s.message?.toLowerCase().includes(searchLower) ?? false
+        const categoryMatch = s.category.toLowerCase().includes(searchLower)
+        if (!messageMatch && !categoryMatch) {
           return false
         }
       }

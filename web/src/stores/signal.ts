@@ -23,6 +23,7 @@ interface SignalState {
  * Signal Stream Store
  * Manages the buffer of incoming signals with max 500-signal capacity.
  * When buffer overflows, oldest signals are dropped.
+ * Prevents duplicate signals by checking signal_id.
  */
 export const useSignalStore = create<SignalState>((set) => ({
   signals: [],
@@ -34,6 +35,11 @@ export const useSignalStore = create<SignalState>((set) => ({
 
   addSignal: (signal: ArgusSignal) =>
     set((state) => {
+      // Check if signal already exists to prevent duplicates
+      if (state.signals.some(s => s.signal_id === signal.signal_id)) {
+        return state
+      }
+
       const updated = [signal, ...state.signals]
       // Drop oldest signals if exceeding max buffer size
       if (updated.length > state.max_buffer_size) {
