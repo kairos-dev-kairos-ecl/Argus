@@ -228,6 +228,9 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	// Alert router: replaces PgAlertWriter — owns dedup, persist, route, dispatch
 	alertRouter := ingest.NewAlertRouter(pgPool, redisClient, routingEngine, alertDispatcher, log)
 	queryHandler.SetAlertRouter(alertRouter)
+	if pgPool != nil {
+		queryHandler.SetPool(pgPool)
+	}
 
 	// Build router
 	httpAddr := viper.GetString("server.http.addr")

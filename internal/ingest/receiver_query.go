@@ -18,6 +18,7 @@ import (
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -31,6 +32,7 @@ type QueryHandler struct {
 	store       *engine.RuleStore // may be nil if detection engine not wired
 	alertRouter *AlertRouter      // may be nil — alert pipeline disabled
 	authService *AuthService      // may be nil — auth disabled
+	pool        *pgxpool.Pool     // may be nil — PostgreSQL not configured
 }
 
 // NewQueryHandler creates a new QueryHandler.
@@ -62,6 +64,9 @@ func (h *QueryHandler) SetAlertRouter(r *AlertRouter) {
 func (h *QueryHandler) SetAuthService(svc *AuthService) {
 	h.authService = svc
 }
+
+// SetPool wires the PostgreSQL pool for rules and apps CRUD handlers.
+func (h *QueryHandler) SetPool(p *pgxpool.Pool) { h.pool = p }
 
 // authAvailable returns true if the auth service is configured.
 func (h *QueryHandler) authAvailable() bool {
