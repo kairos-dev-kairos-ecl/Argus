@@ -261,7 +261,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	}
 
 	// Health endpoint — always available, reports component status
-	r.Get("/health", makeHealthHandler(ch, log))
+	r.Get("/health", makeHealthHandler(ch, pgPool, redisClient, log))
 
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
@@ -354,7 +354,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 
 // makeHealthHandler returns a component-level health handler (Step 1.6 from build prompt).
 // Always returns 200 — clients check "status" field for degraded/healthy.
-func makeHealthHandler(ch *storage.ClickHouse, log *zap.Logger) http.HandlerFunc {
+func makeHealthHandler(ch *storage.ClickHouse, pgPool *pgxpool.Pool, redisClient *redis.Client, log *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
@@ -365,9 +365,10 @@ func makeHealthHandler(ch *storage.ClickHouse, log *zap.Logger) http.HandlerFunc
 			Error     string `json:"error,omitempty"`
 		}
 
-		chComp := componentHealth{Status: "unknown"}
 		overall := "healthy"
 
+		// ClickHouse check
+		chComp := componentHealth{Status: "unknown"}
 		if ch == nil {
 			chComp = componentHealth{Status: "unhealthy", Error: "not configured"}
 			overall = "degraded"
@@ -381,6 +382,36 @@ func makeHealthHandler(ch *storage.ClickHouse, log *zap.Logger) http.HandlerFunc
 			}
 		}
 
+		// PostgreSQL check
+		pgComp := componentHealth{Status: "unknown"}
+		if pgPool == nil {
+			pgComp = componentHealth{Status: "unhealthy", Error: "not configured"}
+			overall = "degraded"
+		} else {
+			start := time.Now()
+			if err := pgPool.Ping(ctx); err != nil {
+				pgComp = componentHealth{Status: "unhealthy", Error: err.Error()}
+				overall = "degraded"
+			} else {
+				pgComp = componentHealth{Status: "healthy", LatencyMs: time.Since(start).Milliseconds()}
+			}
+		}
+
+		// Redis check
+		redisComp := componentHealth{Status: "unknown"}
+		if redisClient == nil {
+			redisComp = componentHealth{Status: "unhealthy", Error: "not configured"}
+			overall = "degraded"
+		} else {
+			start := time.Now()
+			if err := redisClient.Ping(ctx).Err(); err != nil {
+				redisComp = componentHealth{Status: "unhealthy", Error: err.Error()}
+				overall = "degraded"
+			} else {
+				redisComp = componentHealth{Status: "healthy", LatencyMs: time.Since(start).Milliseconds()}
+			}
+		}
+
 		type healthResponse struct {
 			Status     string                     `json:"status"`
 			Components map[string]componentHealth `json:"components"`
@@ -390,6 +421,8 @@ func makeHealthHandler(ch *storage.ClickHouse, log *zap.Logger) http.HandlerFunc
 			Status: overall,
 			Components: map[string]componentHealth{
 				"clickhouse": chComp,
+				"postgres":   pgComp,
+				"redis":      redisComp,
 			},
 		}
 
