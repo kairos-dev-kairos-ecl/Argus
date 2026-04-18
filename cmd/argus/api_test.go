@@ -12,7 +12,7 @@ import (
 func TestHealthHandler_DegradedWhenNilStorage(t *testing.T) {
 	// makeHealthHandler is tested via the exported function
 	// This tests the response shape
-	handler := makeHealthHandler(nil, zap.NewNop())
+	handler := makeHealthHandler(nil, nil, nil, zap.NewNop())
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
