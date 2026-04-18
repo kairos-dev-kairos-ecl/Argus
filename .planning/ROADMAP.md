@@ -46,7 +46,7 @@
 **Goal:** Implement all missing backend endpoints required by the frontend — bedrock quality, no stubs, no TODOs.
 
 **Status:** Planning
-**Plans:** 1/5 plans executed
+**Plans:** 3/5 plans executed
 
 **Requirements:**
 - REQ-P3-01: ClickHouse insert column sync — SignalsInsertColumns matches schema.go DDL
@@ -62,7 +62,7 @@ Plans:
 - [x] 03-01-PLAN.md — ClickHouse column sync (Wave 0, blocks everything)
 - [x] 03-02-PLAN.md — Response shape fixes for layer status, trace, query (Wave 1)
 - [ ] 03-03-PLAN.md — Rules routing fix + Apps CRUD (Wave 2)
-- [ ] 03-04-PLAN.md — Health endpoint expansion (Wave 2)
+- [x] 03-04-PLAN.md — Health endpoint expansion (Wave 2)
 - [ ] 03-05-PLAN.md — Integration tests (Wave 3)
 
 ---
