@@ -26,7 +26,7 @@ func TestHTTPReceiverPostSignalsSingle(t *testing.T) {
 	})
 	metricsReg := prometheus.NewRegistry()
 	ingestMetrics := metrics.NewIngest(metricsReg)
-	receiver := NewHTTPReceiver(queue, testAuth, ingestMetrics, log)
+	receiver := NewHTTPReceiver(queue, testAuth, ingestMetrics, nil, log)
 
 	// Create a single signal
 	signal := &v1.ArgusSignal{
@@ -78,7 +78,7 @@ func TestHTTPReceiverPostSignalsArray(t *testing.T) {
 	})
 	metricsReg := prometheus.NewRegistry()
 	ingestMetrics := metrics.NewIngest(metricsReg)
-	receiver := NewHTTPReceiver(queue, testAuth, ingestMetrics, log)
+	receiver := NewHTTPReceiver(queue, testAuth, ingestMetrics, nil, log)
 
 	// Create multiple signals
 	signals := []*v1.ArgusSignal{
@@ -153,7 +153,7 @@ func TestHTTPReceiverMissingAuth(t *testing.T) {
 	testAuth := NewTestAuthValidator(log, map[string]string{
 		"test-key": "test-app",
 	})
-	receiver := NewHTTPReceiver(queue, testAuth, nil, log)
+	receiver := NewHTTPReceiver(queue, testAuth, nil, nil, log)
 
 	// Create request WITHOUT auth header
 	req := httptest.NewRequest(http.MethodPost, "/v1/signals", bytes.NewReader([]byte(`{"signal_id":"test"}`)))
@@ -179,7 +179,7 @@ func TestHTTPReceiverMalformedJSON(t *testing.T) {
 	testAuth := NewTestAuthValidator(log, map[string]string{
 		"test-key": "test-app",
 	})
-	receiver := NewHTTPReceiver(queue, testAuth, nil, log)
+	receiver := NewHTTPReceiver(queue, testAuth, nil, nil, log)
 
 	// Create malformed JSON
 	req := httptest.NewRequest(http.MethodPost, "/v1/signals", bytes.NewReader([]byte(`{invalid json}`)))
@@ -204,7 +204,7 @@ func TestHTTPReceiverOversizedBody(t *testing.T) {
 	testAuth := NewTestAuthValidator(log, map[string]string{
 		"test-key": "test-app",
 	})
-	receiver := NewHTTPReceiver(queue, testAuth, nil, log)
+	receiver := NewHTTPReceiver(queue, testAuth, nil, nil, log)
 
 	// Create oversized body (>4MB)
 	oversizedBody := make([]byte, 5*1024*1024) // 5MB
@@ -235,7 +235,7 @@ func TestHTTPReceiverMissingRequiredFields(t *testing.T) {
 	testAuth := NewTestAuthValidator(log, map[string]string{
 		"test-key": "test-app",
 	})
-	receiver := NewHTTPReceiver(queue, testAuth, nil, log)
+	receiver := NewHTTPReceiver(queue, testAuth, nil, nil, log)
 
 	// Create signal without trace_id
 	signal := &v1.ArgusSignal{
@@ -274,7 +274,7 @@ func TestHTTPReceiverQueueFull(t *testing.T) {
 	testAuth := NewTestAuthValidator(log, map[string]string{
 		"test-key": "test-app",
 	})
-	receiver := NewHTTPReceiver(queue, testAuth, nil, log)
+	receiver := NewHTTPReceiver(queue, testAuth, nil, nil, log)
 
 	// Enqueue a signal to fill the queue
 	queue.Enqueue(&v1.ArgusSignal{
@@ -321,7 +321,7 @@ func TestHTTPReceiverPartialRejection(t *testing.T) {
 	})
 	metricsReg := prometheus.NewRegistry()
 	ingestMetrics := metrics.NewIngest(metricsReg)
-	receiver := NewHTTPReceiver(queue, testAuth, ingestMetrics, log)
+	receiver := NewHTTPReceiver(queue, testAuth, ingestMetrics, nil, log)
 
 	// Enqueue one signal to fill the queue partially
 	queue.Enqueue(&v1.ArgusSignal{
@@ -391,7 +391,7 @@ func TestHTTPReceiverEmptyBody(t *testing.T) {
 	testAuth := NewTestAuthValidator(log, map[string]string{
 		"test-key": "test-app",
 	})
-	receiver := NewHTTPReceiver(queue, testAuth, nil, log)
+	receiver := NewHTTPReceiver(queue, testAuth, nil, nil, log)
 
 	// Create request with empty body
 	req := httptest.NewRequest(http.MethodPost, "/v1/signals", bytes.NewReader([]byte("")))
