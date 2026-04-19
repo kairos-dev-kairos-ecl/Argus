@@ -9,19 +9,28 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// ParseRuleYAML parses a Rule from raw YAML bytes.
+// This is the shared parse core used by both file loaders and the DB loader.
+func ParseRuleYAML(data []byte) (Rule, error) {
+	var r Rule
+	if err := yaml.Unmarshal(data, &r); err != nil {
+		return Rule{}, fmt.Errorf("parse rule yaml: %w", err)
+	}
+	if err := r.Validate(); err != nil {
+		return Rule{}, fmt.Errorf("invalid rule: %w", err)
+	}
+	return r, nil
+}
+
 // LoadRuleFromFile reads a single Rule from a YAML file.
 func LoadRuleFromFile(path string) (Rule, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Rule{}, fmt.Errorf("load rule %q: %w", path, err)
 	}
-
-	var r Rule
-	if err := yaml.Unmarshal(data, &r); err != nil {
-		return Rule{}, fmt.Errorf("parse rule %q: %w", path, err)
-	}
-	if err := r.Validate(); err != nil {
-		return Rule{}, fmt.Errorf("invalid rule %q: %w", path, err)
+	r, err := ParseRuleYAML(data)
+	if err != nil {
+		return Rule{}, fmt.Errorf("load rule %q: %w", path, err)
 	}
 	return r, nil
 }
