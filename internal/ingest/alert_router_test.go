@@ -105,7 +105,7 @@ func TestWriteAlert_MissingTraceID_Rejects(t *testing.T) {
 		},
 	}
 
-	err := router.WriteAlert(context.Background(), match)
+	err := router.WriteAlert(context.Background(), match, nil)
 	assert.ErrorIs(t, err, ErrMissingTraceID)
 }
 
@@ -155,7 +155,7 @@ func TestAlertRouterWriteAlertNilPoolNoop(t *testing.T) {
 		},
 	}
 
-	err := router.WriteAlert(context.Background(), match)
+	err := router.WriteAlert(context.Background(), match, nil)
 	assert.NoError(t, err)
 }
 
@@ -179,7 +179,7 @@ func TestAlertRouterWriteAlertDispatches(t *testing.T) {
 		},
 	}
 
-	err := router.WriteAlert(context.Background(), match)
+	err := router.WriteAlert(context.Background(), match, nil)
 	require.NoError(t, err)
 	require.Len(t, cap.jobs, 1)
 	assert.Equal(t, []string{"log"}, cap.jobs[0].Targets)

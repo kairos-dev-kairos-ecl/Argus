@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/argusxdr/argus/internal/detection/engine"
+	"github.com/argusxdr/argus/internal/kairos"
 	"github.com/argusxdr/argus/internal/notify"
-	"github.com/argusxdr/argus/internal/pipeline"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,8 +29,6 @@ const defaultSuppressThreshold = 100
 
 // ErrMissingTraceID is returned when WriteAlert is called without a trace_id (D-06).
 var ErrMissingTraceID = errors.New("alert rejected: trace_id is required (D-06)")
-
-var _ pipeline.AlertWriter = (*AlertRouter)(nil)
 
 type routingEvaluator interface {
 	Evaluate(ctx *notify.EvaluationContext) []string
@@ -65,9 +63,10 @@ func NewAlertRouter(pool *pgxpool.Pool, redisClient *redis.Client, routing routi
 	}
 }
 
-// WriteAlert implements pipeline.AlertWriter.
+// WriteAlert implements worker.AlertWriter.
+// kairosDecision may be nil (Kairos disabled, timed out, or failed — fail-open).
 // Returns ErrMissingTraceID if sig.TraceId is empty (D-06); no DB write is attempted.
-func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult) error {
+func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult, kairosDecision *kairos.PolicyDecision) error {
 	if m.Signal == nil {
 		return nil
 	}
@@ -101,7 +100,7 @@ func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult) err
 
 	if ar.pool != nil {
 		var err error
-		alertID, err = ar.upsertAlert(ctx, m, alertID, fingerprint, signalID, appID, traceID, layer)
+		alertID, err = ar.upsertAlert(ctx, m, kairosDecision, alertID, fingerprint, signalID, appID, traceID, layer)
 		if err != nil {
 			return err
 		}
@@ -164,6 +163,7 @@ func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult) err
 func (ar *AlertRouter) upsertAlert(
 	ctx context.Context,
 	m engine.MatchResult,
+	kairosDecision *kairos.PolicyDecision,
 	candidateID uuid.UUID,
 	fingerprint string,
 	signalID string,
@@ -177,8 +177,13 @@ func (ar *AlertRouter) upsertAlert(
 		"tier":        m.Tier,
 		"reason":      m.Reason,
 	})
-	// kairos_decision is null unless set externally.
-	kairosJSON := []byte("null")
+	// kairos_decision: persist Kairos policy decision if provided, else null.
+	var kairosJSON []byte
+	if kairosDecision != nil {
+		kairosJSON, _ = json.Marshal(kairosDecision)
+	} else {
+		kairosJSON = []byte("null")
+	}
 
 	var alertID uuid.UUID
 	var signalCount int
