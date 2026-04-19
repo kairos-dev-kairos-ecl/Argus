@@ -2,32 +2,27 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 
 	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"go.uber.org/zap"
 )
 
-// AlertWriter persists a matched detection result as an alert.
-type AlertWriter interface {
-	WriteAlert(ctx context.Context, match engine.MatchResult) error
-}
-
-// DetectionProcessor evaluates signals against detection rules and writes alerts.
+// DetectionProcessor evaluates signals against Tier 1 detection rules inline.
+// Tier 2/3 evaluation is handled asynchronously by the detection worker.
+// This processor does NOT write alerts; it only annotates signals with matched rule IDs.
 type DetectionProcessor struct {
 	engine *engine.DetectionEngine
-	writer AlertWriter
 	log    *zap.Logger
 }
 
 // NewDetectionProcessor creates a DetectionProcessor.
-func NewDetectionProcessor(e *engine.DetectionEngine, writer AlertWriter) *DetectionProcessor {
-	if writer == nil {
-		writer = noopAlertWriter{}
-	}
+// The writer parameter is accepted for backward compatibility but is no longer used.
+// Alert writing is handled by the async detection worker.
+func NewDetectionProcessor(e *engine.DetectionEngine, _ AlertWriter) *DetectionProcessor {
 	return &DetectionProcessor{
 		engine: e,
-		writer: writer,
 		log:    zap.L(),
 	}
 }
@@ -39,7 +34,9 @@ func (d *DetectionProcessor) SetLogger(log *zap.Logger) {
 	}
 }
 
-// Process evaluates the signal and writes alerts for any matches.
+// Process evaluates the signal against Tier 1 rules only.
+// On Tier 1 matches, matched rule IDs are recorded in sig.RelatedSignals with a "rule:" prefix.
+// No alert writes occur in this processor.
 func (d *DetectionProcessor) Process(ctx context.Context, sig *v1.ArgusSignal) (*v1.ArgusSignal, error) {
 	if sig == nil {
 		return nil, nil
@@ -48,7 +45,7 @@ func (d *DetectionProcessor) Process(ctx context.Context, sig *v1.ArgusSignal) (
 		return sig, nil
 	}
 
-	matches, err := d.engine.Evaluate(ctx, sig)
+	matches, err := d.engine.EvaluateTier1(ctx, sig)
 	if err != nil {
 		d.log.Warn("detection engine error (non-fatal)",
 			zap.String("signal_id", sig.SignalId),
@@ -57,21 +54,39 @@ func (d *DetectionProcessor) Process(ctx context.Context, sig *v1.ArgusSignal) (
 		return sig, nil
 	}
 
-	for _, m := range matches {
-		if err := d.writer.WriteAlert(ctx, m); err != nil {
-			d.log.Warn("alert write failed (non-fatal)",
-				zap.String("signal_id", sig.SignalId),
-				zap.String("rule_id", m.Rule.ID),
-				zap.Error(err),
-			)
-		}
+	if len(matches) == 0 {
+		return sig, nil
 	}
+
+	// Annotate signal with matched rule IDs (Tier 1 only).
+	// Rule IDs are stored in RelatedSignals with a "rule:" prefix until the proto
+	// gains a dedicated matched_rule_ids field.
+	for _, m := range matches {
+		tag := fmt.Sprintf("rule:%s", m.Rule.ID)
+		sig.RelatedSignals = append(sig.RelatedSignals, tag)
+	}
+
+	ruleIDs := make([]string, len(matches))
+	for i, m := range matches {
+		ruleIDs[i] = m.Rule.ID
+	}
+	d.log.Debug("tier1 rules matched",
+		zap.String("signal_id", sig.SignalId),
+		zap.Strings("rule_ids", ruleIDs),
+	)
+
 	return sig, nil
 }
 
 // Name implements Processor.
 func (d *DetectionProcessor) Name() string {
 	return "Detection"
+}
+
+// AlertWriter is kept for interface compatibility but is no longer used by DetectionProcessor.
+// Alert writing is handled by the async detection worker.
+type AlertWriter interface {
+	WriteAlert(ctx context.Context, match engine.MatchResult) error
 }
 
 type noopAlertWriter struct{}
