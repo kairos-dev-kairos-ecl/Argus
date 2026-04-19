@@ -79,7 +79,7 @@ Plans:
 - [x] 04-03-PLAN.md — DB-backed rule hot-reload via MAX(version) polling (Wave 1)
 - [x] 04-04-PLAN.md — Kairos conditional dispatch (requires_kairos, sampling, fail-open) (Wave 2)
 - [x] 04-05-PLAN.md — Alert persistence: fingerprint dedup, lifecycle, JSONB context, trace linkage (Wave 2)
-- [ ] 04-06-PLAN.md — End-to-end wiring in cmd/argus/api.go (Wave 3)
+- [x] 04-06-PLAN.md — End-to-end wiring in cmd/argus/api.go (Wave 3)
 - [ ] 04-07-PLAN.md — Integration tests: signal → rule → alert path (Wave 4)
 
 ---
