@@ -1,0 +1,7 @@
+# Argus Validation Harness — Python dependencies
+# Install: pip install -r test_harness/requirements_harness.txt
+# Preferred: uv pip install -r test_harness/requirements_harness.txt
+
+httpx>=0.27.0
+psutil>=5.9.0
+clickhouse-connect>=0.7.0
