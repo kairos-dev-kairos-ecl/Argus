@@ -1,0 +1,166 @@
+version: "3.9"
+
+services:
+  # ClickHouse (signals time-series database) — test instance
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: argus-clickhouse-test
+    ports:
+      - "9001:9000"   # Native protocol (offset to avoid dev conflict)
+      - "8124:8123"   # HTTP interface
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_test_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - argus-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PostgreSQL (config, auth, rules) — test instance
+  postgres:
+    image: postgres:16-alpine
+    container_name: argus-postgres-test
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: argus
+      POSTGRES_DB: argus
+      POSTGRES_INITDB_ARGS: "-c log_statement=none"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks:
+      - argus-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis (ephemeral: trace correlation, dedup, rate limit) — test instance
+  redis:
+    image: redis:7.2-alpine
+    container_name: argus-redis-test
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --loglevel notice
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - argus-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Argus XDR server — test instance
+  argus-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: argusxdr/argus:latest
+    container_name: argus-server-test
+    command: ["api", "--dev"]
+    ports:
+      - "5002:5001"   # gRPC
+      - "8082:8080"   # HTTP
+    environment:
+      ARGUS_SERVER_GRPC_ADDR: "0.0.0.0:5001"
+      ARGUS_SERVER_HTTP_ADDR: "0.0.0.0:8080"
+      ARGUS_DATABASE_POSTGRES_DSN: "postgresql://argus:argus@postgres:5432/argus?sslmode=disable"
+      ARGUS_DATABASE_CLICKHOUSE_DSN: "clickhouse:9000"
+      ARGUS_REDIS_ADDR: "redis:6379"
+      ARGUS_INGEST_QUEUE_CAPACITY: "100000"
+      ARGUS_STORAGE_BATCH_SIZE: "500"
+      ARGUS_STORAGE_BATCH_INTERVAL: "2s"
+      ARGUS_LOGGING_DEV: "true"
+      ARGUS_LOGGING_LEVEL: "debug"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - argus-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # llama.cpp server — serves Qwen2.5-0.5B-Instruct via OpenAI-compatible API
+  llama-cpp:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: argus-llamacpp-test
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./test_harness/models:/models:ro
+    command: >
+      -m /models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+      --host 0.0.0.0
+      --port 8080
+      -c 2048
+      -t 4
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -s http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - argus-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  clickhouse_test_data:
+    driver: local
+  postgres_test_data:
+    driver: local
+
+networks:
+  argus-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

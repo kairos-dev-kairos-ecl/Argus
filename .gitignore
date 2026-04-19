@@ -39,3 +39,8 @@ web/.env.local
 # Docker
 .env.docker
 docker-compose.override.yml
+
+# LLM model weights (large binary files — download separately)
+test_harness/models/*.gguf
+test_harness/models/*.bin
+test_harness/models/*.safetensors
