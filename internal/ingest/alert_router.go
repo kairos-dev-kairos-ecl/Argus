@@ -3,6 +3,9 @@ package ingest
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -15,9 +18,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+
+	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 )
 
 const dedupWindow = 15 * time.Minute
+
+// defaultSuppressThreshold is the signal_count at which an alert is auto-suppressed.
+const defaultSuppressThreshold = 100
+
+// ErrMissingTraceID is returned when WriteAlert is called without a trace_id (D-06).
+var ErrMissingTraceID = errors.New("alert rejected: trace_id is required (D-06)")
 
 var _ pipeline.AlertWriter = (*AlertRouter)(nil)
 
@@ -31,11 +42,12 @@ type dispatchSink interface {
 
 // AlertRouter is the post-detection pipeline owner: dedup -> persist -> route -> dispatch.
 type AlertRouter struct {
-	pool       *pgxpool.Pool
-	redis      *redis.Client
-	routing    routingEvaluator
-	dispatcher dispatchSink
-	log        *zap.Logger
+	pool               *pgxpool.Pool
+	redis              *redis.Client
+	routing            routingEvaluator
+	dispatcher         dispatchSink
+	log                *zap.Logger
+	suppressThreshold  int
 }
 
 // NewAlertRouter creates a new alert router.
@@ -44,18 +56,26 @@ func NewAlertRouter(pool *pgxpool.Pool, redisClient *redis.Client, routing routi
 		log = zap.NewNop()
 	}
 	return &AlertRouter{
-		pool:       pool,
-		redis:      redisClient,
-		routing:    routing,
-		dispatcher: dispatcher,
-		log:        log,
+		pool:              pool,
+		redis:             redisClient,
+		routing:           routing,
+		dispatcher:        dispatcher,
+		log:               log,
+		suppressThreshold: defaultSuppressThreshold,
 	}
 }
 
 // WriteAlert implements pipeline.AlertWriter.
+// Returns ErrMissingTraceID if sig.TraceId is empty (D-06); no DB write is attempted.
 func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult) error {
 	if m.Signal == nil {
 		return nil
+	}
+
+	// D-06: trace linkage is mandatory.
+	if m.Signal.TraceId == "" {
+		ar.log.Warn("alert rejected, missing trace_id", zap.String("rule_id", m.Rule.ID))
+		return ErrMissingTraceID
 	}
 
 	appID := ""
@@ -65,7 +85,7 @@ func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult) err
 	traceID := m.Signal.TraceId
 	signalID := m.Signal.SignalId
 	layer := int(m.Signal.Layer)
-	fingerprint := computeRouterFingerprint(m.Rule.ID, appID)
+	fingerprint := computeRouterFingerprint(m.Rule.ID, m.Signal)
 
 	alertID := uuid.New()
 	isNew := true
@@ -81,7 +101,7 @@ func (ar *AlertRouter) WriteAlert(ctx context.Context, m engine.MatchResult) err
 
 	if ar.pool != nil {
 		var err error
-		alertID, err = ar.upsertAlert(ctx, m, alertID, fingerprint, signalID, appID, traceID, layer, isNew)
+		alertID, err = ar.upsertAlert(ctx, m, alertID, fingerprint, signalID, appID, traceID, layer)
 		if err != nil {
 			return err
 		}
@@ -150,56 +170,69 @@ func (ar *AlertRouter) upsertAlert(
 	appID string,
 	traceID string,
 	layer int,
-	isNew bool,
 ) (uuid.UUID, error) {
-	if !isNew {
-		var alertID uuid.UUID
-		err := ar.pool.QueryRow(ctx, `
-			UPDATE alerts
-			   SET signal_count = signal_count + 1,
-			       signal_ids = array_append(signal_ids, $1),
-			       last_seen_at = now()
-			 WHERE fingerprint = $2
-			 RETURNING id
-		`, signalID, fingerprint).Scan(&alertID)
-		if err == nil {
-			return alertID, nil
-		}
-		if err != pgx.ErrNoRows {
-			return uuid.Nil, fmt.Errorf("update duplicate alert: %w", err)
-		}
-		// Fallback: treat as new if row disappeared between dedup and update.
-	}
+	// Build JSONB context from rule action (D-07).
+	ctxJSON, _ := json.Marshal(map[string]any{
+		"rule_action": m.Rule.Action,
+		"tier":        m.Tier,
+		"reason":      m.Reason,
+	})
+	// kairos_decision is null unless set externally.
+	kairosJSON := []byte("null")
 
 	var alertID uuid.UUID
+	var signalCount int
 	err := ar.pool.QueryRow(ctx, `
 		INSERT INTO alerts (
-			id, app_id, fingerprint, severity, layer, category, title, description, signal_ids, trace_id, status,
-			signal_count, first_seen_at, last_seen_at
+			id, rule_id, app_id, trace_id, signal_ids, signal_count,
+			fingerprint, severity, layer, category, title, description,
+			status, context, kairos_decision, first_seen_at, last_seen_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open',
-			1, now(), now()
+			$1, $2, $3, $4, $5, 1,
+			$6, $7, $8, $9, $10, $11,
+			'open', $12, $13, NOW(), NOW()
 		)
 		ON CONFLICT (fingerprint) DO UPDATE SET
-			signal_count = alerts.signal_count + 1,
-			signal_ids = array_append(alerts.signal_ids, EXCLUDED.signal_ids[1]),
-			last_seen_at = now()
-		RETURNING id
+			signal_count    = alerts.signal_count + 1,
+			last_seen_at    = NOW(),
+			signal_ids      = array_append(alerts.signal_ids, $14),
+			kairos_decision = COALESCE(EXCLUDED.kairos_decision, alerts.kairos_decision)
+		RETURNING id, signal_count
 	`,
 		candidateID,
+		m.Rule.ID,
 		appID,
+		traceID,
+		[]string{signalID},
 		fingerprint,
 		m.Rule.Severity,
 		layer,
 		m.Signal.Category,
 		m.Rule.Action.Title,
 		m.Rule.Action.Description,
-		[]string{signalID},
-		traceID,
-	).Scan(&alertID)
+		ctxJSON,
+		kairosJSON,
+		signalID, // $14 for array_append on conflict
+	).Scan(&alertID, &signalCount)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("insert alert: %w", err)
+		return uuid.Nil, fmt.Errorf("upsert alert: %w", err)
 	}
+
+	// D-04: Auto-suppress when dedup count exceeds threshold.
+	threshold := ar.suppressThreshold
+	if threshold <= 0 {
+		threshold = defaultSuppressThreshold
+	}
+	if signalCount > threshold {
+		_, suppErr := ar.pool.Exec(ctx,
+			`UPDATE alerts SET status='suppressed' WHERE id=$1 AND status='open'`, alertID)
+		if suppErr == nil {
+			ar.log.Info("alert auto-suppressed",
+				zap.String("alert_id", alertID.String()),
+				zap.Int("signal_count", signalCount))
+		}
+	}
+
 	return alertID, nil
 }
 
@@ -265,7 +298,17 @@ func (ar *AlertRouter) tryCorrelateIncident(ctx context.Context, alertID uuid.UU
 	return err
 }
 
-func computeRouterFingerprint(ruleID, appID string) string {
-	h := sha256.Sum256([]byte(ruleID + ":" + appID))
-	return fmt.Sprintf("%x", h[:])
+// computeRouterFingerprint returns sha256 hex over: rule_id + "|" + entity + "|" + normalized_payload.
+// entity = Source.AppId + ":" + SessionId (most specific per-caller identifier available).
+// normalized_payload = Layer + "|" + Category + "|" + Severity (stable, deterministic).
+func computeRouterFingerprint(ruleID string, sig *v1.ArgusSignal) string {
+	appID := ""
+	if sig.Source != nil {
+		appID = sig.Source.AppId
+	}
+	sessionID := sig.GetSessionId()
+	entity := fmt.Sprintf("%s:%s", appID, sessionID)
+	payload := fmt.Sprintf("%d|%s|%d", sig.Layer, sig.Category, sig.Severity)
+	h := sha256.Sum256([]byte(ruleID + "|" + entity + "|" + payload))
+	return hex.EncodeToString(h[:])
 }
