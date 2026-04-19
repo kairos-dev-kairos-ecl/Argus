@@ -8,12 +8,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/argusxdr/argus/internal/auth"
+	"github.com/argusxdr/argus/internal/detection/breaker"
 	"github.com/argusxdr/argus/internal/detection/engine"
+	"github.com/argusxdr/argus/internal/detection/loader"
+	"github.com/argusxdr/argus/internal/detection/worker"
 	"github.com/argusxdr/argus/internal/ingest"
+	"github.com/argusxdr/argus/internal/kairos"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/notify"
 	"github.com/argusxdr/argus/internal/storage"
@@ -62,6 +67,14 @@ func init() {
 	// Logging flags
 	apiCmd.Flags().Bool("dev", false, "Enable development logging (more verbose)")
 	viper.BindPFlag("logging.dev", apiCmd.Flags().Lookup("dev"))
+
+	// Kairos flags (optional — leave empty to disable)
+	apiCmd.Flags().String("kairos-endpoint", "", "Kairos policy engine endpoint (empty = disabled)")
+	viper.BindEnv("kairos.endpoint", "ARGUS_KAIROS_ENDPOINT")
+	viper.BindPFlag("kairos.endpoint", apiCmd.Flags().Lookup("kairos-endpoint"))
+	apiCmd.Flags().Duration("kairos-timeout", 500*time.Millisecond, "Kairos evaluation timeout")
+	viper.BindEnv("kairos.timeout", "ARGUS_KAIROS_TIMEOUT")
+	viper.BindPFlag("kairos.timeout", apiCmd.Flags().Lookup("kairos-timeout"))
 }
 
 // runAPI starts the Argus query API subsystem only.
@@ -231,6 +244,71 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	if pgPool != nil {
 		queryHandler.SetPool(pgPool)
 	}
+
+	// ── Detection engine wiring ──────────────────────────────────────────────
+	// Construct the detection engine from the already-seeded ruleStore.
+	detectionEngine := engine.New(ruleStore, nil)
+
+	// Detection metrics — registered on the shared Prometheus registry.
+	detMetrics := metrics.NewDetection(reg)
+
+	// Circuit breaker (30s half-open cooldown).
+	detBreaker := breaker.New(30 * time.Second)
+
+	// Kairos evaluator — optional; nil when endpoint is not configured.
+	var kairosEval worker.KairosEvaluator
+	if kairosEndpoint := viper.GetString("kairos.endpoint"); kairosEndpoint != "" {
+		kairosTimeout := viper.GetDuration("kairos.timeout")
+		if kairosTimeout <= 0 {
+			kairosTimeout = 500 * time.Millisecond
+		}
+		kairosClient := kairos.NewClient(kairosEndpoint, kairosTimeout, log)
+		kairosEval = kairos.NewEvaluator(kairosClient, nil, log)
+		log.Info("Kairos evaluator enabled", zap.String("endpoint", kairosEndpoint))
+	}
+
+	// Async detection worker — queue depth 10000, workers = GOMAXPROCS*2.
+	asyncWorker := worker.New(
+		detectionEngine,
+		alertRouter,
+		detBreaker,
+		detMetrics,
+		log,
+		10000,
+		runtime.GOMAXPROCS(0)*2,
+	)
+	if kairosEval != nil {
+		asyncWorker.WithKairos(kairosEval)
+	}
+	asyncWorker.Start(ctx)
+	defer asyncWorker.Shutdown()
+
+	// DB-backed rule hot-reload (polls every 45s, short-circuits on unchanged version).
+	// Only active when PostgreSQL is available; falls back to static YAML rules otherwise.
+	if pgPool != nil {
+		ruleReloader := loader.New(pgPool, ruleStore, 45*time.Second, log)
+		go ruleReloader.Run(ctx)
+	} else {
+		log.Warn("PostgreSQL unavailable — DB rule hot-reload disabled; using static YAML rules only")
+	}
+
+	// Circuit breaker evaluation loop (5s cadence per D-19).
+	go func() {
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				detBreaker.Evaluate(
+					asyncWorker.QueueDepth(), 10000,
+					asyncWorker.P99LatencyMs(), 500.0,
+				)
+			}
+		}
+	}()
+	// ── End detection engine wiring ──────────────────────────────────────────
 
 	// Build router
 	httpAddr := viper.GetString("server.http.addr")

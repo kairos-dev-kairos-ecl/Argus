@@ -255,6 +255,26 @@ func (w *AsyncDetectionWorker) callKairos(ctx context.Context, m engine.MatchRes
 	return d
 }
 
+// QueueDepth returns the current number of signals waiting in the async queue.
+func (w *AsyncDetectionWorker) QueueDepth() int {
+	return len(w.queue)
+}
+
+// P99LatencyMs returns a best-effort p99 latency estimate in milliseconds.
+// Because the Detection metrics histogram does not expose raw samples, this
+// returns the queue-fullness ratio as a proxy latency signal (0–1000ms range).
+// A full queue implies high latency; an empty queue implies low latency.
+// This is used only for circuit-breaker evaluation; it is not exposed to users.
+func (w *AsyncDetectionWorker) P99LatencyMs() float64 {
+	cap := cap(w.queue)
+	if cap == 0 {
+		return 0
+	}
+	ratio := float64(len(w.queue)) / float64(cap)
+	// Map 0–100% queue fill → 0–1000ms estimated p99
+	return ratio * 1000.0
+}
+
 // shouldCallKairos returns true when the match or signal qualifies for Kairos evaluation.
 // Conditions (any one sufficient):
 //   - Rule has RequiresKairos=true (D-15)
