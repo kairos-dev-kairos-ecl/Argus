@@ -71,11 +71,11 @@ Plans:
 **Goal:** Wire Tier 1/2/3 rule evaluation and Kairos policy decisions end-to-end with hybrid inline/async detection, PostgreSQL-backed rule hot-reload, fingerprinted alert lifecycle, bounded async queue with severity-based drop policy, circuit breaker, and full Prometheus instrumentation.
 
 **Status:** Planning
-**Plans:** 7 plans across 5 waves
+**Plans:** 2/7 plans executed
 
 Plans:
 - [ ] 04-01-PLAN.md — Fix double-write + restrict DetectionProcessor to Tier 1 + authoritative alerts migration 018 (Wave 0)
-- [ ] 04-02-PLAN.md — Async detection worker + circuit breaker + Prometheus metrics (Wave 1)
+- [x] 04-02-PLAN.md — Async detection worker + circuit breaker + Prometheus metrics (Wave 1)
 - [x] 04-03-PLAN.md — DB-backed rule hot-reload via MAX(version) polling (Wave 1)
 - [ ] 04-04-PLAN.md — Kairos conditional dispatch (requires_kairos, sampling, fail-open) (Wave 2)
 - [ ] 04-05-PLAN.md — Alert persistence: fingerprint dedup, lifecycle, JSONB context, trace linkage (Wave 2)
