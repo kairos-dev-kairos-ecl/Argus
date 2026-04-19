@@ -1,0 +1,85 @@
+{
+  "layers": [
+    {
+      "layer": 1,
+      "name": "L1 Hardware",
+      "expected": true,
+      "expected_fields": ["cpu_usage_pct", "memory_used_mb"],
+      "notes": "Populated via psutil host metrics"
+    },
+    {
+      "layer": 2,
+      "name": "L2 Model Weights",
+      "expected": true,
+      "expected_fields": ["model_id", "quantization"],
+      "notes": "Static metadata from harness config"
+    },
+    {
+      "layer": 3,
+      "name": "L3 Tokenizer",
+      "expected": true,
+      "expected_fields": ["input_tokens", "total_tokens"],
+      "notes": "Populated from llama.cpp usage field"
+    },
+    {
+      "layer": 4,
+      "name": "L4 Transformer",
+      "expected": true,
+      "expected_fields": ["sequence_length", "batch_size"],
+      "notes": "Limited — llama.cpp does not expose KV cache stats"
+    },
+    {
+      "layer": 5,
+      "name": "L5 Output Decoding",
+      "expected": true,
+      "expected_fields": ["output_tokens", "finish_reason", "temperature"],
+      "notes": "Full — token counts, latency, sampling params from llama.cpp"
+    },
+    {
+      "layer": 6,
+      "name": "L6 Safety",
+      "expected": true,
+      "expected_fields": ["safety_score", "safe"],
+      "notes": "Heuristic: jailbreak keyword detection on prompt text"
+    },
+    {
+      "layer": 7,
+      "name": "L7 RAG Retrieval",
+      "expected": false,
+      "expected_fields": [],
+      "notes": "INTENTIONALLY SKIPPED — llama.cpp in standalone mode has no retrieval pipeline. Emitting zero-field L7 signals would produce misleading fill-rate numbers."
+    },
+    {
+      "layer": 8,
+      "name": "L8 Agents",
+      "expected": true,
+      "expected_fields": ["session_id", "step_number"],
+      "notes": "Session ID (ULID per run) and turn number"
+    },
+    {
+      "layer": 9,
+      "name": "L9 Network / API Gateway",
+      "expected": true,
+      "expected_fields": ["method", "path", "status_code", "latency_ms"],
+      "notes": "Client-side observable request metadata"
+    },
+    {
+      "layer": 10,
+      "name": "L10 Application",
+      "expected": true,
+      "expected_fields": ["user_id", "session_id", "event_type"],
+      "notes": "App-level context: user_id=test-user, app_id=harness-qwen"
+    },
+    {
+      "layer": 11,
+      "name": "LDecision",
+      "expected": true,
+      "expected_fields": ["decision", "confidence", "reasoning"],
+      "notes": "Full llama.cpp request/response logged as decision payload"
+    }
+  ],
+  "expected_traces": 5,
+  "expected_layers_per_trace": 10,
+  "app_id": "harness-qwen",
+  "note": "L7 is intentionally absent. The validator will not flag missing L7 rows as a failure."
+}
