@@ -106,3 +106,23 @@ func (sb *SignalBuilder) BuildSignalFromRequest(
 ) *v1.ArgusSignal {
 	return sb.BuildSignal(decision, req.TraceID, req.SignalID, sourceAppID)
 }
+
+// BuildRequest creates an EvaluationRequest from a rule ID and ArgusSignal.
+// This is the canonical way to build a request for use in the worker.
+func BuildRequest(ruleID string, sig *v1.ArgusSignal) *EvaluationRequest {
+	category := ""
+	severity := ""
+	if sig != nil {
+		category = sig.Category
+		severity = sig.Severity.String()
+	}
+	return &EvaluationRequest{
+		RuleID:     ruleID,
+		TraceID:    sig.GetTraceId(),
+		SignalID:   sig.GetSignalId(),
+		Layer:      sig.GetLayer().String(),
+		Category:   category,
+		Severity:   severity,
+		PolicyName: "default",
+	}
+}

@@ -2,6 +2,7 @@ package kairos
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -52,11 +53,13 @@ func NewEvaluator(client *Client, config *PolicyConfig, logger *zap.Logger) *Eva
 	}
 }
 
-// Evaluate runs policy evaluation with caching and fail-open fallback
-func (e *Evaluator) Evaluate(ctx context.Context, req *EvaluationRequest) *PolicyDecision {
+// Evaluate runs policy evaluation with caching and fail-open fallback.
+// Returns (*PolicyDecision, error). On timeout or unreachable, returns (nil, err)
+// so callers can distinguish timeout from disabled/cached-nil.
+func (e *Evaluator) Evaluate(ctx context.Context, req *EvaluationRequest) (*PolicyDecision, error) {
 	if !e.config.Enabled {
 		// If Kairos is disabled, return nil (no policy decision)
-		return nil
+		return nil, nil
 	}
 
 	// Increment evaluation counter
@@ -64,8 +67,8 @@ func (e *Evaluator) Evaluate(ctx context.Context, req *EvaluationRequest) *Polic
 	e.evaluations++
 	e.metricsLock.Unlock()
 
-	// Check cache first
-	cacheKey := req.SignalID + ":" + req.TraceID
+	// Cache key includes rule_id to prevent cross-rule contamination (Pitfall 5).
+	cacheKey := fmt.Sprintf("%s:%s:%s", req.RuleID, req.SignalID, req.TraceID)
 	if cached := e.getCachedDecision(cacheKey); cached != nil {
 		e.metricsLock.Lock()
 		e.cacheHits++
@@ -74,7 +77,7 @@ func (e *Evaluator) Evaluate(ctx context.Context, req *EvaluationRequest) *Polic
 		e.logger.Debug("decision cache hit",
 			zap.String("signal_id", req.SignalID),
 			zap.String("decision", cached.Decision))
-		return cached
+		return cached, nil
 	}
 
 	e.metricsLock.Lock()
@@ -93,13 +96,13 @@ func (e *Evaluator) Evaluate(ctx context.Context, req *EvaluationRequest) *Polic
 		e.errors++
 		e.metricsLock.Unlock()
 
-		// Fail-open: return nil, allowing detection to proceed
-		return nil
+		// Return err so callers can distinguish timeout vs nil decision.
+		return nil, err
 	}
 
 	// If Kairos returned nil (unreachable), that's also fail-open
 	if decision == nil {
-		return nil
+		return nil, nil
 	}
 
 	// Cache the decision
@@ -110,7 +113,7 @@ func (e *Evaluator) Evaluate(ctx context.Context, req *EvaluationRequest) *Polic
 		zap.String("decision", decision.Decision),
 		zap.Float64("confidence", decision.Confidence))
 
-	return decision
+	return decision, nil
 }
 
 // getCachedDecision retrieves a decision from cache if valid

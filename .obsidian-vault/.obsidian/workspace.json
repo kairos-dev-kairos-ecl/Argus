@@ -1,0 +1,201 @@
+{
+  "main": {
+    "id": "e188438411e44ea9",
+    "type": "split",
+    "children": [
+      {
+        "id": "ca7e114d5f561ef9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d50bda0506527c25",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Module Dependencies & Cross-References.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Module Dependencies & Cross-References"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c89f884f10c322c5",
+    "type": "split",
+    "children": [
+      {
+        "id": "44e30b5af2709eae",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "eed281a1b49d68ec",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "f54f6f9417f74aed",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "17dc74cfe72d4474",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "8f2a9a570d316d7f",
+    "type": "split",
+    "children": [
+      {
+        "id": "f284e61c1cd5d094",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "653a9dc86f533acc",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Module Dependencies & Cross-References.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Module Dependencies & Cross-References"
+            }
+          },
+          {
+            "id": "ede38488864a0628",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Module Dependencies & Cross-References.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Module Dependencies & Cross-References"
+            }
+          },
+          {
+            "id": "566a3c396a80ac92",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "750b73ab773a30f6",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "7b1274edae7d18c2",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Module Dependencies & Cross-References.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Module Dependencies & Cross-References"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "d50bda0506527c25",
+  "lastOpenFiles": [
+    "API Routes.md",
+    "Web Dashboard.md",
+    "Storage Layer.md",
+    "Signal — ArgusSignal Schema.md",
+    "README.md",
+    "Notify & Alerting.md",
+    "Module Dependencies & Cross-References.md",
+    "Ingest Pipeline.md",
+    "Baseline Engine.md",
+    "Config & Environment.md",
+    "Auth & RBAC.md",
+    "ArgusXDR — Index.md"
+  ]
+}

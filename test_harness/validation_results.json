@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-16T03:29:25.566461",
+  "app_id": "qwen-test-harness",
+  "checks": {
+    "layer_coverage": {
+      "expected": 10,
+      "found": 0,
+      "passed": false
+    },
+    "trace_correlation": {
+      "total_traces": 0,
+      "passed": false
+    },
+    "schema_compliance": {
+      "passed": true
+    },
+    "enrichment": {
+      "geo_data": 0,
+      "threat_intel": 0,
+      "baseline_deviation": 0,
+      "risk_score": 0,
+      "empty_enrichment": 0
+    }
+  }
+}

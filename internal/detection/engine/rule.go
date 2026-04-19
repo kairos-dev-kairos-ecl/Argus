@@ -4,14 +4,15 @@ import "fmt"
 
 // Rule is a detection rule loaded from YAML.
 type Rule struct {
-	ID          string     `yaml:"id" json:"id"`
-	Name        string     `yaml:"name" json:"name"`
-	Description string     `yaml:"description" json:"description"`
-	Tier        int        `yaml:"tier" json:"tier"`
-	Enabled     bool       `yaml:"enabled" json:"enabled"`
-	Severity    int        `yaml:"severity" json:"severity"`
-	Conditions  Conditions `yaml:"conditions" json:"conditions"`
-	Action      Action     `yaml:"action" json:"action"`
+	ID             string     `yaml:"id" json:"id"`
+	Name           string     `yaml:"name" json:"name"`
+	Description    string     `yaml:"description" json:"description"`
+	Tier           int        `yaml:"tier" json:"tier"`
+	Enabled        bool       `yaml:"enabled" json:"enabled"`
+	Severity       int        `yaml:"severity" json:"severity"`
+	Conditions     Conditions `yaml:"conditions" json:"conditions"`
+	Action         Action     `yaml:"action" json:"action"`
+	RequiresKairos bool       `yaml:"requires_kairos" json:"requires_kairos"`
 }
 
 // Conditions defines what a signal must look like to trigger the rule.

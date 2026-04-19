@@ -25,6 +25,7 @@ type PolicyDecision struct {
 
 // EvaluationRequest is sent to Kairos for policy evaluation
 type EvaluationRequest struct {
+	RuleID           string                 `json:"rule_id"`
 	TraceID          string                 `json:"trace_id"`
 	SignalID         string                 `json:"signal_id"`
 	Layer            string                 `json:"layer"`

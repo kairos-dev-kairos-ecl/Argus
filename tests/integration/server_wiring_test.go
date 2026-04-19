@@ -190,13 +190,13 @@ func TestPhase4ProcessorChainIntegration(t *testing.T) {
 	// Create mock storage
 	mockStorage := &mockClickHouseStorage{signals: make([]*argusv1.ArgusSignal, 0)}
 
-	// Create a minimal processor chain (just validator + router for this test)
+	// Create a minimal processor chain (just validator for this test)
+	// Router was removed in Phase 4; WorkerPool handles storage writes
 	validator, err := pipeline.NewSchemaValidator(logger)
 	require.NoError(t, err)
 
 	processors := []pipeline.Processor{
 		validator,
-		pipeline.NewRouter(mockStorage, logger),
 	}
 
 	processorChain := pipeline.NewChainWithBufferSize(100, processors...)

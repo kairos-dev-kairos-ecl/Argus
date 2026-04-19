@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"time"
 )
 
@@ -15,6 +16,8 @@ type MockServer struct {
 	Decision     *PolicyDecision
 	ResponseCode int
 	ShouldError  bool
+	// CallCount tracks number of /evaluate requests received.
+	CallCount atomic.Int64
 }
 
 // NewMockServer creates a mock Kairos server that returns a fixed decision
@@ -42,6 +45,7 @@ func NewMockServer(decision *PolicyDecision) *MockServer {
 		}
 
 		if r.URL.Path == "/api/v1/evaluate" || r.URL.Path == "/evaluate" {
+			m.CallCount.Add(1)
 			// Parse request (simplified for testing)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(m.ResponseCode)

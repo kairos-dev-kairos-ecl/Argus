@@ -1,0 +1,20 @@
+# Qwen 3.5 0.8B Test Harness via llama.cpp API
+# Install with: pip install -r requirements_qwen.txt
+#
+# This harness connects to llama.cpp HTTP API (not direct model loading)
+# so it has minimal dependencies compared to direct PyTorch loading.
+
+# HTTP client for llama.cpp API
+httpx>=0.24.0            # Async HTTP client
+
+# Protocol buffers for signal serialization
+protobuf>=4.0.0          # Protocol buffers
+
+# System monitoring
+psutil>=5.9.0            # Hardware metrics
+
+# Development/logging
+python-dotenv>=0.19.0    # Environment variable loading
+
+# NOTE: torch, transformers, bitsandbytes, numpy, scipy are NOT needed
+# The model runs via llama.cpp server on port 8000, not in-process PyTorch
