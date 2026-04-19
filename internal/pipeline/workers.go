@@ -10,23 +10,35 @@ import (
 	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
 )
 
+// AsyncEnqueuer is satisfied by any type that can accept a signal for async
+// processing after storage write. Implemented by worker.AsyncDetectionWorker.
+// The interface lives here (pipeline layer) to avoid an import cycle.
+type AsyncEnqueuer interface {
+	Enqueue(sig *v1.ArgusSignal)
+}
+
 // WorkerPool manages N fixed goroutines that pull signals from the ingest queue,
 // feed them through the processor chain, and push results to storage.
 // This architecture prevents goroutine explosion: the number of workers is fixed
 // regardless of signal volume. Backpressure naturally flows backward: if the
 // pipeline is slow, the input channel fills and blocks further enqueues.
 type WorkerPool struct {
-	ingestQueue <-chan *v1.ArgusSignal
-	pipeline    *Chain
-	storage     Writer
-	numWorkers  int
-	wg          sync.WaitGroup
-	done        chan struct{}
-	logger      *zap.Logger
-	metrics     *WorkerPoolMetrics
-	started     bool
-	startMu     sync.Mutex // protects started flag
+	ingestQueue   <-chan *v1.ArgusSignal
+	pipeline      *Chain
+	storage       Writer
+	asyncEnqueuer AsyncEnqueuer // optional; dispatches to detection after storage.Write
+	numWorkers    int
+	wg            sync.WaitGroup
+	done          chan struct{}
+	logger        *zap.Logger
+	metrics       *WorkerPoolMetrics
+	started       bool
+	startMu       sync.Mutex // protects started flag
 }
+
+// SetAsyncEnqueuer wires an AsyncEnqueuer to be called after every successful
+// storage.Write. Safe to call before Start(). Passing nil is a no-op.
+func (wp *WorkerPool) SetAsyncEnqueuer(e AsyncEnqueuer) { wp.asyncEnqueuer = e }
 
 // WorkerPoolMetrics tracks worker pool statistics
 type WorkerPoolMetrics struct {
@@ -215,6 +227,11 @@ func (wp *WorkerPool) processSignal(ctx context.Context, workerID int, sig *v1.A
 			zap.Int("worker_id", workerID),
 			zap.String("signal_id", result.SignalId),
 		)
+
+		// Dispatch to async detection after storage write (D-03: write-first ordering).
+		if wp.asyncEnqueuer != nil {
+			wp.asyncEnqueuer.Enqueue(result)
+		}
 
 	case <-ctx.Done():
 		// Context cancelled while waiting for result
