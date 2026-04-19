@@ -481,3 +481,45 @@ func TestChainInputOutputDepth(t *testing.T) {
 	// Should show in input depth
 	assert.Equal(t, 3, chain.InputDepth())
 }
+
+// countingWriter is a mock Writer that counts Write invocations.
+type countingWriter struct {
+	count int
+}
+
+func (w *countingWriter) Write(_ context.Context, _ *v1.ArgusSignal) error {
+	w.count++
+	return nil
+}
+
+// TestChain_NoDoubleWrite verifies that exactly one storage.Write call occurs per signal.
+// The Router processor has been removed from the chain, so WorkerPool is the sole writer.
+func TestChain_NoDoubleWrite(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+
+	passThrough := &mockProcessor{name: "passthrough"}
+	chain := NewChain(passThrough)
+	chain.SetLogger(logger)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	chain.Start(ctx)
+
+	storage := &countingWriter{}
+	pool := NewWorkerPool(
+		make(chan *v1.ArgusSignal, 1),
+		chain,
+		storage,
+		1,
+		logger,
+	)
+
+	// Feed one signal through chain + processSignal (bypassing the ingest queue)
+	sig := testSignal("no-double-write")
+	pool.processSignal(ctx, 0, sig)
+
+	// Exactly one Write must have been called
+	assert.Equal(t, 1, storage.count, "expected exactly one storage.Write per signal, got %d", storage.count)
+}
