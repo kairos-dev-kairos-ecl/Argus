@@ -114,16 +114,46 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, loading }) =
           const isExpanded = expandedRows.has(idx)
           const globalIdx = (page - 1) * pageSize + idx
 
+          // Determine row status based on severity field (if present)
+          const severityField = Object.keys(row).find(k => k.toLowerCase().includes('severity'))
+          const severity = severityField ? row[severityField] : null
+          let statusColor = 'border-border' // default
+          let statusBg = 'bg-background/50'
+          let severityNum = 0
+
+          if (severity !== null && severity !== undefined) {
+            severityNum = typeof severity === 'number' ? severity : 0
+            if (severityNum >= 4) {
+              statusColor = 'border-status-error'
+              statusBg = 'bg-status-error/5 hover:bg-status-error/10'
+            } else if (severityNum >= 2) {
+              statusColor = 'border-status-warning'
+              statusBg = 'bg-status-warning/5 hover:bg-status-warning/10'
+            } else {
+              statusColor = 'border-status-success'
+              statusBg = 'bg-status-success/5 hover:bg-status-success/10'
+            }
+          }
+
           return (
             <div
               key={idx}
-              className="border border-border rounded bg-background/50 hover:bg-background/80 transition-colors"
+              className={`border rounded transition-colors ${statusColor} ${statusBg}`}
             >
               {/* Row header with expand button */}
               <button
                 onClick={() => toggleRowExpanded(idx)}
-                className="w-full text-left p-3 flex items-center gap-2 hover:bg-background/50 transition-colors"
+                className="w-full text-left p-3 flex items-center gap-2 hover:opacity-80 transition-opacity"
               >
+                {/* Status indicator badge */}
+                {severity !== null && severity !== undefined && (
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    severityNum >= 4 ? 'bg-status-error' :
+                    severityNum >= 2 ? 'bg-status-warning' :
+                    'bg-status-success'
+                  }`}></div>
+                )}
+
                 <span className="text-foreground/60 text-sm font-mono">#{globalIdx + 1}</span>
                 <span className="flex-1 text-foreground text-sm truncate">
                   {columns.slice(0, 3).map(col => {
