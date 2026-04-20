@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useTrace } from '../hooks/useTrace'
+import { useTraceData } from '../hooks/useTraceData'
 import { useRealtimeTrace } from '../hooks/useRealtimeTrace'
 import { useTraceViewStore } from '../stores/traceViewStore'
 import { TraceTimeline } from '../components/TraceTimeline'
@@ -14,12 +14,18 @@ type ViewMode = 'timeline' | 'graph' | 'split'
  * Routes: /trace/:traceId
  * Displays timeline of spans across layers and detail panel for selected spans.
  * Also includes reasoning graph view and grounding information.
+ *
+ * Uses useTraceData hook to fetch trace and compute React Flow nodes/edges.
  */
 export const TracePage: React.FC = () => {
   const { traceId } = useParams<{ traceId: string }>()
-  const { trace, loading, error, selectedSpanID, setSelectedSpanID } = useTrace(traceId || '')
+  const { trace, loading, error, selectedNode, setSelectedNode } = useTraceData(traceId || '')
   const [viewMode, setViewMode] = useState<ViewMode>('timeline')
   const { selectedSpanId } = useTraceViewStore()
+
+  // For backward compatibility with components expecting selectedSpanID
+  const selectedSpanID = selectedNode
+  const setSelectedSpanID = setSelectedNode
 
   // Real-time trace updates
   useRealtimeTrace(
