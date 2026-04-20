@@ -8,6 +8,8 @@
  * - getProfile: Fetch current user profile to verify session
  */
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082'
+
 export interface LoginRequest {
   email: string
   password: string
@@ -58,7 +60,7 @@ export async function login(
   email: string,
   password: string
 ): Promise<LoginResponse> {
-  const response = await fetch('/api/v1/auth/login', {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -92,7 +94,7 @@ export async function login(
  */
 export async function logout(): Promise<void> {
   try {
-    const response = await fetch('/api/v1/auth/logout', {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
       method: 'POST',
       credentials: 'include', // Include refresh token cookie
     })
@@ -113,7 +115,7 @@ export async function logout(): Promise<void> {
  * @throws ApiError if refresh fails (token expired or invalid)
  */
 export async function refreshToken(): Promise<RefreshResponse> {
-  const response = await fetch('/api/v1/auth/refresh', {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
     method: 'POST',
     credentials: 'include', // Send httpOnly refresh token cookie
   })
@@ -151,7 +153,7 @@ export async function getProfile(token?: string): Promise<LoginResponse['user']>
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch('/api/v1/auth/me', {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
     method: 'GET',
     headers,
     credentials: 'include',
