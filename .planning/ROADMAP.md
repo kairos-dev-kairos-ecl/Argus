@@ -87,7 +87,27 @@ Plans:
 ### Phase 5: Dashboard Integration
 **Goal:** Frontend fully connected to real API data, WebSocket live feed working.
 
-**Status:** Not started
+**Status:** In Progress
+**Plans:** 1/6 complete (05-02)
+
+**Requirements:**
+- REQ-P5-01: HTTP service layer with typed API functions
+- REQ-P5-02: API request/response types matching backend contracts
+- REQ-P5-03: Login form with JWT token flow
+- REQ-P5-04: Session validation and token refresh
+- REQ-P5-05: Telemetry dashboard real data binding
+- REQ-P5-06: WebSocket signal subscription
+- REQ-P5-07: Trace flow real data binding
+- REQ-P5-08: Hunting console query execution
+- REQ-P5-09: Audit ledger real data binding
+
+Plans:
+- [ ] 05-01-PLAN.md — HTTP client service layer + typed API functions (Wave 1, planned)
+- [x] 05-02-PLAN.md — Authentication integration + JWT + session validation (Wave 1, COMPLETE)
+- [ ] 05-03-PLAN.md — Telemetry dashboard data binding + WebSocket (Wave 2, planned)
+- [ ] 05-04-PLAN.md — Trace flow data binding (Wave 2, planned)
+- [ ] 05-05-PLAN.md — Hunting console data binding (Wave 2, planned)
+- [ ] 05-06-PLAN.md — Audit ledger data binding (Wave 2, planned)
 
 ---
 

@@ -1,10 +1,10 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { OnboardingFlow } from "./components/OnboardingFlow";
-import { TraceWaterfall } from "./components/TraceWaterfall";
-import { SystemHealthDashboard } from "./components/SystemHealthDashboard";
-import { HuntingConsole } from "./components/HuntingConsole";
 import { AuditLedger } from "./components/AuditLedger";
+import { EnhancedTraceFlow } from "./components/EnhancedTraceFlow";
+import { EnhancedTelemetryDashboard } from "./components/EnhancedTelemetryDashboard";
+import { EnhancedHuntingConsole } from "./components/EnhancedHuntingConsole";
 
 export const router = createBrowserRouter([
   {
@@ -12,9 +12,9 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: OnboardingFlow },
-      { path: "trace", Component: TraceWaterfall },
-      { path: "dashboard", Component: SystemHealthDashboard },
-      { path: "hunt", Component: HuntingConsole },
+      { path: "trace", Component: EnhancedTraceFlow },
+      { path: "telemetry", Component: EnhancedTelemetryDashboard },
+      { path: "hunt", Component: EnhancedHuntingConsole },
       { path: "audit", Component: AuditLedger },
     ],
   },

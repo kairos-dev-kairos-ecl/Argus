@@ -1,13 +1,13 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { Activity, Shield, BarChart3, Search, FileText } from "lucide-react";
+import { Activity, Shield, BarChart3, Search, FileText, GitBranch, TrendingUp } from "lucide-react";
 
 export function Layout() {
   const location = useLocation();
-  
+
   const navItems = [
     { path: "/", label: "ONBOARDING", icon: Shield },
-    { path: "/trace", label: "TRACE", icon: Activity },
-    { path: "/dashboard", label: "HEALTH", icon: BarChart3 },
+    { path: "/trace", label: "ENTITY TRACE", icon: GitBranch },
+    { path: "/telemetry", label: "TELEMETRY", icon: TrendingUp },
     { path: "/hunt", label: "HUNT", icon: Search },
     { path: "/audit", label: "AUDIT", icon: FileText },
   ];
