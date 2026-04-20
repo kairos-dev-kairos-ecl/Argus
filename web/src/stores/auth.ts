@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { User, AuthState } from '../types'
+import * as authService from '../services/auth-service'
 
 interface AuthStateStore extends AuthState {
   // State
@@ -9,6 +10,7 @@ interface AuthStateStore extends AuthState {
   login(email: string, password: string): Promise<void>
   logout(): Promise<void>
   refreshToken(): Promise<void>
+  validateSession(): Promise<void>
   setUser(user: User | null): void
   setAccessToken(token: string): void
   clearError(): void
@@ -40,22 +42,10 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include', // Include cookies
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || 'Login failed')
-      }
-
-      const data = await response.json()
+      const { access_token, user } = await authService.login(email, password)
       set({
-        token: data.access_token,
-        user: data.user,
+        token: access_token,
+        user: user as User,
         is_authenticated: true,
         error: null,
       })
@@ -72,11 +62,8 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
   logout: async () => {
     set({ loading: true })
     try {
-      // Call logout endpoint to revoke refresh token
-      await fetch('/api/v1/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      })
+      // Call logout endpoint to revoke refresh token on server
+      await authService.logout()
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
@@ -91,22 +78,29 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
 
   refreshToken: async () => {
     try {
-      const response = await fetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        // Refresh failed, need to re-login
-        set({ is_authenticated: false, token: null })
-        throw new Error('Token refresh failed')
-      }
-
-      const data = await response.json()
-      set({ token: data.access_token })
+      const { access_token } = await authService.refreshToken()
+      set({ token: access_token })
     } catch (error) {
-      // Silently fail - caller will redirect to login
+      // Silently fail - refresh token may be expired
+      // Caller can redirect to login if needed
       set({ is_authenticated: false, token: null })
+    }
+  },
+
+  validateSession: async () => {
+    try {
+      // Try to refresh token first (using httpOnly cookie)
+      const { access_token } = await authService.refreshToken()
+      // If refresh succeeded, verify user is still valid
+      const user = await authService.getProfile(access_token)
+      set({ token: access_token, user: user as User, is_authenticated: true })
+    } catch (error) {
+      // Session invalid or expired
+      set({
+        user: null,
+        token: null,
+        is_authenticated: false,
+      })
     }
   },
 
