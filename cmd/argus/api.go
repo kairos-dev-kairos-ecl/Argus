@@ -319,6 +319,29 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 
+	// CORS middleware for development (allow localhost:5173)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Allow requests from localhost:5173 (Vite dev server)
+			origin := r.Header.Get("Origin")
+			if origin == "http://localhost:5173" || origin == "http://127.0.0.1:5173" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Max-Age", "3600")
+			}
+
+			// Handle preflight requests
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	// Auth middleware on protected routes
 	if authSvc != nil {
 		r.Use(func(next http.Handler) http.Handler {
