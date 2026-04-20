@@ -388,7 +388,17 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		}
 
 		// Create auth validator for API key validation
-		authValidator := ingest.NewAuthValidator(pg, log)
+		// Support test mode (ARGUS_TEST_MODE=true) for validation harness
+		var authValidator *ingest.AuthValidator
+		if os.Getenv("ARGUS_TEST_MODE") == "true" {
+			testKeys := map[string]string{
+				"test-signal-api-key-validation-harness": "test-app",
+			}
+			authValidator = ingest.NewTestAuthValidator(log, testKeys)
+			log.Info("auth validator in TEST MODE — using hardcoded test keys")
+		} else {
+			authValidator = ingest.NewAuthValidator(pg, log)
+		}
 
 		// Create HTTP receiver for signal ingest
 		httpReceiver := ingest.NewHTTPReceiver(queue, authValidator, ingestMetrics, broadcaster, log)

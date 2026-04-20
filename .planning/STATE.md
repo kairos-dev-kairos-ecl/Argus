@@ -13,7 +13,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-16 - Completed quick task 260416-m9t: build stabilization + signal validation tests (all 11 layers)
+> Last activity: 2026-04-19 - Completed quick task 260419-tmi: backend validation harness with llama.cpp and signal capture test
 
 ---
 
@@ -103,3 +103,4 @@ progress:
 |---|-------------|------|--------|-----------|
 | 1 | Proto schema rewrite — all 10 layers + LDecision (14 reqs) | 2026-04-16 | f1606bc | 260416-lxk-proto-schema-rewrite-covering-all-10-lay |
 | 2 | Build stabilization + signal validation tests (all 11 layers) | 2026-04-16 | 8edbd43 | 260416-m9t-build-stabilization-and-signal-validatio |
+| 3 | Backend validation harness: docker-compose-test.yml + llama.cpp + signal capture | 2026-04-19 | 16adae2 | 260419-tmi-set-up-backend-validation-harness-docker |

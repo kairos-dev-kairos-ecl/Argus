@@ -106,7 +106,10 @@ async def emit_signal(
         resp = await client.post(
             f"{ARGUS_URL}/v1/signals",
             json=signal,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer test-signal-api-key-validation-harness",
+            },
             timeout=10.0,
         )
         if resp.status_code not in (200, 201, 202, 204):
