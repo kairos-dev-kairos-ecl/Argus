@@ -1,7 +1,9 @@
+import { useMemo } from 'react'
 import { useSignalStream } from '../hooks/useSignalStream'
 import { SignalStream } from '../components/SignalStream'
 import { SignalStreamFilter } from '../components/SignalStreamFilter'
 import { CoverageMap } from '../components/CoverageMap'
+import { useLayerStore } from '../stores/layer'
 
 /**
  * DashboardPage Component
@@ -18,7 +20,21 @@ import { CoverageMap } from '../components/CoverageMap'
  * - Bottom: SignalStream (flex-1 to fill remaining height)
  */
 export const DashboardPage: React.FC = () => {
-  const { isConnected, error } = useSignalStream()
+  const { isConnected, error, layerStatus } = useSignalStream()
+  const layerStoreUpdate = useLayerStore()
+
+  // Update layer store with computed layer status from hook
+  useMemo(() => {
+    if (layerStatus && layerStatus.length > 0) {
+      layerStatus.forEach((status) => {
+        layerStoreUpdate.updateStatus(status.layer, {
+          status: status.status,
+          last_signal_time: status.last_signal_time,
+          signal_count_5min: status.signal_count_5min
+        })
+      })
+    }
+  }, [layerStatus, layerStoreUpdate])
 
   return (
     <div className="flex flex-col h-full gap-4 p-4 bg-background">
