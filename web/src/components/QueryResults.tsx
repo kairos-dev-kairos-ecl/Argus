@@ -9,11 +9,16 @@ interface QueryResultsProps {
 }
 
 /**
- * Component displaying query results in a paginated table with CSV export.
- * Handles large result sets with cursor-based pagination.
+ * Component displaying query results with expandable rows showing JSON payloads.
+ * Features:
+ * - Paginated table view (100 rows per page)
+ * - Expandable rows to show full JSON payload
+ * - CSV export
+ * - Copy-to-clipboard for JSON
  */
 export const QueryResults: React.FC<QueryResultsProps> = ({ result, loading }) => {
   const [page, setPage] = useState(1)
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const pageSize = 100
 
   const { paginatedRows, columns, totalPages } = useMemo(() => {
@@ -30,6 +35,16 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, loading }) =
     return { paginatedRows: paginated, columns: cols, totalPages: total }
   }, [result, page])
 
+  const toggleRowExpanded = (idx: number) => {
+    const newExpanded = new Set(expandedRows)
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx)
+    } else {
+      newExpanded.add(idx)
+    }
+    setExpandedRows(newExpanded)
+  }
+
   const handleExportCSV = () => {
     if (!result || !result.rows) return
 
@@ -44,6 +59,13 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, loading }) =
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handleCopyJSON = (row: Record<string, any>) => {
+    const json = JSON.stringify(row, null, 2)
+    navigator.clipboard.writeText(json).catch((err) => {
+      console.error('Failed to copy:', err)
+    })
   }
 
   if (loading) {
@@ -86,51 +108,84 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, loading }) =
         </button>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-background border-b border-border">
-            <tr>
-              {columns.map(col => (
-                <th
-                  key={col}
-                  className="px-4 py-2 text-left text-foreground font-semibold whitespace-nowrap"
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRows.map((row, idx) => (
-              <tr
-                key={idx}
-                className="border-b border-border hover:bg-background/50 transition-colors"
+      {/* Results as expandable cards */}
+      <div className="flex-1 overflow-auto p-3 space-y-2">
+        {paginatedRows.map((row, idx) => {
+          const isExpanded = expandedRows.has(idx)
+          const globalIdx = (page - 1) * pageSize + idx
+
+          return (
+            <div
+              key={idx}
+              className="border border-border rounded bg-background/50 hover:bg-background/80 transition-colors"
+            >
+              {/* Row header with expand button */}
+              <button
+                onClick={() => toggleRowExpanded(idx)}
+                className="w-full text-left p-3 flex items-center gap-2 hover:bg-background/50 transition-colors"
               >
-                {columns.map(col => {
-                  const value = row[col]
-                  let displayValue = ''
+                <span className="text-foreground/60 text-sm font-mono">#{globalIdx + 1}</span>
+                <span className="flex-1 text-foreground text-sm truncate">
+                  {columns.slice(0, 3).map(col => {
+                    const value = row[col]
+                    let displayValue = ''
 
-                  if (value === null || value === undefined) {
-                    displayValue = 'NULL'
-                  } else if (typeof value === 'object') {
-                    displayValue = JSON.stringify(value).slice(0, 100)
-                  } else {
-                    displayValue = String(value).slice(0, 100)
-                  }
+                    if (value === null || value === undefined) {
+                      displayValue = 'NULL'
+                    } else if (typeof value === 'object') {
+                      displayValue = JSON.stringify(value).slice(0, 50)
+                    } else {
+                      displayValue = String(value).slice(0, 50)
+                    }
 
-                  return (
-                    <td key={`${idx}-${col}`} className="px-4 py-2 text-foreground/80 font-mono text-xs">
-                      <code className="bg-background/70 px-2 py-1 rounded">
-                        {displayValue}
-                      </code>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    return `${col}: ${displayValue}`
+                  }).join(' | ')}
+                </span>
+                <span className={`text-foreground/60 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                  ▼
+                </span>
+              </button>
+
+              {/* Expanded details */}
+              {isExpanded && (
+                <div className="border-t border-border p-3 bg-background/30 space-y-2">
+                  {/* Field list */}
+                  <div className="space-y-1 max-h-48 overflow-auto">
+                    {columns.map(col => {
+                      const value = row[col]
+                      let displayValue = ''
+
+                      if (value === null || value === undefined) {
+                        displayValue = 'NULL'
+                      } else if (typeof value === 'object') {
+                        displayValue = JSON.stringify(value)
+                      } else {
+                        displayValue = String(value)
+                      }
+
+                      return (
+                        <div key={`${idx}-${col}`} className="text-xs">
+                          <span className="text-foreground/70 font-mono">{col}:</span>
+                          <code className="block bg-background/70 px-2 py-1 rounded mt-0.5 text-foreground/80 break-all">
+                            {displayValue}
+                          </code>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Copy JSON button */}
+                  <button
+                    onClick={() => handleCopyJSON(row)}
+                    className="text-xs px-2 py-1 bg-primary/20 hover:bg-primary/30 text-foreground rounded transition-colors"
+                  >
+                    Copy JSON
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Pagination */}

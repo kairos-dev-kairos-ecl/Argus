@@ -1,12 +1,14 @@
 import React from 'react'
 import { QueryEditor } from './QueryEditor'
 import { QueryResults } from './QueryResults'
+import { QueryAnalytics } from './QueryAnalytics'
 import { useQuery } from '../hooks/useQuery'
 
 /**
  * Combined query interface component.
  * Left side: SQL editor with syntax highlighting and autocomplete
- * Right side: Query results with pagination and export
+ * Center: Query results with pagination and export
+ * Right side: Analytics panel with latency distribution and metrics
  */
 export const QueryInterface: React.FC = () => {
   const { sql, setSql, result, loading, error, execute } = useQuery()
@@ -21,10 +23,10 @@ export const QueryInterface: React.FC = () => {
         </div>
       )}
 
-      {/* Editor and results side-by-side */}
+      {/* Editor, results, and analytics three-way layout */}
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Left: Query editor */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 max-w-md">
           <h2 className="text-lg font-semibold text-foreground mb-3">Query</h2>
           <QueryEditor
             sql={sql}
@@ -33,10 +35,15 @@ export const QueryInterface: React.FC = () => {
           />
         </div>
 
-        {/* Right: Results */}
+        {/* Center: Results */}
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-foreground mb-3">Results</h2>
           <QueryResults result={result} loading={loading} />
+        </div>
+
+        {/* Right: Analytics */}
+        <div className="w-80 flex-shrink-0">
+          <QueryAnalytics result={result} loading={loading} />
         </div>
       </div>
     </div>
