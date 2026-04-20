@@ -35,13 +35,14 @@ export interface LogoutResponse {
 }
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public details?: unknown,
-    message?: string
-  ) {
+  status: number
+  details?: unknown
+
+  constructor(status: number, details?: unknown, message?: string) {
     super(message || `API Error: ${status}`)
     this.name = 'ApiError'
+    this.status = status
+    this.details = details
   }
 }
 
@@ -138,17 +139,21 @@ export async function refreshToken(): Promise<RefreshResponse> {
  * Fetch current user profile
  *
  * Used to validate session on app load.
+ * @param token - Optional access token (if not provided, will look for it in auth header)
  * @returns Promise with current user profile
  * @throws ApiError on non-2xx response (401 means session expired)
  */
-export async function getProfile(): Promise<LoginResponse['user']> {
-  const authStore = await import('../stores/auth').then((m) => m.useAuthStore.getState())
+export async function getProfile(token?: string): Promise<LoginResponse['user']> {
+  const headers: Record<string, string> = {}
+
+  // Only add Authorization header if token is provided
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
 
   const response = await fetch('/api/v1/auth/me', {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${authStore.token || ''}`,
-    },
+    headers,
     credentials: 'include',
   })
 
