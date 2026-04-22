@@ -42,8 +42,9 @@ web/
 │   │   ├── UsersPage.tsx          ← User management
 │   │   ├── AppsPage.tsx           ← App + API key management
 │   │   ├── AuditLogPage.tsx       ← Audit trail
-│   │   ├── LoginPage.tsx          ← Auth form
+│   │   ├── LoginPage.tsx          ← Auth form (rich error messages per error code)
 │   │   ├── SetupWizard.tsx        ← First-run admin creation
+│   │   ├── SignalTopologyPage.tsx ← Topology page wrapper (/topology route)
 │   │   ├── ConfigPage.tsx         ← System config
 │   │   ├── ConnectorConfigPage.tsx ← Connector setup
 │   │   ├── ProfilePage.tsx        ← User profile
@@ -58,6 +59,8 @@ web/
 │   │   ├── SpanDetail.tsx         ← Expanded span info
 │   │   ├── TokenConfidenceView.tsx ← L5 logprob visualization
 │   │   ├── CoverageMap.tsx        ← Layer coverage heatmap
+│   │   ├── DashboardCharts.tsx    ← ECharts KPI + charts dashboard
+│   │   ├── SignalTopologyView.tsx ← Sankey topology (Apps → L1-L10 → Observed)
 │   │   ├── GroundingView.tsx      ← L7 retrieval grounding
 │   │   ├── DetectionAnnotation.tsx ← Overlay detection matches
 │   │   ├── ReasoningGraph.tsx     ← Kairos decision reasoning
@@ -80,6 +83,7 @@ web/
 │   │   ├── useWebSocket.ts        ← WebSocket connection lifecycle
 │   │   ├── useAuth.ts             ← Auth state + login/logout
 │   │   ├── usePagination.ts       ← Cursor pagination logic
+│   │   ├── useDashboardStats.ts   ← 6 parallel ClickHouse query hooks
 │   │   └── ... (10+ custom hooks)
 │   ├── api/
 │   │   ├── client.ts              ← Axios instance with interceptors
@@ -108,16 +112,33 @@ web/
 ## Key Pages
 
 ### DashboardPage
-Real-time overview. Shows:
-- Layer status boxes (L1–L10): signal count + sparkline
-- Recent alerts (last 10)
-- Incident summary
-- System health (ClickHouse, PostgreSQL, Redis status)
+Live ECharts dashboard with Onum/Falcon design aesthetic.
 
-Pulls from:
-- `GET /api/v1/layers/status` (5-sec refetch)
-- `GET /api/v1/alerts?limit=10` (10-sec refetch)
-- `GET /health` (30-sec refetch)
+Components rendered: `<DashboardCharts />`
+
+Charts (all powered by ECharts via echarts-for-react):
+- KPI cards: total signals (24h), active alerts, active incidents, p99 latency
+- Signal rate area chart: signals/min over last hour
+- Severity distribution donut: INFO / LOW / MEDIUM / HIGH / CRITICAL
+- Layer activity bar chart: signal counts per layer (L1–L10)
+- Latency area chart: p99 duration_ms over time
+
+Data source: `useDashboardStats` hook — 6 parallel `POST /api/v1/query` (ClickHouse), 60s refetch interval.
+
+### SignalTopologyPage
+Route: `/topology` — added to `App.tsx` and `MainLayout.tsx` nav.
+
+Component: `<SignalTopologyView />`
+
+Renders a Sankey diagram using ECharts with `layout: 'none'` and `depth` property:
+- Left column: registered apps (app_id nodes)
+- Middle columns: L1–L10 layer nodes
+- Right column: "Observed" sink node
+- Links: signal count edges from app → layer → sink
+- Color-coded by layer (L1 red → L10 rose, matching design tokens)
+- Data source: `POST /api/v1/query` counting signals grouped by app_id + layer
+
+Note: Command Palette button exists in the UI (MainLayout header) but is not yet wired to any action.
 
 ### SignalStream Component
 WebSocket consumer for `GET /v1/signals/stream`:

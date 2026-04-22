@@ -152,6 +152,27 @@ Logout:
 
 ---
 
+## Account Lockout & Error Handling
+
+Implemented in `internal/auth/users.go` + `internal/ingest/handler_auth.go`
+
+- 5 consecutive failed login attempts triggers lockout
+- Lockout duration: 15 minutes (`locked_until` field on users table)
+- Login endpoint returns structured error codes:
+  - `account_locked` — account is temporarily locked, includes `locked_until` timestamp
+  - `account_suspended` — account permanently suspended by admin
+  - `invalid_credentials` — wrong email or password
+- Frontend (`web/src/pages/LoginPage.tsx`) renders human-readable messages per error code
+- Max 5 concurrent sessions per user enforced in SessionManager
+- Token rotation on refresh: old refresh token revoked, new one issued
+
+### Known Gaps
+- CSRF tokens: not implemented
+- Signal ingest endpoints (`/v1/signals`, `/v1/traces`, `/v1/metrics`): no rate limiting
+- SSO / OAuth: not implemented (MFASecret field is a stub for future TOTP)
+
+---
+
 ## Audit Log
 
 File: `internal/auth/audit.go` → `AuditLogger`

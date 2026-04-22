@@ -165,6 +165,24 @@ Validates API keys for HTTP ingest:
 
 ---
 
+## Query Endpoint
+
+File: `internal/ingest/receiver_query.go`
+Route: `POST /api/v1/query`
+Auth: Bearer JWT (AuthMiddleware)
+
+Accepts a JSON body `{ "sql": "<read-only SQL>" }` and executes it against ClickHouse.
+Returns `{ "columns": [...], "rows": [[...], ...] }`.
+
+Read-only enforced: queries containing INSERT, UPDATE, DELETE, DROP, CREATE, ALTER are rejected (400).
+Row limit: 5000.
+
+**Scan fix:** Uses `reflect.New(ct.ScanType())` to create typed destination pointers for each column. This replaces a previous `interface{}` scan approach that caused type assertion failures on ClickHouse numeric columns (e.g., UInt64, Float64).
+
+Used by: `useDashboardStats.ts` (frontend), `QueryPage.tsx` (SQL editor)
+
+---
+
 ## File Map
 
 | File | Component |

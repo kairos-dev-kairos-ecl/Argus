@@ -180,6 +180,16 @@ Defined in `proto/argus/v1/categories.proto`, `gen/go/argus/v1/categories.pb.go`
 | 901–999 | L9 Gateway | GATEWAY_REQUEST, GATEWAY_RATE_LIMITED |
 | 1001–1099 | L10 App | APP_SESSION_START, APP_USER_MESSAGE, APP_COMPLETION |
 
+## MITRE / OWASP Mapping
+
+MITRE ATLAS and OWASP LLM Top 10 mappings are documented in `ARGUS_XDR_PLATFORM_SPEC.md` and planning docs only.
+
+They are NOT present in the wire schema (`ArgusSignal` proto) or ClickHouse columns. Mapping is applied at the alert/detection layer when rules fire, not at signal ingestion time. This keeps the signal schema pure observation data.
+
+The `duration_ms` field (float, optional) is used as the primary latency metric for baseline scoring and dashboard latency charts.
+
+---
+
 ## Related Files
 
 | File | Role |
