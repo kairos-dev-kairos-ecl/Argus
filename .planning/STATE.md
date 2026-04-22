@@ -13,7 +13,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-20 - Completed Plan 05-06: Audit Ledger Data Binding (alerts from /api/v1/alerts)
+> Last activity: 2026-04-22 - Completed quick task 260423-0c1: commit session changes, clean up stale docs, update Obsidian vault
 
 ---
 
@@ -105,3 +105,4 @@ progress:
 | 1 | Proto schema rewrite — all 10 layers + LDecision (14 reqs) | 2026-04-16 | f1606bc | 260416-lxk-proto-schema-rewrite-covering-all-10-lay |
 | 2 | Build stabilization + signal validation tests (all 11 layers) | 2026-04-16 | 8edbd43 | 260416-m9t-build-stabilization-and-signal-validatio |
 | 3 | Backend validation harness: docker-compose-test.yml + llama.cpp + signal capture | 2026-04-19 | 16adae2 | 260419-tmi-set-up-backend-validation-harness-docker |
+| 4 | Commit session changes, clean up stale files, update Obsidian docs to reflect current architecture | 2026-04-22 | ac0f054 | 260423-0c1-commit-session-changes-clean-up-stale-fi |
