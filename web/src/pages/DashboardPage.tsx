@@ -1,9 +1,8 @@
-import { useMemo } from 'react'
 import { useSignalStream } from '../hooks/useSignalStream'
 import { SignalStream } from '../components/SignalStream'
 import { SignalStreamFilter } from '../components/SignalStreamFilter'
 import { CoverageMap } from '../components/CoverageMap'
-import { useLayerStore } from '../stores/layer'
+import { DashboardCharts } from '../components/DashboardCharts'
 
 /**
  * DashboardPage Component
@@ -14,27 +13,12 @@ import { useLayerStore } from '../stores/layer'
  * 3. Signal Stream Filter (layer, severity, search)
  * 4. Signal Stream (virtual-scrolling live signal feed)
  *
- * Layout:
- * - Top: CoverageMap (responsive grid)
- * - Middle: SignalStreamFilter (filter controls)
- * - Bottom: SignalStream (flex-1 to fill remaining height)
+ * layerStatus is passed directly as a prop to CoverageMap — no layerStore
+ * sync via useEffect. That sync pattern caused an infinite update loop:
+ *   updateStatus() → store change → re-render → new layerStatus ref → repeat.
  */
 export const DashboardPage: React.FC = () => {
   const { isConnected, error, layerStatus } = useSignalStream()
-  const layerStoreUpdate = useLayerStore()
-
-  // Update layer store with computed layer status from hook
-  useMemo(() => {
-    if (layerStatus && layerStatus.length > 0) {
-      layerStatus.forEach((status) => {
-        layerStoreUpdate.updateStatus(status.layer, {
-          status: status.status,
-          last_signal_time: status.last_signal_time,
-          signal_count_5min: status.signal_count_5min
-        })
-      })
-    }
-  }, [layerStatus, layerStoreUpdate])
 
   return (
     <div className="flex flex-col h-full gap-4 p-4 bg-background">
@@ -54,8 +38,11 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Top: Coverage Map */}
-      <CoverageMap />
+      {/* Analytics charts (mock data — replace with live queries when backend endpoints land) */}
+      <DashboardCharts />
+
+      {/* Coverage Map — receives layerStatus as prop, no store sync needed */}
+      <CoverageMap layerStatus={layerStatus} />
 
       {/* Bottom: Signal Stream with Filter */}
       <div className="flex flex-col flex-1 min-h-0">

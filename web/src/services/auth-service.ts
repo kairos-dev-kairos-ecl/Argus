@@ -8,7 +8,9 @@
  * - getProfile: Fetch current user profile to verify session
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082'
+// No base URL — all requests use relative paths so Vite proxy (dev) and
+// Go's static file server (prod) both work without CORS or cookie issues.
+const API_BASE_URL = ''
 
 export interface LoginRequest {
   email: string

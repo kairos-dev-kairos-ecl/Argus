@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { SetupWizard } from './pages/SetupWizard'
 import { DashboardPage } from './pages/DashboardPage'
+import { SignalTopologyPage } from './pages/SignalTopologyPage'
 import { TracePage } from './pages/TracePage'
 import { QueryPage } from './pages/QueryPage'
 import AppsPage from './pages/AppsPage'
@@ -103,6 +104,7 @@ function App() {
                     {/* Dashboard */}
                     <Route path="/" element={<DashboardPage />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/topology" element={<SignalTopologyPage />} />
 
                     {/* Investigation */}
                     <Route path="/trace/:traceId" element={<TracePage />} />

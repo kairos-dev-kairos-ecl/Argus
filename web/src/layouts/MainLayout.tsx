@@ -152,6 +152,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               Dashboard
             </h2>
             <NavLink href="/dashboard" icon="📊" label="Overview" active={location.pathname === '/dashboard'} />
+            <NavLink href="/topology" icon="🌊" label="Signal Topology" active={location.pathname === '/topology'} />
             <NavLink href="/signals" icon="📡" label="Signal Stream" active={location.pathname === '/signals'} />
             <NavLink href="/trace" icon="🔍" label="Trace View" active={location.pathname === '/trace'} />
             <NavLink href="/query" icon="💾" label="Query Interface" active={location.pathname === '/query'} />

@@ -2,6 +2,46 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 
+// Classify server error message into a human-friendly object
+function classifyError(raw: string): { icon: string; title: string; body: string } {
+  const s = raw.toLowerCase()
+  if (s.startsWith('account locked')) {
+    // e.g. "account locked until 2026-04-22T15:30:00Z"
+    const until = raw.replace(/account locked until\s*/i, '').trim()
+    let friendly = until
+    try {
+      friendly = new Date(until).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    } catch { /* keep raw */ }
+    return {
+      icon: '🔒',
+      title: 'Account temporarily locked',
+      body: `Too many failed attempts. Try again after ${friendly}, or contact your administrator.`,
+    }
+  }
+  if (s.startsWith('account is suspended')) {
+    return {
+      icon: '🚫',
+      title: 'Account suspended',
+      body: 'Your account has been suspended. Contact your Argus XDR administrator.',
+    }
+  }
+  if (s.startsWith('account is')) {
+    return {
+      icon: '⚠️',
+      title: 'Account unavailable',
+      body: `Account status: ${raw.replace(/^account is\s*/i, '')}. Contact your administrator.`,
+    }
+  }
+  if (s === 'invalid credentials') {
+    return {
+      icon: '❌',
+      title: 'Invalid credentials',
+      body: 'The email or password you entered is incorrect.',
+    }
+  }
+  return { icon: '⚠️', title: 'Sign-in failed', body: raw }
+}
+
 /**
  * LoginPage Component
  * Handles user authentication with email and password.
@@ -67,11 +107,22 @@ export function LoginPage() {
         <div className="bg-muted-background rounded-lg border border-border shadow-lg p-6 md:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Error Alert */}
-            {displayError && (
-              <div className="bg-status-error/10 border border-status-error/30 rounded-lg p-4">
-                <p className="text-status-error text-sm">{displayError}</p>
-              </div>
-            )}
+            {displayError && (() => {
+              const { icon, title, body } = classifyError(displayError)
+              const isLocked = displayError.toLowerCase().startsWith('account locked')
+              const isSuspended = displayError.toLowerCase().includes('suspended')
+              const borderColor = isLocked || isSuspended ? 'border-status-warning/40 bg-status-warning/5' : 'border-status-error/30 bg-status-error/10'
+              const textColor = isLocked || isSuspended ? 'text-status-warning' : 'text-status-error'
+              return (
+                <div className={`rounded-lg border p-4 ${borderColor}`}>
+                  <div className={`flex items-center gap-2 font-semibold text-sm mb-1 ${textColor}`}>
+                    <span>{icon}</span>
+                    <span>{title}</span>
+                  </div>
+                  <p className="text-muted-foreground text-xs leading-relaxed">{body}</p>
+                </div>
+              )
+            })()}
 
             {/* Email Field */}
             <div>

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -943,20 +944,24 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 		columns[i] = ct.Name()
 	}
 
-	// Scan all rows into map[string]interface{} objects
+	// Scan all rows into map[string]interface{} objects.
+	// ClickHouse Go v2 native driver requires concrete typed destinations — scanning
+	// into *interface{} fails silently. Use reflect to allocate the correct type per column.
 	var resultRows []map[string]interface{}
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
-		for i := range values {
-			ptrs[i] = &values[i]
+		// Allocate a typed pointer for each column using its ScanType (from driver metadata).
+		ptrs := make([]interface{}, len(colTypes))
+		for i, ct := range colTypes {
+			ptrs[i] = reflect.New(ct.ScanType()).Interface()
 		}
 		if err := rows.Scan(ptrs...); err != nil {
+			h.log.Warn("query row scan failed", zap.Error(err))
 			continue
 		}
 		row := make(map[string]interface{}, len(columns))
 		for i, col := range columns {
-			row[col] = values[i]
+			// Dereference the pointer to get the concrete value.
+			row[col] = reflect.ValueOf(ptrs[i]).Elem().Interface()
 		}
 		resultRows = append(resultRows, row)
 	}

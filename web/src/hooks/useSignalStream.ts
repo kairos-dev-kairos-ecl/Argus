@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { createWebSocketClient, WebSocketClient } from '../lib/websocket'
 import { getSignals } from '../services/api'
 import { useSignalStore } from '../stores/signal'
@@ -12,39 +12,56 @@ import { LAYERS } from '../types'
  * Manages WebSocket connection to backend signal stream and fetches
  * initial signals and layer status on mount.
  *
- * Returns:
- * - signals: ArgusSignal[] from store
- * - isConnected: boolean indicating WebSocket connection status
- * - error: string | null containing last error message
- * - filter: current signal filter
- * - setFilter: function to update filter
- * - refetchSignals: function to manually refresh signal list
- * - layerStatus: LayerStatus[] computed from signals
+ * Key design decisions:
+ * - Individual Zustand selectors (not whole store object) to avoid unstable
+ *   references that cause useCallback/useEffect to re-run on every state change.
+ * - useEffect deps reduced to [token] only — WebSocket reconnects solely when
+ *   the auth token changes, not on every signal update.
+ * - Zustand actions are referentially stable across renders, so they are safe
+ *   in useCallback deps without causing infinite loops.
  */
 export function useSignalStream() {
-  const store = useSignalStore()
+  // State selectors — re-render when these values change
+  const signals    = useSignalStore(state => state.signals)
+  const error      = useSignalStore(state => state.error)
+  const filter     = useSignalStore(state => state.filter)
+
+  // Action selectors — Zustand guarantees these are stable references
+  const addSignal      = useSignalStore(state => state.addSignal)
+  const setError       = useSignalStore(state => state.setError)
+  const setLoading     = useSignalStore(state => state.setLoading)
+  const clearSignals   = useSignalStore(state => state.clearSignals)
+  const setSubscribed  = useSignalStore(state => state.setSubscribed)
+  const updateFilter   = useSignalStore(state => state.updateFilter)
+
   const { token } = useAuthStore()
   const wsRef = useRef<WebSocketClient | null>(null)
-  const unsubscribeRef = useRef<{ message: () => void; error: () => void }>({ message: () => {}, error: () => {} })
+  const unsubscribeRef = useRef<{ message: () => void; error: () => void }>({
+    message: () => {},
+    error: () => {},
+  })
   const [wsConnected, setWsConnected] = useState(false)
 
   /**
-   * Compute layer status from recent signals
+   * Compute layer status from signals in the last 5 minutes.
+   * Wrapped in useMemo so the array reference is stable between renders —
+   * only produces a new reference when `signals` actually changes.
+   * Without this, every render creates a new array, which causes DashboardPage's
+   * useEffect([layerStatus]) to fire every render → updateStatus → re-render → loop.
    */
-  const layerStatus: LayerStatus[] = LAYERS.map((layer: Layer, index: number) => {
+  const layerStatus: LayerStatus[] = useMemo(() => LAYERS.map((layer: Layer, index: number) => {
     const layerNum = index + 1
-
-    // Count signals for this layer from last 5 minutes
     const now = Date.now()
     const fiveMinutesAgo = now - 5 * 60 * 1000
-    const recentSignals = store.signals.filter((s) => {
-      const signalTime = typeof s.timestamp === 'string'
-        ? new Date(s.timestamp).getTime()
-        : s.timestamp.seconds * 1000 + ((s.timestamp as any).nanos ?? 0) / 1000000
+
+    const recentSignals = signals.filter((s) => {
+      const signalTime =
+        typeof s.timestamp === 'string'
+          ? new Date(s.timestamp).getTime()
+          : s.timestamp.seconds * 1000 + ((s.timestamp as any).nanos ?? 0) / 1_000_000
       return s.layer === layerNum && signalTime > fiveMinutesAgo
     })
 
-    // Determine status based on signal count and severity
     let status: 'green' | 'yellow' | 'gray' | 'red'
     if (recentSignals.length === 0) {
       status = 'gray'
@@ -56,114 +73,114 @@ export function useSignalStream() {
       status = 'green'
     }
 
-    // Get last signal timestamp
     const lastSignal = recentSignals[0]
     const lastSignalTime = lastSignal
       ? typeof lastSignal.timestamp === 'string'
         ? lastSignal.timestamp
-        : new Date(lastSignal.timestamp.seconds * 1000 + ((lastSignal.timestamp as any).nanos ?? 0) / 1000000).toISOString()
+        : new Date(
+            lastSignal.timestamp.seconds * 1000 +
+            ((lastSignal.timestamp as any).nanos ?? 0) / 1_000_000
+          ).toISOString()
       : null
 
     return {
       layer,
       status,
       signal_count_5min: recentSignals.length,
-      last_signal_time: lastSignalTime
+      last_signal_time: lastSignalTime,
     }
-  })
+  }), [signals])
 
   /**
-   * Fetch initial signals on mount
+   * Fetch initial signals from REST API.
+   * Deps are individual stable Zustand actions — created once, never recreated.
    */
   const refetchSignals = useCallback(async () => {
     try {
-      store.setLoading(true)
+      setLoading(true)
       const response = await getSignals({ limit: 100, app_id: 'test' })
-
       if (response && Array.isArray(response.signals)) {
-        store.clearSignals()
-        response.signals.forEach((signal) => {
-          store.addSignal(signal)
-        })
+        clearSignals()
+        response.signals.forEach((signal) => addSignal(signal))
       }
-      store.setError(null)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch signals'
-      store.setError(message)
+      setError(null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch signals'
+      setError(message)
     } finally {
-      store.setLoading(false)
+      setLoading(false)
     }
-  }, [store])
+  }, [addSignal, clearSignals, setError, setLoading])
 
   /**
-   * Initialize WebSocket connection on mount
+   * Initialize WebSocket on mount / token change only.
+   *
+   * Deps: [token] — reconnect only when auth changes.
+   * Signal state mutations (addSignal, setError, etc.) deliberately excluded:
+   * adding a signal must not tear down and recreate the WebSocket connection.
    */
   useEffect(() => {
-    // Fetch initial signals
     refetchSignals()
 
-    // Setup WebSocket connection
-    const setupWebSocket = async () => {
-      if (!token) {
-        store.setError('Not authenticated - WebSocket requires valid token')
-        return
-      }
+    if (!token) {
+      setError('Not authenticated — WebSocket requires a valid token')
+      return
+    }
 
+    const setupWebSocket = async () => {
       try {
-        // Create WebSocket client
+        // Relative path — Vite proxies /ws → ws://localhost:8082 in dev.
+        // In production Go serves everything on the same origin, so /ws/signals
+        // resolves correctly with no CORS or cookie issues.
         const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
         const wsUrl = `${protocol}://${location.host}/ws/signals`
+
         const client = createWebSocketClient(wsUrl)
         wsRef.current = client
 
-        // Setup message handler for incoming signals
-        const unsubscribeMessage = client.onMessage((data: unknown) => {
+        const unsubMessage = client.onMessage((data: unknown) => {
           try {
             const signal = data as ArgusSignal
-            // Validate required fields
             if (signal.signal_id && signal.trace_id && signal.layer && signal.timestamp) {
-              store.addSignal(signal)
+              addSignal(signal)
             }
           } catch (err) {
             console.error('Error processing signal:', err)
           }
         })
 
-        // Setup error handler
-        const unsubscribeError = client.onError((error: string) => {
-          console.error('WebSocket error:', error)
+        const unsubError = client.onError((errMsg: string) => {
+          console.error('WebSocket error:', errMsg)
           setWsConnected(false)
-          if (error.includes('max retries')) {
-            store.setError('Signal stream disconnected - attempting to reconnect...')
+          if (errMsg.includes('max retries')) {
+            setError('Signal stream disconnected — attempting to reconnect...')
           } else {
-            store.setError(error)
+            setError(errMsg)
           }
         })
 
-        // Store unsubscribe functions
-        unsubscribeRef.current = { message: unsubscribeMessage, error: unsubscribeError }
+        unsubscribeRef.current = { message: unsubMessage, error: unsubError }
 
-        // Connect to WebSocket
         try {
           await client.connect()
           setWsConnected(true)
-          store.setSubscribed(true)
-          store.setError(null)
-        } catch (connectError) {
-          const message = connectError instanceof Error ? connectError.message : 'Failed to connect'
-          store.setError(`WebSocket connection failed: ${message}`)
+          setSubscribed(true)
+          setError(null)
+        } catch (connectErr) {
+          const message =
+            connectErr instanceof Error ? connectErr.message : 'Failed to connect'
+          setError(`WebSocket connection failed: ${message}`)
           setWsConnected(false)
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'WebSocket setup failed'
-        store.setError(message)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'WebSocket setup failed'
+        setError(message)
         setWsConnected(false)
       }
     }
 
     setupWebSocket()
 
-    // Cleanup on unmount
     return () => {
       if (wsRef.current) {
         wsRef.current.disconnect()
@@ -171,17 +188,19 @@ export function useSignalStream() {
       }
       unsubscribeRef.current.message()
       unsubscribeRef.current.error()
-      store.setSubscribed(false)
+      setSubscribed(false)
+      setWsConnected(false)
     }
-  }, [token, store, refetchSignals])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]) // Only reconnect when auth token changes
 
   return {
-    signals: store.signals,
+    signals,
     isConnected: wsConnected,
-    error: store.error,
-    filter: store.filter,
-    setFilter: store.updateFilter,
+    error,
+    filter,
+    setFilter: updateFilter,
     refetchSignals,
-    layerStatus
+    layerStatus,
   }
 }

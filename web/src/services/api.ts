@@ -26,7 +26,8 @@ import type {
 // CONFIGURATION
 // ============================================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082'
+// Relative paths — Vite proxies to :8082 in dev, Go serves same origin in prod
+const API_BASE_URL = ''
 
 // ============================================================================
 // HTTP REQUEST HELPER
@@ -243,7 +244,7 @@ export async function executeQuery(request: QueryRequest): Promise<QueryResponse
 
   return httpRequest<QueryResponse>('/api/v1/query', {
     method: 'POST',
-    body: JSON.stringify({ query: request.query }),
+    body: JSON.stringify({ sql: request.sql ?? request.query }),
   })
 }
 

@@ -3,6 +3,7 @@ package ingest
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/argusxdr/argus/internal/auth"
@@ -103,7 +104,15 @@ func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.authService.UserSvc.AuthenticateUser(r.Context(), req.Email, req.Password, getIP(r))
 	if err != nil {
-		jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		errMsg := err.Error()
+		switch {
+		case strings.HasPrefix(errMsg, "account locked"):
+			jsonError(w, errMsg, http.StatusUnauthorized)
+		case strings.HasPrefix(errMsg, "account is"):
+			jsonError(w, errMsg, http.StatusForbidden)
+		default:
+			jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		}
 		return
 	}
 

@@ -2,6 +2,28 @@ import { create } from 'zustand'
 import type { User, AuthState } from '../types'
 import * as authService from '../services/auth-service'
 
+/**
+ * Decode user claims from a JWT access token without verifying the signature.
+ * Safe here because the token was issued by our own backend — we're just
+ * reading the payload that the backend already validated and signed.
+ */
+function decodeUserFromJWT(token: string): User | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return {
+      id: payload.sub,
+      email: payload.email,
+      display_name: payload.name,
+      role: payload.role,
+      permissions: payload.permissions ?? [],
+      status: 'active',
+      created_at: new Date(payload.iat * 1000).toISOString(),
+    } as User
+  } catch {
+    return null
+  }
+}
+
 interface AuthStateStore extends AuthState {
   // State
   loading: boolean
@@ -42,10 +64,12 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
     try {
-      const { access_token, user } = await authService.login(email, password)
+      const { access_token } = await authService.login(email, password)
+      // Backend returns only the token — decode user claims from the JWT payload
+      const user = decodeUserFromJWT(access_token)
       set({
         token: access_token,
-        user: user as User,
+        user,
         is_authenticated: true,
         error: null,
       })
@@ -79,11 +103,12 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
   refreshToken: async () => {
     try {
       const { access_token } = await authService.refreshToken()
-      set({ token: access_token })
+      // Decode user from token so ProtectedRoute has role/permissions immediately
+      const user = decodeUserFromJWT(access_token)
+      set({ token: access_token, user, is_authenticated: true })
     } catch (error) {
-      // Silently fail - refresh token may be expired
-      // Caller can redirect to login if needed
-      set({ is_authenticated: false, token: null })
+      // Refresh token expired or not present — user must log in again
+      set({ is_authenticated: false, token: null, user: null })
     }
   },
 
