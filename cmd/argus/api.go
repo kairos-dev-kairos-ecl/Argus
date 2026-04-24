@@ -437,11 +437,15 @@ func runAPI(cmd *cobra.Command, args []string) error {
 			apiKeyStore = auth.NewPgAPIKeyStore(pgPool)
 			httpReceiver.SetAPIKeyStore(apiKeyStore)
 
+			// Create token bucket rate limiter for signal ingest (per API key)
+			ingestLimiter := resilience.NewAPIKeyTokenBucketLimiter(10000, 100)
+
 			// Mount API key middleware on signal ingest endpoints
 			// Routes requiring signals:write scope
 			r.Route("/v1", func(r chi.Router) {
 				r.Group(func(r chi.Router) {
 					r.Use(auth.APIKeyMiddleware(apiKeyStore, "signals:write"))
+					r.Use(ingestLimiter.Middleware()) // Rate limit after auth
 					r.Post("/signals", httpReceiver.HandlePostSignals)
 				})
 				// Route requiring signals:read scope
