@@ -357,9 +357,6 @@ func runAPI(cmd *cobra.Command, args []string) error {
 					"/api/v1/auth/login":   true,
 					"/api/v1/auth/refresh": true,
 					"/api/v1/auth/setup":   true,
-					"/v1/signals":          true,
-					"/v1/signals/stream":   true,
-					"/v1/schema/signals":   true,
 				},
 			})(next)
 		})
@@ -433,6 +430,29 @@ func runAPI(cmd *cobra.Command, args []string) error {
 
 		// Create HTTP receiver for signal ingest
 		httpReceiver := ingest.NewHTTPReceiver(queue, authValidator, ingestMetrics, broadcaster, log)
+
+		// Create API key store for signal ingest protection
+		var apiKeyStore auth.ApiKeyStore
+		if pgPool != nil {
+			apiKeyStore = auth.NewPgAPIKeyStore(pgPool)
+			httpReceiver.SetAPIKeyStore(apiKeyStore)
+
+			// Mount API key middleware on signal ingest endpoints
+			// Routes requiring signals:write scope
+			r.Route("/v1", func(r chi.Router) {
+				r.Group(func(r chi.Router) {
+					r.Use(auth.APIKeyMiddleware(apiKeyStore, "signals:write"))
+					r.Post("/signals", httpReceiver.HandlePostSignals)
+				})
+				// Route requiring signals:read scope
+				r.Group(func(r chi.Router) {
+					r.Use(auth.APIKeyMiddleware(apiKeyStore, "signals:read"))
+					r.Get("/schema/signals", queryHandler.HandleGetSignalSchema)
+				})
+			})
+		}
+
+		// Register HTTP receiver routes (skips /v1/signals if apiKeyStore is set)
 		httpReceiver.RegisterRoutes(r)
 
 		// Register ingest metrics endpoint

@@ -86,7 +86,7 @@ func (h *QueryHandler) authAvailable() bool {
 func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 	// Tier 1: Core signal query routes (public)
 	mux.Get("/v1/signals", h.handleGetSignals)
-	mux.Get("/v1/schema/signals", h.handleGetSignalSchema)
+	mux.Get("/v1/schema/signals", h.HandleGetSignalSchema)
 
 	// Protected API routes
 	mux.Route("/api/v1", func(r chi.Router) {
@@ -425,8 +425,8 @@ type SchemaResponse struct {
 	Columns []SchemaColumn `json:"columns"`
 }
 
-// handleGetSignalSchema handles GET /v1/schema/signals and returns the signal table schema.
-func (h *QueryHandler) handleGetSignalSchema(w http.ResponseWriter, r *http.Request) {
+// HandleGetSignalSchema handles GET /v1/schema/signals and returns the signal table schema.
+func (h *QueryHandler) HandleGetSignalSchema(w http.ResponseWriter, r *http.Request) {
 	schema := SchemaResponse{
 		Columns: []SchemaColumn{
 			// Identity
