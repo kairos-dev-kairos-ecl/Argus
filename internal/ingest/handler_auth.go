@@ -117,6 +117,23 @@ func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If MFA is enabled, issue an MFA token instead of full access token
+	if user.MFAEnabled {
+		mfaToken, err := h.authService.TokenMgr.IssueMFAToken(user.ID)
+		if err != nil {
+			h.log.Error("failed to issue MFA token", zap.Error(err))
+			jsonError(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(map[string]any{
+			"mfa_required": true,
+			"mfa_token":    mfaToken,
+		})
+		return
+	}
+
 	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
 	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
 		user.ID, user.Email, user.DisplayName, user.Role, perms,
