@@ -80,6 +80,23 @@ func (s *FakeSessionStore) CheckTokenRevocation(ctx context.Context, tokenHash s
 	return s.revocations[tokenHash], nil
 }
 
+func (s *FakeSessionStore) CreateSession(ctx context.Context, sess *Session) error {
+	s.sessions[sess.ID] = sess
+	return nil
+}
+
+func (s *FakeSessionStore) UpdateSessionHash(ctx context.Context, sessionID, newHash string) error {
+	if sess, ok := s.sessions[sessionID]; ok {
+		sess.RefreshTokenHash = newHash
+	}
+	return nil
+}
+
+func (s *FakeSessionStore) RevokeTokenHash(ctx context.Context, tokenHash string, expiresAt time.Time) error {
+	s.revocations[tokenHash] = true
+	return nil
+}
+
 // TestRequireAuthWithValidJWT tests successful authentication with a valid JWT
 func TestRequireAuthWithValidJWT(t *testing.T) {
 	tm := createTestTokenManager(t)
