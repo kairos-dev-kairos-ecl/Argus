@@ -115,13 +115,13 @@ Plans:
 **Goal:** Harden the platform to production security standards: wire RBAC enforcement to all routes, protect signal ingestion with API keys, add endpoint-level rate limiting, complete the secrets architecture, and fix auth gaps (CSRF, password policy, session management UI) — so that a security-focused platform is itself secure.
 
 **Status:** Executing
-**Plans:** 2/8 complete
+**Plans:** 3/8 complete
 
 **Requirements:**
 - REQ-P6-01: Wire RBAC middleware (RequireRole/RequirePermission) to all protected routes — admin, analyst, viewer scoped
 - REQ-P6-02: API key schema + issuance — scoped bearer tokens for SDK/machine identity (separate from user JWTs)
 - REQ-P6-03: Authenticate signal ingestion endpoints (/v1/signals, /v1/signals/stream) via API key middleware
-- REQ-P6-04: Endpoint rate limiting — wire existing Redis rate limiter to /auth/login (5/min per IP), /api/v1/query (60/min per user), SDK ingest (token bucket)
+- REQ-P6-04: Endpoint rate limiting — wire Redis rate limiter to /auth/login (5/60s per IP), /auth/refresh (30/60s per session), /api/v1/query (60/60s per user)
 - REQ-P6-05: Secrets file architecture — argus.key encrypted file replacing raw env vars for JWT private key, DB credentials, API keys
 - REQ-P6-06: Fix HIBP password breach check (response parsing broken in setup.go)
 - REQ-P6-07: Complete TOTP 2FA flow — enroll, verify, backup codes endpoints
@@ -130,7 +130,7 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — RBAC wiring + context helpers (RequireAuth, UserIDFromContext) + HIBP fix (Wave 1)
-- [ ] 06-02-PLAN.md — Rate limiting: /auth/login, /auth/refresh, /api/v1/query (Wave 2, after 06-01)
+- [x] 06-02-PLAN.md — Rate limiting: /auth/login (5/60s), /auth/refresh (30/60s), /api/v1/query (60/60s) (Wave 2, after 06-01)
 - [x] 06-03-PLAN.md — API key schema migration 009 + CRUD endpoints + ValidateAPIKey (Wave 2, after 06-01)
 - [ ] 06-04-PLAN.md — Secrets file architecture: internal/secrets + argus.key + CLI (Wave 3, after 06-01/02)
 - [ ] 06-05-PLAN.md — Signal endpoint auth via X-Argus-API-Key + ingest token bucket (Wave 3, after 06-02/03)
