@@ -26,6 +26,28 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// SDK authentication contract:
+//
+// Clients MUST send their API key via the X-Argus-API-Key header (not Authorization: Bearer).
+// Bearer tokens are reserved for user JWTs issued by /api/v1/auth/login.
+//
+// Scope Requirements:
+//   - POST /v1/signals requires scope "signals:write"
+//   - POST /v1/signals/stream requires scope "signals:write"
+//   - GET /v1/schema/signals requires scope "signals:read"
+//
+// Rate Limiting:
+//   - POST /v1/signals and /v1/signals/stream are rate-limited per api_key_prefix
+//   - Token bucket: burst=100 requests, rate=10,000 requests/second
+//   - Excess requests receive HTTP 429 with Retry-After: 1 header
+//
+// Example:
+//   curl -X POST \
+//     -H "X-Argus-API-Key: argus_sk_..." \
+//     -H "Content-Type: application/json" \
+//     http://localhost:8080/v1/signals \
+//     -d '{"layer": "L5_OUTPUT_DECODING", ...}'
+
 // QueryHandler implements the query API (GET /v1/signals).
 // STORE-06 requirement: cursor-based pagination for ClickHouse signal queries.
 type QueryHandler struct {
