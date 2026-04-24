@@ -81,8 +81,8 @@ func TestRefreshTokenGeneration(t *testing.T) {
 	require.NoError(t, err)
 
 	config := TokenConfig{
-		PrivateKey:      privateKey,
-		PublicKey:       &privateKey.PublicKey,
+		PrivateKey: privateKey,
+		PublicKey:  &privateKey.PublicKey,
 	}
 
 	tm := NewTokenManager(config)
@@ -100,9 +100,9 @@ func TestTokenTTLCalculation(t *testing.T) {
 	require.NoError(t, err)
 
 	config := TokenConfig{
-		PrivateKey:      privateKey,
-		PublicKey:       &privateKey.PublicKey,
-		AccessTokenTTL:  15 * time.Minute,
+		PrivateKey:     privateKey,
+		PublicKey:      &privateKey.PublicKey,
+		AccessTokenTTL: 15 * time.Minute,
 	}
 
 	tm := NewTokenManager(config)
@@ -124,8 +124,8 @@ func TestInvalidTokenRejection(t *testing.T) {
 	require.NoError(t, err)
 
 	config := TokenConfig{
-		PrivateKey:      privateKey,
-		PublicKey:       &privateKey.PublicKey,
+		PrivateKey: privateKey,
+		PublicKey:  &privateKey.PublicKey,
 	}
 
 	tm := NewTokenManager(config)
@@ -133,4 +133,102 @@ func TestInvalidTokenRejection(t *testing.T) {
 	// Try to verify invalid token
 	_, err = tm.VerifyAccessToken("invalid.token.string")
 	assert.Error(t, err)
+}
+
+func TestMFATokenIssuance(t *testing.T) {
+	// Behavior 1: IssueMFAToken signs a JWT with sub=userID, mfa_pending=true, exp=now+2min
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	config := TokenConfig{
+		PrivateKey:      privateKey,
+		PublicKey:       &privateKey.PublicKey,
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 7 * 24 * time.Hour,
+		Issuer:          "test-issuer",
+	}
+
+	tm := NewTokenManager(config)
+	userID := uuid.New()
+
+	token, err := tm.IssueMFAToken(userID)
+	require.NoError(t, err)
+	assert.NotEmpty(t, token)
+}
+
+func TestMFATokenVerification(t *testing.T) {
+	// Behavior 2: VerifyMFAToken accepts a fresh mfa token and returns the userID
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	config := TokenConfig{
+		PrivateKey:      privateKey,
+		PublicKey:       &privateKey.PublicKey,
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 7 * 24 * time.Hour,
+		Issuer:          "test-issuer",
+	}
+
+	tm := NewTokenManager(config)
+	userID := uuid.New()
+
+	token, err := tm.IssueMFAToken(userID)
+	require.NoError(t, err)
+
+	verifiedID, err := tm.VerifyMFAToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, userID, verifiedID)
+}
+
+func TestMFATokenExpiration(t *testing.T) {
+	// Behavior 3: VerifyMFAToken rejects an expired token
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	// Use a very short TTL to force expiration
+	config := TokenConfig{
+		PrivateKey:      privateKey,
+		PublicKey:       &privateKey.PublicKey,
+		AccessTokenTTL:  1 * time.Millisecond,
+		RefreshTokenTTL: 7 * 24 * time.Hour,
+		Issuer:          "test-issuer",
+	}
+
+	tm := NewTokenManager(config)
+	userID := uuid.New()
+
+	token, err := tm.IssueMFAToken(userID)
+	require.NoError(t, err)
+
+	// Wait for token to expire
+	time.Sleep(10 * time.Millisecond)
+
+	_, err = tm.VerifyMFAToken(token)
+	assert.Error(t, err, "expired MFA token should be rejected")
+}
+
+func TestMFATokenWithoutClaimRejected(t *testing.T) {
+	// Behavior 4 & 5: VerifyMFAToken rejects a token whose `mfa_pending` claim is missing/false
+	// AND rejects a normal access token (no mfa_pending claim)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	config := TokenConfig{
+		PrivateKey:      privateKey,
+		PublicKey:       &privateKey.PublicKey,
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 7 * 24 * time.Hour,
+		Issuer:          "test-issuer",
+	}
+
+	tm := NewTokenManager(config)
+	userID := uuid.New()
+
+	// Issue a normal access token (no mfa_pending claim)
+	accessToken, err := tm.IssueAccessToken(userID, "test@example.com", "Test", "admin", []string{})
+	require.NoError(t, err)
+
+	// Try to verify it as an MFA token — should fail
+	_, err = tm.VerifyMFAToken(accessToken)
+	assert.Error(t, err, "access token without mfa_pending claim should be rejected")
 }

@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 4
+current_plan: 1
 status: executing
-last_updated: "2026-04-24T13:30:00Z"
+last_updated: "2026-04-24T14:29:22.916Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 21
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-24 - Completed Phase 6 Plan 4: Secrets File Architecture
+> Last activity: 2026-04-24 - Completed Phase 6 Plan 6: TOTP Primitives
 
 ---
 
 ## Current Status
 
 **Active phase:** Phase 6 — Security Hardening: Zero-Trust Auth & API Protection (executing)
-**Current plan:** 4 (Secrets File Architecture)
+**Current plan:** 1
 **Milestone:** M1 — Foundation & Observability
 
 ---
@@ -42,9 +42,10 @@ progress:
 - `internal/storage/` — ClickHouse + PostgreSQL clients, schema.go (80+ columns)
 - `internal/baseline/` — Async 10-min computation cycle, ProfileStore (Redis + PG)
 - `internal/notify/` — Dispatcher + adapters (Slack, PagerDuty, Email, Webhook, Syslog)
-- `internal/auth/` — JWT (RS256), API keys, RBAC (build failures present)
+- `internal/auth/` — JWT (RS256), API keys, RBAC, TOTP primitives + backup codes
 - `internal/detection/kairos/` — Kairos HTTP policy evaluator (build failures)
 - `migrations/007_auth.up.sql` — users, sessions, audit_log, token_revocations
+- `migrations/010_mfa.up.sql` — mfa_enabled, mfa_secret_encrypted, user_backup_codes table
 
 ### Proto Schema
 
@@ -65,7 +66,7 @@ progress:
 - `web/src/` — 22 pages, 20+ components
 - Zustand stores: auth, signal filters, trace view
 - TanStack Query hooks, WebSocket listener
-- **Status:** Executing Phase 6
+- **Status:** Executing Phase 06
 
 ---
 
@@ -119,3 +120,4 @@ progress:
 | 6 | 2 | Rate Limiting — Wave 2 | 2026-04-24 | af26f4f, b055b90 | Complete |
 | 6 | 3 | API Key Schema & CRUD | 2026-04-24 | 5c364cb, b26674f, b84178a | Complete |
 | 6 | 4 | Secrets File Architecture — Wave 3 | 2026-04-24 | 9b3634f, e1cd8b6, 2923a22, 8565a50 | Complete |
+| 6 | 6 | TOTP Primitives — Wave 4 | 2026-04-24 | 9078ef5, 5776217, d677532 | Complete |

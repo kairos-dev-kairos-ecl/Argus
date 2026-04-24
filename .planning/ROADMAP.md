@@ -115,7 +115,7 @@ Plans:
 **Goal:** Harden the platform to production security standards: wire RBAC enforcement to all routes, protect signal ingestion with API keys, add endpoint-level rate limiting, complete the secrets architecture, and fix auth gaps (CSRF, password policy, session management UI) — so that a security-focused platform is itself secure.
 
 **Status:** Executing
-**Plans:** 3/8 complete
+**Plans:** 5/8 complete
 
 **Requirements:**
 - REQ-P6-01: Wire RBAC middleware (RequireRole/RequirePermission) to all protected routes — admin, analyst, viewer scoped
@@ -132,9 +132,9 @@ Plans:
 - [x] 06-01-PLAN.md — RBAC wiring + context helpers (RequireAuth, UserIDFromContext) + HIBP fix (Wave 1)
 - [x] 06-02-PLAN.md — Rate limiting: /auth/login (5/60s), /auth/refresh (30/60s), /api/v1/query (60/60s) (Wave 2, after 06-01)
 - [x] 06-03-PLAN.md — API key schema migration 009 + CRUD endpoints + ValidateAPIKey (Wave 2, after 06-01)
-- [ ] 06-04-PLAN.md — Secrets file architecture: internal/secrets + argus.key + CLI (Wave 3, after 06-01/02)
+- [x] 06-04-PLAN.md — Secrets file architecture: internal/secrets + argus.key + CLI (Wave 3, after 06-01/02)
 - [ ] 06-05-PLAN.md — Signal endpoint auth via X-Argus-API-Key + ingest token bucket (Wave 3, after 06-02/03)
-- [ ] 06-06-PLAN.md — TOTP primitives: totp.go + migration 010_mfa + backup codes table (Wave 4, after 06-01/04)
+- [x] 06-06-PLAN.md — TOTP primitives: totp.go + migration 010_mfa + backup codes table (Wave 4, after 06-01/04)
 - [ ] 06-07-PLAN.md — TOTP handlers: enroll/verify/disable/challenge + login MFA branch (Wave 5, after 06-06)
 - [ ] 06-08-PLAN.md — Session management endpoints + CSRF double-submit + ExcludedPaths tightening (Wave 6, after 06-05/07)
 
