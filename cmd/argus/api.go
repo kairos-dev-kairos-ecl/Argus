@@ -22,6 +22,7 @@ import (
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/notify"
 	"github.com/argusxdr/argus/internal/resilience"
+	"github.com/argusxdr/argus/internal/secrets"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -91,6 +92,24 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 	defer log.Sync()
+
+	// Initialize secrets store (optional but preferred)
+	// If ARGUS_SECRETS_FILE is set or ./argus.key exists, load it.
+	// Otherwise fall back to env-var-only mode.
+	secretsFile := os.Getenv("ARGUS_SECRETS_FILE")
+	if secretsFile == "" {
+		if _, err := os.Stat("./argus.key"); err == nil {
+			secretsFile = "./argus.key"
+		}
+	}
+	if secretsFile != "" {
+		if store, err := secrets.NewStore(secretsFile, nil); err == nil {
+			secrets.SetStore(store)
+			log.Info("secrets store initialized", zap.String("file", secretsFile))
+		} else {
+			log.Warn("secrets file configured but unloadable; falling back to env vars", zap.Error(err))
+		}
+	}
 
 	log.Info("starting Argus query API subsystem")
 
