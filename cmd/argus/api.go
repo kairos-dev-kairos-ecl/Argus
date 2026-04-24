@@ -21,6 +21,7 @@ import (
 	"github.com/argusxdr/argus/internal/kairos"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/notify"
+	"github.com/argusxdr/argus/internal/resilience"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -369,6 +370,13 @@ func runAPI(cmd *cobra.Command, args []string) error {
 
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
+
+	// Wire rate limiter to query handler if Redis is available
+	if redisClient != nil {
+		rl := resilience.NewRedisRateLimiter(redisClient)
+		queryHandler.SetRateLimiter(rl)
+		log.Info("rate limiter wired to query handler")
+	}
 
 	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
 	queryHandler.RegisterRoutes(r)

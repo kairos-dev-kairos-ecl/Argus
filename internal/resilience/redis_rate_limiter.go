@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type RedisRateLimiter struct {
-	client *redis.Client
+	client  *redis.Client
+	counter atomic.Int64 // For generating unique request IDs
 }
 
 func NewRedisRateLimiter(c *redis.Client) *RedisRateLimiter {
@@ -32,8 +34,8 @@ func (r *RedisRateLimiter) Allow(ctx context.Context, key string, limit int, win
 	pipe := r.client.TxPipeline()
 	// Remove entries outside the window
 	pipe.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", windowStartMs))
-	// Add current request (unique member using nanos to avoid collisions)
-	member := fmt.Sprintf("%d-%d", nowMs, now.Nanosecond())
+	// Add current request (use atomic counter for guaranteed uniqueness)
+	member := fmt.Sprintf("%d-%d", nowMs, r.counter.Add(1))
 	pipe.ZAdd(ctx, key, redis.Z{Score: float64(nowMs), Member: member})
 	// Get cardinality
 	countCmd := pipe.ZCard(ctx, key)

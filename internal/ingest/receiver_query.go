@@ -18,6 +18,7 @@ import (
 	"github.com/argusxdr/argus/internal/auth"
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/metrics"
+	"github.com/argusxdr/argus/internal/resilience"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,6 +36,7 @@ type QueryHandler struct {
 	alertRouter *AlertRouter      // may be nil — alert pipeline disabled
 	authService *AuthService      // may be nil — auth disabled
 	pool        *pgxpool.Pool     // may be nil — PostgreSQL not configured
+	rl          *resilience.RedisRateLimiter // may be nil — rate limiting disabled
 }
 
 // NewQueryHandler creates a new QueryHandler.
@@ -70,6 +72,11 @@ func (h *QueryHandler) SetAuthService(svc *AuthService) {
 // SetPool wires the PostgreSQL pool for rules and apps CRUD handlers.
 func (h *QueryHandler) SetPool(p *pgxpool.Pool) { h.pool = p }
 
+// SetRateLimiter wires the Redis-backed rate limiter for endpoint protection.
+func (h *QueryHandler) SetRateLimiter(rl *resilience.RedisRateLimiter) {
+	h.rl = rl
+}
+
 // authAvailable returns true if the auth service is configured.
 func (h *QueryHandler) authAvailable() bool {
 	return h.authService != nil
@@ -88,7 +95,18 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 		r.Get("/traces/{traceId}", h.handleGetTrace)
 
 		// Query endpoint (require authentication)
-		r.Post("/query", h.handlePostQuery)
+		// Rate limited (60/60s per user)
+		if h.rl != nil {
+			queryKeyFn := func(r *http.Request) string {
+				if uid, ok := auth.UserIDFromContext(r.Context()); ok {
+					return "rl:query:" + uid.String()
+				}
+				return ""
+			}
+			r.With(resilience.Limit(h.rl, queryKeyFn, 60, 60*time.Second)).Post("/query", h.handlePostQuery)
+		} else {
+			r.Post("/query", h.handlePostQuery)
+		}
 
 		// Rules
 		r.Route("/rules", func(r chi.Router) {
@@ -118,9 +136,32 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 
 		// Auth (public)
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", h.handleLogin)
-			r.Post("/refresh", h.handleRefreshToken)
+			// Login with rate limiting (5/60s per IP)
+			if h.rl != nil {
+				loginKeyFn := func(r *http.Request) string {
+					return "rl:login:" + clientIP(r)
+				}
+				r.With(resilience.Limit(h.rl, loginKeyFn, 5, 60*time.Second)).Post("/login", h.handleLogin)
+			} else {
+				r.Post("/login", h.handleLogin)
+			}
+
+			// Refresh with rate limiting (30/60s per session)
+			if h.rl != nil {
+				refreshKeyFn := func(r *http.Request) string {
+					if c, err := r.Cookie("refresh_token"); err == nil && c.Value != "" {
+						return "rl:refresh:" + auth.HashToken(c.Value)
+					}
+					return "rl:refresh:ip:" + clientIP(r)
+				}
+				r.With(resilience.Limit(h.rl, refreshKeyFn, 30, 60*time.Second)).Post("/refresh", h.handleRefreshToken)
+			} else {
+				r.Post("/refresh", h.handleRefreshToken)
+			}
+
+			// Logout (no rate limiting)
 			r.Post("/logout", h.handleLogout)
+			// Setup (no rate limiting)
 			r.Post("/setup", h.handleSetup)
 		})
 
@@ -1087,4 +1128,43 @@ ORDER BY timestamp ASC, signal_id ASC
 LIMIT ` + strconv.FormatInt(limit, 10)
 
 	return query, args
+}
+
+// clientIP extracts the client IP from the request, handling X-Forwarded-For and X-Real-IP headers.
+func clientIP(r *http.Request) string {
+	var ip string
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		ip = xff
+	} else if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		ip = xri
+	} else {
+		ip = r.RemoteAddr
+	}
+
+	// Safeguard against empty IP
+	if len(ip) == 0 {
+		return ""
+	}
+
+	// For X-Forwarded-For which can have multiple IPs, take the first one
+	if idx := strings.Index(ip, ","); idx >= 0 {
+		ip = strings.TrimSpace(ip[:idx])
+	}
+
+	// Strip port from IP:port format
+	if idx := strings.LastIndex(ip, ":"); idx > 0 {
+		// Check if it's IPv6 (has multiple colons)
+		if strings.Count(ip, ":") > 1 {
+			// IPv6 address in brackets like [::1]:port, strip port
+			if ip[0] == '[' && idx > 1 {
+				return ip[1 : idx-1]
+			}
+			// IPv6 without brackets, return as-is
+			return ip
+		}
+		// IPv4 with port
+		return ip[:idx]
+	}
+
+	return ip
 }
