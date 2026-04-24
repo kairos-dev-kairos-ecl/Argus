@@ -371,12 +371,20 @@ func runAPI(cmd *cobra.Command, args []string) error {
 				AuditLogger:  authSvc.AuditLog,
 				Logger:       log,
 				ExcludedPaths: map[string]bool{
-					"/health":                    true,
-					"/metrics":                   true,
+					// Health and observability (always public)
+					"/health":    true,
+					"/metrics":   true,
+					// Setup endpoint (public until first admin created)
+					"/api/v1/setup": true,
+					// Unauthenticated auth entry points
 					"/api/v1/auth/login":        true,
 					"/api/v1/auth/refresh":      true,
-					"/api/v1/auth/setup":        true,
 					"/api/v1/auth/mfa/challenge": true,
+					"/api/v1/auth/csrf-token":   true,
+					// Signal ingest (protected by API key, not JWT)
+					"/v1/signals":        true,
+					"/v1/signals/stream": true,
+					"/v1/schema/signals": true,
 				},
 			})(next)
 		})

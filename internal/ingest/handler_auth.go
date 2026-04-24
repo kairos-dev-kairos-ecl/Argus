@@ -350,6 +350,42 @@ func countChar(s string, c byte) int {
 	return count
 }
 
+func (h *QueryHandler) handleCSRFToken(w http.ResponseWriter, r *http.Request) {
+	// This handler is called AFTER CSRFMiddleware has set the cookie and header
+	// Extract the csrf_token cookie or generate one if absent
+	cookie, err := r.Cookie("csrf_token")
+	var tokenValue string
+
+	if err != nil || cookie.Value == "" {
+		// Generate new token
+		token, err := auth.GenerateCSRFToken()
+		if err != nil {
+			jsonError(w, "csrf token generation failed", http.StatusInternalServerError)
+			return
+		}
+		tokenValue = token
+
+		// Set cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     "csrf_token",
+			Value:    tokenValue,
+			Path:     "/api/v1/auth",
+			HttpOnly: false,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   12 * 3600,
+		})
+	} else {
+		tokenValue = cookie.Value
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"csrf_token": tokenValue,
+	})
+}
+
 func hashTokenStr(token string) string {
 	return auth.HashToken(token)
 }

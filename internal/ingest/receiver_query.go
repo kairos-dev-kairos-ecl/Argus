@@ -156,8 +156,12 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/resolve", h.handleResolveIncident)
 		})
 
-		// Auth (public)
+		// Auth (public and protected endpoints)
 		r.Route("/auth", func(r chi.Router) {
+			// Mount CSRF middleware for all mutating auth routes
+			// Excluded paths: /refresh (uses HttpOnly cookie, not CSRF-protected)
+			r.Use(auth.CSRFMiddleware([]string{"/api/v1/auth/refresh"}))
+
 			// Login with rate limiting (5/60s per IP)
 			if h.rl != nil {
 				loginKeyFn := func(r *http.Request) string {
@@ -168,7 +172,7 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 				r.Post("/login", h.handleLogin)
 			}
 
-			// Refresh with rate limiting (30/60s per session)
+			// Refresh with rate limiting (30/60s per session) — NOT protected by CSRF middleware
 			if h.rl != nil {
 				refreshKeyFn := func(r *http.Request) string {
 					if c, err := r.Cookie("refresh_token"); err == nil && c.Value != "" {
@@ -186,16 +190,29 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 			// Setup (no rate limiting)
 			r.Post("/setup", h.handleSetup)
 
+			// CSRF Token endpoint (GET, safe method)
+			r.Get("/csrf-token", h.handleCSRFToken)
+
 			// MFA endpoints (require JWT for enroll/verify/disable; challenge is public)
 			r.Route("/mfa", func(r chi.Router) {
-				// Enroll (protected by JWT)
+				// Enroll (protected by JWT and CSRF)
 				r.Post("/enroll", h.handleMFAEnroll)
-				// Verify (protected by JWT)
+				// Verify (protected by JWT and CSRF)
 				r.Post("/verify", h.handleMFAVerify)
-				// Disable (protected by JWT)
+				// Disable (protected by JWT and CSRF)
 				r.Post("/disable", h.handleMFADisable)
 				// Challenge (public — uses mfa_token instead of access token)
 				r.Post("/challenge", h.handleMFAChallenge)
+			})
+
+			// Session Management (require JWT)
+			r.Route("/sessions", func(r chi.Router) {
+				// List active sessions
+				r.Get("/", h.handleListSessions)
+				// Revoke all other sessions
+				r.Delete("/", h.handleRevokeOtherSessions)
+				// Revoke single session
+				r.Delete("/{id}", h.handleRevokeSession)
 			})
 		})
 
