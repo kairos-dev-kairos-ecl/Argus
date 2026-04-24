@@ -20,6 +20,7 @@ type AuthService struct {
 	TokenMgr     *auth.TokenManager
 	AuditLog     *auth.AuditLogger    // audit logging
 	SessionStore *auth.PgSessionStore
+	APIKeyStore  auth.ApiKeyStore     // API key store for machine identities
 }
 
 // ---- request/response types ----

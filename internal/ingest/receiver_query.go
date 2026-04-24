@@ -124,6 +124,17 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 			r.Post("/setup", h.handleSetup)
 		})
 
+		// API Keys (machine identities)
+		r.Route("/api-keys", func(r chi.Router) {
+			// Create: admin or analyst
+			r.With(auth.RequireRole(auth.RoleAdmin, auth.RoleAnalyst)).
+				Post("/", h.handleCreateAPIKey)
+			// List: any authenticated user (sees own)
+			r.Get("/", h.handleListAPIKeys)
+			// Delete: own key OR admin — enforced inside handler
+			r.Delete("/{id}", h.handleRevokeAPIKey)
+		})
+
 		// Users (admin only)
 		r.Route("/users", func(r chi.Router) {
 			r.Use(auth.RequireRole(auth.RoleAdmin))
