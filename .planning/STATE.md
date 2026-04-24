@@ -2,25 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_plan: 2
 status: executing
-last_updated: "2026-04-20T00:00:00.000Z"
+last_updated: "2026-04-24T15:55:00Z"
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 13
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 21
+  completed_plans: 19
 ---
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-22 - Completed quick task 260423-0c1: commit session changes, clean up stale docs, update Obsidian vault
+> Last activity: 2026-04-24 - Completed Phase 6 Plan 1: Security Hardening — RBAC Middleware & HIBP
 
 ---
 
 ## Current Status
 
-**Active phase:** Phase 5 — Dashboard Integration (executing)
-**Current plan:** 05-06 (COMPLETE)
+**Active phase:** Phase 6 — Security Hardening: Zero-Trust Auth & API Protection (executing)
+**Current plan:** 2 (API Key Ingest Auth)
 **Milestone:** M1 — Foundation & Observability
 
 ---
@@ -64,7 +65,7 @@ progress:
 - `web/src/` — 22 pages, 20+ components
 - Zustand stores: auth, signal filters, trace view
 - TanStack Query hooks, WebSocket listener
-- **Status:** Ready to plan
+- **Status:** Executing Phase 6
 
 ---
 
@@ -88,6 +89,9 @@ progress:
 - **Inference-engine-agnostic:** optional fields per engine, no engine-specific structs.
 - **Kairos:** Sidecar now → capability differentiator later (Approach C).
 - **Tech stack locked:** Go core, ClickHouse signals, PostgreSQL config, Redis ephemeral, React+TS.
+- **Auth context storage:** Single canonical claimsKey constant for context.Context value storage (backward compatible with old ContextKeyUser).
+- **HIBP fail-open:** Network errors during password breach check allow setup to proceed (security-first, usability-second).
+- **RBAC granularity:** Permission-based (not role-based) for read endpoints to allow admin/analyst to carry same permissions as viewer role.
 
 ---
 
@@ -106,3 +110,9 @@ progress:
 | 2 | Build stabilization + signal validation tests (all 11 layers) | 2026-04-16 | 8edbd43 | 260416-m9t-build-stabilization-and-signal-validatio |
 | 3 | Backend validation harness: docker-compose-test.yml + llama.cpp + signal capture | 2026-04-19 | 16adae2 | 260419-tmi-set-up-backend-validation-harness-docker |
 | 4 | Commit session changes, clean up stale files, update Obsidian docs to reflect current architecture | 2026-04-22 | ac0f054 | 260423-0c1-commit-session-changes-clean-up-stale-fi |
+
+### Plans Completed
+
+| Phase | Plan | Name | Date | Commits | Status |
+|-------|------|------|------|---------|--------|
+| 6 | 1 | Security Hardening — RBAC Middleware & HIBP | 2026-04-24 | 97d6206, b40eb83, 6e54a17 | Complete |
