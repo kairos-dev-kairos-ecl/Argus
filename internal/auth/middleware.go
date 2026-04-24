@@ -45,6 +45,12 @@ type SessionStore interface {
 	RevokeSession(ctx context.Context, sessionID string) error
 	// CheckTokenRevocation checks if a token hash is revoked
 	CheckTokenRevocation(ctx context.Context, tokenHash string) (bool, error)
+	// CreateSession inserts a new session
+	CreateSession(ctx context.Context, sess *Session) error
+	// UpdateSessionHash updates the refresh token hash (rotation)
+	UpdateSessionHash(ctx context.Context, sessionID, newHash string) error
+	// RevokeTokenHash adds a token hash to the revocation list
+	RevokeTokenHash(ctx context.Context, tokenHash string, expiresAt time.Time) error
 }
 
 // Session represents a user session
@@ -303,4 +309,10 @@ func SessionIDFromContext(ctx context.Context) (string, bool) {
 		return "", false
 	}
 	return c.SessionID, true
+}
+
+// ContextWithClaims is a test helper that injects claims into a context
+// using the internal claimsKey so that UserIDFromContext and SessionIDFromContext work.
+func ContextWithClaims(ctx context.Context, claims *Claims) context.Context {
+	return context.WithValue(ctx, claimsKey, claims)
 }

@@ -19,7 +19,7 @@ type AuthService struct {
 	SessionMgr   *auth.SessionManager
 	TokenMgr     *auth.TokenManager
 	AuditLog     *auth.AuditLogger    // audit logging
-	SessionStore *auth.PgSessionStore
+	SessionStore auth.SessionStore     // SessionStore interface for session management
 	APIKeyStore  auth.ApiKeyStore     // API key store for machine identities
 }
 

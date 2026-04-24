@@ -52,7 +52,7 @@ func TestHTTPReceiverPostSignalsSingle(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response
 	assert.Equal(t, http.StatusCreated, rec.Code)
@@ -130,7 +130,7 @@ func TestHTTPReceiverPostSignalsArray(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response
 	assert.Equal(t, http.StatusCreated, rec.Code)
@@ -164,7 +164,7 @@ func TestHTTPReceiverMissingAuth(t *testing.T) {
 
 	// Call handler directly (bypasses route registration)
 	// We need to wrap with middleware to test auth
-	handler := testAuth.HTTPMiddleware()(http.HandlerFunc(receiver.handlePostSignals))
+	handler := testAuth.HTTPMiddleware()(http.HandlerFunc(receiver.HandlePostSignals))
 	handler.ServeHTTP(rec, req)
 
 	// Verify response is 401
@@ -190,7 +190,7 @@ func TestHTTPReceiverMalformedJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response is 400
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -221,7 +221,7 @@ func TestHTTPReceiverOversizedBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response is 413 Payload Too Large
 	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
@@ -260,7 +260,7 @@ func TestHTTPReceiverMissingRequiredFields(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response is 400
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -305,7 +305,7 @@ func TestHTTPReceiverQueueFull(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response is 429 (all signals rejected)
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
@@ -370,7 +370,7 @@ func TestHTTPReceiverPartialRejection(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response is 207 (partial success)
 	assert.Equal(t, http.StatusMultiStatus, rec.Code)
@@ -402,7 +402,7 @@ func TestHTTPReceiverEmptyBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// Call handler
-	receiver.handlePostSignals(rec, req)
+	receiver.HandlePostSignals(rec, req)
 
 	// Verify response is 400
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
