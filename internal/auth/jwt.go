@@ -17,6 +17,7 @@ type Claims struct {
 	Role        string      `json:"role"`
 	Permissions []string    `json:"permissions"`
 	TokenID     string      `json:"jti"`
+	SessionID   string      `json:"session_id"`
 	jwt.RegisteredClaims
 }
 
