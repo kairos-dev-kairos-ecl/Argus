@@ -114,8 +114,8 @@ Plans:
 ### Phase 6: Security Hardening — Zero-Trust Auth & API Protection
 **Goal:** Harden the platform to production security standards: wire RBAC enforcement to all routes, protect signal ingestion with API keys, add endpoint-level rate limiting, complete the secrets architecture, and fix auth gaps (CSRF, password policy, session management UI) — so that a security-focused platform is itself secure.
 
-**Status:** Planned
-**Plans:** 0/8 complete
+**Status:** Executing
+**Plans:** 2/8 complete
 
 **Requirements:**
 - REQ-P6-01: Wire RBAC middleware (RequireRole/RequirePermission) to all protected routes — admin, analyst, viewer scoped
@@ -129,9 +129,9 @@ Plans:
 - REQ-P6-09: CSRF protection — double-submit cookie or signed CSRF token on all POST auth endpoints
 
 Plans:
-- [ ] 06-01-PLAN.md — RBAC wiring + context helpers (RequireAuth, UserIDFromContext) + HIBP fix (Wave 1)
+- [x] 06-01-PLAN.md — RBAC wiring + context helpers (RequireAuth, UserIDFromContext) + HIBP fix (Wave 1)
 - [ ] 06-02-PLAN.md — Rate limiting: /auth/login, /auth/refresh, /api/v1/query (Wave 2, after 06-01)
-- [ ] 06-03-PLAN.md — API key schema migration 009 + CRUD endpoints + ValidateAPIKey (Wave 2, after 06-01)
+- [x] 06-03-PLAN.md — API key schema migration 009 + CRUD endpoints + ValidateAPIKey (Wave 2, after 06-01)
 - [ ] 06-04-PLAN.md — Secrets file architecture: internal/secrets + argus.key + CLI (Wave 3, after 06-01/02)
 - [ ] 06-05-PLAN.md — Signal endpoint auth via X-Argus-API-Key + ingest token bucket (Wave 3, after 06-02/03)
 - [ ] 06-06-PLAN.md — TOTP primitives: totp.go + migration 010_mfa + backup codes table (Wave 4, after 06-01/04)
