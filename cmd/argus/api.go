@@ -371,11 +371,12 @@ func runAPI(cmd *cobra.Command, args []string) error {
 				AuditLogger:  authSvc.AuditLog,
 				Logger:       log,
 				ExcludedPaths: map[string]bool{
-					"/health":              true,
-					"/metrics":             true,
-					"/api/v1/auth/login":   true,
-					"/api/v1/auth/refresh": true,
-					"/api/v1/auth/setup":   true,
+					"/health":                    true,
+					"/metrics":                   true,
+					"/api/v1/auth/login":        true,
+					"/api/v1/auth/refresh":      true,
+					"/api/v1/auth/setup":        true,
+					"/api/v1/auth/mfa/challenge": true,
 				},
 			})(next)
 		})

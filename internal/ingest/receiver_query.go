@@ -185,6 +185,18 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 			r.Post("/logout", h.handleLogout)
 			// Setup (no rate limiting)
 			r.Post("/setup", h.handleSetup)
+
+			// MFA endpoints (require JWT for enroll/verify/disable; challenge is public)
+			r.Route("/mfa", func(r chi.Router) {
+				// Enroll (protected by JWT)
+				r.Post("/enroll", h.handleMFAEnroll)
+				// Verify (protected by JWT)
+				r.Post("/verify", h.handleMFAVerify)
+				// Disable (protected by JWT)
+				r.Post("/disable", h.handleMFADisable)
+				// Challenge (public — uses mfa_token instead of access token)
+				r.Post("/challenge", h.handleMFAChallenge)
+			})
 		})
 
 		// API Keys (machine identities)
