@@ -111,6 +111,35 @@ Plans:
 
 ---
 
+### Phase 6: Security Hardening — Zero-Trust Auth & API Protection
+**Goal:** Harden the platform to production security standards: wire RBAC enforcement to all routes, protect signal ingestion with API keys, add endpoint-level rate limiting, complete the secrets architecture, and fix auth gaps (CSRF, password policy, session management UI) — so that a security-focused platform is itself secure.
+
+**Status:** Planned
+**Plans:** 0/8 complete
+
+**Requirements:**
+- REQ-P6-01: Wire RBAC middleware (RequireRole/RequirePermission) to all protected routes — admin, analyst, viewer scoped
+- REQ-P6-02: API key schema + issuance — scoped bearer tokens for SDK/machine identity (separate from user JWTs)
+- REQ-P6-03: Authenticate signal ingestion endpoints (/v1/signals, /v1/signals/stream) via API key middleware
+- REQ-P6-04: Endpoint rate limiting — wire existing Redis rate limiter to /auth/login (5/min per IP), /api/v1/query (60/min per user), SDK ingest (token bucket)
+- REQ-P6-05: Secrets file architecture — argus.key encrypted file replacing raw env vars for JWT private key, DB credentials, API keys
+- REQ-P6-06: Fix HIBP password breach check (response parsing broken in setup.go)
+- REQ-P6-07: Complete TOTP 2FA flow — enroll, verify, backup codes endpoints
+- REQ-P6-08: Session management — list active sessions, remote kill endpoint, UI for active devices
+- REQ-P6-09: CSRF protection — double-submit cookie or signed CSRF token on all POST auth endpoints
+
+Plans:
+- [ ] 06-01-PLAN.md — RBAC wiring + context helpers (RequireAuth, UserIDFromContext) + HIBP fix (Wave 1)
+- [ ] 06-02-PLAN.md — Rate limiting: /auth/login, /auth/refresh, /api/v1/query (Wave 2, after 06-01)
+- [ ] 06-03-PLAN.md — API key schema migration 009 + CRUD endpoints + ValidateAPIKey (Wave 2, after 06-01)
+- [ ] 06-04-PLAN.md — Secrets file architecture: internal/secrets + argus.key + CLI (Wave 3, after 06-01/02)
+- [ ] 06-05-PLAN.md — Signal endpoint auth via X-Argus-API-Key + ingest token bucket (Wave 3, after 06-02/03)
+- [ ] 06-06-PLAN.md — TOTP primitives: totp.go + migration 010_mfa + backup codes table (Wave 4, after 06-01/04)
+- [ ] 06-07-PLAN.md — TOTP handlers: enroll/verify/disable/challenge + login MFA branch (Wave 5, after 06-06)
+- [ ] 06-08-PLAN.md — Session management endpoints + CSRF double-submit + ExcludedPaths tightening (Wave 6, after 06-05/07)
+
+---
+
 ## Requirements Index
 
 | ID | Phase | Description |
@@ -137,3 +166,12 @@ Plans:
 | REQ-P3-06 | 3 | Apps CRUD implementation |
 | REQ-P3-07 | 3 | Health endpoint expansion |
 | REQ-P3-08 | 3 | Integration tests |
+| REQ-P6-01 | 6 | RBAC middleware wired to all protected routes |
+| REQ-P6-02 | 6 | API key schema + issuance for SDK/machine identity |
+| REQ-P6-03 | 6 | Signal ingestion endpoints authenticated via API key |
+| REQ-P6-04 | 6 | Endpoint rate limiting wired (auth, query, ingest) |
+| REQ-P6-05 | 6 | Secrets file architecture (argus.key replaces raw env vars) |
+| REQ-P6-06 | 6 | HIBP password breach check fixed |
+| REQ-P6-07 | 6 | TOTP 2FA flow complete (enroll, verify, backup codes) |
+| REQ-P6-08 | 6 | Session management UI (list, kill remote sessions) |
+| REQ-P6-09 | 6 | CSRF protection on all POST auth endpoints |
