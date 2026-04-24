@@ -15,6 +15,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
+	"github.com/argusxdr/argus/internal/auth"
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/storage"
@@ -76,51 +77,75 @@ func (h *QueryHandler) authAvailable() bool {
 
 // RegisterRoutes mounts query API routes onto the chi mux.
 func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
-	// Tier 1: Core signal query routes
+	// Tier 1: Core signal query routes (public)
 	mux.Get("/v1/signals", h.handleGetSignals)
 	mux.Get("/v1/schema/signals", h.handleGetSignalSchema)
-	mux.Get("/api/v1/layers/status", h.handleGetLayerStatus)
-	mux.Get("/api/v1/traces/{traceId}", h.handleGetTrace)
-	mux.Post("/api/v1/query", h.handlePostQuery)
 
-	// Tier 2: Rules
-	mux.Get("/api/v1/rules", h.handleListRules)
-	mux.Post("/api/v1/rules", h.handleCreateRule)
-	mux.Get("/api/v1/rules/{id}", h.handleGetRule)
-	mux.Put("/api/v1/rules/{id}", h.handleUpdateRule)
-	mux.Delete("/api/v1/rules/{id}", h.handleDeleteRule)
-	mux.Post("/api/v1/rules/validate", h.handleValidateRule)
-	mux.Post("/api/v1/rules/test", h.handleTestRule)
+	// Protected API routes
+	mux.Route("/api/v1", func(r chi.Router) {
+		// Layer status and traces (require authentication)
+		r.Get("/layers/status", h.handleGetLayerStatus)
+		r.Get("/traces/{traceId}", h.handleGetTrace)
 
-	// Tier 2: Alerts
-	mux.Get("/api/v1/alerts", h.handleListAlerts)
-	mux.Get("/api/v1/alerts/{id}", h.handleGetAlert)
-	mux.Post("/api/v1/alerts/{id}/acknowledge", h.handleAcknowledgeAlert)
+		// Query endpoint (require authentication)
+		r.Post("/query", h.handlePostQuery)
 
-	// Tier 2: Incidents
-	mux.Get("/api/v1/incidents", h.handleListIncidents)
-	mux.Get("/api/v1/incidents/{id}", h.handleGetIncident)
-	mux.Post("/api/v1/incidents/{id}/acknowledge", h.handleAcknowledgeIncident)
-	mux.Post("/api/v1/incidents/{id}/resolve", h.handleResolveIncident)
+		// Rules
+		r.Route("/rules", func(r chi.Router) {
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Get("/", h.handleListRules)
+			r.With(auth.RequirePermission(auth.PermRulesCreate)).Post("/", h.handleCreateRule)
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Get("/{id}", h.handleGetRule)
+			r.With(auth.RequirePermission(auth.PermRulesUpdate)).Put("/{id}", h.handleUpdateRule)
+			r.With(auth.RequirePermission(auth.PermRulesDelete)).Delete("/{id}", h.handleDeleteRule)
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Post("/validate", h.handleValidateRule)
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Post("/test", h.handleTestRule)
+		})
 
-	// Tier 3: Auth
-	mux.Post("/api/v1/auth/login", h.handleLogin)
-	mux.Post("/api/v1/auth/refresh", h.handleRefreshToken)
-	mux.Post("/api/v1/auth/logout", h.handleLogout)
-	mux.Post("/api/v1/auth/setup", h.handleSetup)
+		// Alerts
+		r.Route("/alerts", func(r chi.Router) {
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/", h.handleListAlerts)
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/{id}", h.handleGetAlert)
+			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/acknowledge", h.handleAcknowledgeAlert)
+		})
 
-	// Tier 3: Users
-	mux.Get("/api/v1/users", h.handleListUsers)
-	mux.Post("/api/v1/users", h.handleCreateUser)
+		// Incidents
+		r.Route("/incidents", func(r chi.Router) {
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/", h.handleListIncidents)
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/{id}", h.handleGetIncident)
+			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/acknowledge", h.handleAcknowledgeIncident)
+			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/resolve", h.handleResolveIncident)
+		})
 
-	// Tier 3: Apps
-	mux.Get("/api/v1/apps", h.handleListApps)
-	mux.Post("/api/v1/apps", h.handleCreateApp)
-	mux.Get("/api/v1/apps/{id}/key", h.handleGetAppKey)
-	mux.Post("/api/v1/apps/{id}/key/rotate", h.handleRotateAppKey)
+		// Auth (public)
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/login", h.handleLogin)
+			r.Post("/refresh", h.handleRefreshToken)
+			r.Post("/logout", h.handleLogout)
+			r.Post("/setup", h.handleSetup)
+		})
 
-	// Tier 3: Audit
-	mux.Get("/api/v1/audit", h.handleListAuditLog)
+		// Users (admin only)
+		r.Route("/users", func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/", h.handleListUsers)
+			r.Post("/", h.handleCreateUser)
+		})
+
+		// Apps (admin only)
+		r.Route("/apps", func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/", h.handleListApps)
+			r.Post("/", h.handleCreateApp)
+			r.Get("/{id}/key", h.handleGetAppKey)
+			r.Post("/{id}/key/rotate", h.handleRotateAppKey)
+		})
+
+		// Audit (admin only)
+		r.Route("/audit", func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/", h.handleListAuditLog)
+		})
+	})
 }
 
 // QueryResponse is the JSON response for GET /v1/signals.
