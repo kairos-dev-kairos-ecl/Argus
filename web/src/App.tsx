@@ -17,6 +17,7 @@ import AlertsPage from './pages/AlertsPage'
 import RulesPage from './pages/RulesPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditLogPage } from './pages/AuditLogPage'
+import { KairosPage } from './pages/KairosPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ConfigPage } from './pages/ConfigPage'
 import { useLayerStore } from './stores/layer'
@@ -110,6 +111,9 @@ function App() {
                     <Route path="/trace/:traceId" element={<TracePage />} />
                     <Route path="/trace" element={<TracePage />} />
                     <Route path="/query" element={<QueryPage />} />
+
+                    {/* Kairos */}
+                    <Route path="/kairos" element={<KairosPage />} />
 
                     {/* Operations */}
                     <Route path="/incidents" element={<IncidentsPage />} />

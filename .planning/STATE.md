@@ -14,7 +14,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-24 - Completed Phase 6 Plan 8: Session Management & CSRF Protection
+> Last activity: 2026-04-26 - Completed Phase 5 Plan 1: Design System Tokens Reset
 
 ---
 
@@ -93,6 +93,8 @@ progress:
 - **Auth context storage:** Single canonical claimsKey constant for context.Context value storage (backward compatible with old ContextKeyUser).
 - **HIBP fail-open:** Network errors during password breach check allow setup to proceed (security-first, usability-second).
 - **RBAC granularity:** Permission-based (not role-based) for read endpoints to allow admin/analyst to carry same permissions as viewer role.
+- **Tailwind v4 CSS entrypoint:** globals.css (not index.css) is the actual CSS entrypoint imported by main.tsx; both files updated for brutalist theme.
+- **Tailwind v4 theme config:** tailwind.config.js CSS var references used for color tokens — allows live token editing without rebuild.
 
 ---
 
@@ -123,3 +125,4 @@ progress:
 | 6 | 6 | TOTP Primitives — Wave 4 | 2026-04-24 | 9078ef5, 5776217, d677532 | Complete |
 | 6 | 7 | TOTP Handlers & Login Branching — Wave 5 | 2026-04-24 | 1e7a7e9, bd477c5, a74c6fa | Complete |
 | 6 | 8 | Session Management & CSRF Protection — Wave 6 (FINAL) | 2026-04-24 | 71eb040, 752d3b7, 608f977 | Complete |
+| 5 | 1 | Design System Tokens Reset (brutalist theme) | 2026-04-26 | a558f44, 673ca7a, 2cb0fff | Complete |
