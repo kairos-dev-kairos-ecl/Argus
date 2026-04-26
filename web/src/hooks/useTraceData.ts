@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getTrace } from '../services/api'
-import type { Trace, Span, Layer } from '../types/index'
+import type { Span, Layer } from '../types/index'
+import type { TraceResponse } from '../services/types'
 import { colors } from '../lib/design-tokens'
 
 /**
@@ -46,7 +47,7 @@ export interface TraceFlowEdge {
  * ```
  */
 export function useTraceData(traceId: string) {
-  const [trace, setTrace] = useState<Trace | null>(null)
+  const [trace, setTrace] = useState<TraceResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
@@ -64,11 +65,13 @@ export function useTraceData(traceId: string) {
         setTrace(traceData)
 
         // Transform spans into React Flow nodes
-        const computedNodes = transformSpansToNodes(traceData.spans)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const computedNodes = transformSpansToNodes(traceData.spans as any)
         setNodes(computedNodes)
 
         // Transform span relationships into edges
-        const computedEdges = transformSpansToEdges(traceData.spans)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const computedEdges = transformSpansToEdges(traceData.spans as any)
         setEdges(computedEdges)
       } catch (err) {
         const message =

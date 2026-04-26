@@ -15,11 +15,11 @@ import { useState, useEffect, useCallback } from 'react'
 import type {
   ArgusSignal,
   LayerStatus,
-  Trace,
   Detection,
   QueryResult,
 } from '../types'
 import { ApiError } from '../services/types'
+import type { TraceResponse } from '../services/types'
 import * as api from '../services/api'
 
 // ============================================================================
@@ -146,7 +146,7 @@ export function useLayerStatusQuery(): UseApiResult<LayerStatus[]> {
  * @param traceId - Trace identifier
  * @returns Trace object with spans and detections
  */
-export function useTraceQuery(traceId?: string): UseApiResult<Trace> {
+export function useTraceQuery(traceId?: string): UseApiResult<TraceResponse> {
   const result = useApi(
     async () => {
       if (!traceId) {
