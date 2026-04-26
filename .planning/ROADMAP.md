@@ -85,29 +85,33 @@ Plans:
 ---
 
 ### Phase 5: Dashboard Integration
-**Goal:** Frontend fully connected to real API data, WebSocket live feed working.
+**Goal:** Production-quality brutalist frontend rebuild — replace scaffolding with the 8-screen Argus design spec, fully connected to real backend APIs (signals, traces, query, audit, alerts, sessions, MFA, API keys), WebSocket live feed, and Phase 6 security UI (CSRF, MFA, sessions, password change with HIBP).
 
-**Status:** In Progress
-**Plans:** 1/6 complete (05-02)
+**Status:** Replanned (2026-04-25 — design system reset + 8-screen rebuild)
+**Plans:** 6/10 plans executed
 
 **Requirements:**
-- REQ-P5-01: HTTP service layer with typed API functions
+- REQ-P5-01: HTTP service layer with typed API functions + CSRF interceptor
 - REQ-P5-02: API request/response types matching backend contracts
-- REQ-P5-03: Login form with JWT token flow
-- REQ-P5-04: Session validation and token refresh
-- REQ-P5-05: Telemetry dashboard real data binding
-- REQ-P5-06: WebSocket signal subscription
-- REQ-P5-07: Trace flow real data binding
-- REQ-P5-08: Hunting console query execution
-- REQ-P5-09: Audit ledger real data binding
+- REQ-P5-03: Login form with JWT token flow + MFA challenge step
+- REQ-P5-04: Session validation, token refresh, active session management UI
+- REQ-P5-05: Telemetry dashboard (Screen 4) real data binding
+- REQ-P5-06: WebSocket signal subscription with exponential-backoff reconnection
+- REQ-P5-07: Trace flow (Screen 3) real data binding with CSS Gantt waterfall
+- REQ-P5-08: Hunting console (Screen 5) query execution + Incidents (Screen 6) MITRE ATLAS triage
+- REQ-P5-09: Audit ledger (Screen 2) real data binding with zero-trust filters
 
 Plans:
-- [ ] 05-01-PLAN.md — HTTP client service layer + typed API functions (Wave 1, planned)
-- [x] 05-02-PLAN.md — Authentication integration + JWT + session validation (Wave 1, COMPLETE)
-- [ ] 05-03-PLAN.md — Telemetry dashboard data binding + WebSocket (Wave 2, planned)
-- [ ] 05-04-PLAN.md — Trace flow data binding (Wave 2, planned)
-- [ ] 05-05-PLAN.md — Hunting console data binding (Wave 2, planned)
-- [ ] 05-06-PLAN.md — Audit ledger data binding (Wave 2, planned)
+- [x] 05-01-PLAN.md — Design system foundation: tokens.css, design-tokens.ts, Tailwind theme, fonts, brutalist body/html (Wave 1)
+- [x] 05-02-PLAN.md — Auth flow + CSRF interceptor + MFA challenge + brutalist LoginPage (Wave 1)
+- [x] 05-03-PLAN.md — Layout shell: SideNav with 8 nav items, MainLayout 2-column, /kairos route (Wave 2, after 05-01)
+- [x] 05-04-PLAN.md — Health dashboard (Screen 4) + WebSocket + 70/30 signal log + L1-L10 horizon grid (Wave 2, after 05-01/03)
+- [x] 05-05-PLAN.md — Trace waterfall (Screen 3) 50/50 split + CSS Gantt + payload viewer + hover HUD (Wave 2, after 05-01/03)
+- [x] 05-06-PLAN.md — Hunting console (Screen 5) 30/70 + CodeMirror SQL + manual JSON coloring + 429 handling (Wave 2, after 05-01/03)
+- [ ] 05-07-PLAN.md — Audit ledger (Screen 2) 20px-row grid + zero-trust filters + JSON diff expand (Wave 3, after 05-01/02/03)
+- [ ] 05-08-PLAN.md — Incidents (Screen 6) 40/60 inbox + MITRE ATLAS kill chain matrix + YAML rule editor (Wave 3, after 05-01/03/06)
+- [ ] 05-09-PLAN.md — IAM console (Screen 8) 20/80 + Phase 6 security UI: MFA enroll, sessions, API keys, password (Wave 3, after 05-01/02/03)
+- [ ] 05-10-PLAN.md — Kairos engine (Screen 7) display-only + onboarding polish (Screen 1) with Token Vault (Wave 3, after 05-01/02/03)
 
 ---
 
