@@ -12,6 +12,8 @@
 // Go's static file server (prod) both work without CORS or cookie issues.
 const API_BASE_URL = ''
 
+import { fetchCsrfToken, getCsrfToken } from './csrf'
+
 export interface LoginRequest {
   email: string
   password: string
@@ -28,6 +30,21 @@ export interface LoginResponse {
     status: 'active' | 'suspended' | 'pending_invite'
     created_at: string
   }
+  /** Set to true when the account has MFA enabled — access_token will be absent */
+  mfa_required?: boolean
+  /** Opaque token passed to POST /api/v1/auth/mfa/challenge to complete login */
+  challenge_token?: string
+}
+
+export interface MfaChallengeRequest {
+  challenge_token: string
+  code: string
+}
+
+export interface MfaEnrollResponse {
+  secret: string
+  qr_code_data_url: string
+  backup_codes: string[]
 }
 
 export interface RefreshResponse {
@@ -51,22 +68,35 @@ export class ApiError extends Error {
 }
 
 /**
- * Login with email and password
- *
- * @param email User email address
- * @param password User password
- * @returns Promise with access_token and user profile
- * @throws ApiError on non-2xx response
+ * Build CSRF-aware headers for mutating requests.
+ * Fetches the token if not yet in memory.
  */
-export async function login(
-  email: string,
-  password: string
-): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+async function csrfHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  let token = getCsrfToken()
+  if (!token) {
+    token = await fetchCsrfToken()
+  }
+  return {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': token,
+    ...extra,
+  }
+}
+
+/**
+ * Generic helper for auth POST endpoints with CSRF + optional 403-retry.
+ */
+async function authPost<T>(
+  path: string,
+  body: unknown,
+  retried = false
+): Promise<T> {
+  const headers = await csrfHeaders()
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    credentials: 'include', // Include cookies for any existing refresh token
+    headers,
+    body: JSON.stringify(body),
+    credentials: 'include',
   })
 
   if (!response.ok) {
@@ -76,16 +106,86 @@ export async function login(
     } catch {
       errorDetails = null
     }
+
+    // 403 with CSRF error: refetch token and retry once
+    if (
+      response.status === 403 &&
+      !retried &&
+      errorDetails !== null &&
+      typeof errorDetails === 'object' &&
+      'error' in errorDetails &&
+      typeof (errorDetails as any).error === 'string' &&
+      (errorDetails as any).error.toLowerCase().includes('csrf')
+    ) {
+      await fetchCsrfToken()
+      return authPost<T>(path, body, true)
+    }
+
     throw new ApiError(
       response.status,
       errorDetails,
       errorDetails && typeof errorDetails === 'object' && 'message' in errorDetails
         ? (errorDetails as any).message
-        : 'Login failed'
+        : `Request to ${path} failed`
     )
   }
 
   return response.json()
+}
+
+/**
+ * Login with email and password
+ *
+ * @param email User email address
+ * @param password User password
+ * @returns Promise with access_token and user profile, OR mfa_required + challenge_token
+ * @throws ApiError on non-2xx response
+ */
+export async function login(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  return authPost<LoginResponse>('/api/v1/auth/login', { email, password })
+}
+
+/**
+ * Complete MFA challenge after receiving mfa_required=true from login.
+ *
+ * @param challengeToken Opaque token from LoginResponse.challenge_token
+ * @param code 6-digit TOTP code entered by the user
+ * @returns Full LoginResponse (access_token + user)
+ * @throws ApiError on non-2xx response
+ */
+export async function mfaChallenge(
+  challengeToken: string,
+  code: string
+): Promise<LoginResponse> {
+  return authPost<LoginResponse>('/api/v1/auth/mfa/challenge', {
+    challenge_token: challengeToken,
+    code,
+  })
+}
+
+/**
+ * Enroll MFA — returns secret, QR code data URL, and backup codes.
+ * Requires a valid JWT (authenticated request).
+ *
+ * @returns Enrollment payload with TOTP secret and backup codes
+ * @throws ApiError on non-2xx response
+ */
+export async function mfaEnroll(): Promise<MfaEnrollResponse> {
+  return authPost<MfaEnrollResponse>('/api/v1/auth/mfa/enroll', {})
+}
+
+/**
+ * Verify a TOTP code to activate MFA after enrollment.
+ *
+ * @param code 6-digit TOTP code from authenticator app
+ * @returns { enabled: true } on success
+ * @throws ApiError on non-2xx response
+ */
+export async function mfaVerify(code: string): Promise<{ enabled: true }> {
+  return authPost<{ enabled: true }>('/api/v1/auth/mfa/verify', { code })
 }
 
 /**
