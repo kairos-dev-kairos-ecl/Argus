@@ -37,6 +37,7 @@ export interface TraceRequest {
 
 export interface QueryRequest {
   query: string
+  sql?: string
 }
 
 export interface AlertsRequest {

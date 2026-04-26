@@ -203,7 +203,6 @@ function useTopologyData(): TopologyData {
 
       // Collect layers present in data (sorted)
       const presentLayers = Array.from(layerTotal.keys()).sort((a, b) => a - b)
-      const minLayer = presentLayers[0]
 
       // Assign app colours
       const appList   = Array.from(allApps)
