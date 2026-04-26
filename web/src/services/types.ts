@@ -69,20 +69,32 @@ export interface LayerStatusResponse {
 }
 
 /**
+ * Span shape returned by GET /api/v1/traces/{traceId}.
+ * Uses numeric layer (1-10) and millisecond-epoch start_ms for waterfall math.
+ */
+export interface TraceSpan {
+  span_id: string
+  parent_span_id?: string
+  name: string
+  start_ms: number
+  duration_ms: number
+  /** Numeric layer 1-10 matching --color-layer-l{n} CSS variables */
+  layer: number
+  category: string
+  prompt?: string
+  response?: string
+  tokens?: number
+  ttft_ms?: number
+  gpu_util?: number
+}
+
+/**
  * Response from GET /api/v1/traces/{traceId}
  * Complete trace with spans and detections.
  */
 export interface TraceResponse {
   trace_id: string
-  spans: Array<{
-    signal_id: string
-    layer: Layer
-    start_time: string // ISO8601
-    duration_ms: number
-    parent_signal_id?: string
-    status: 'ok' | 'error'
-    message: string
-  }>
+  spans: TraceSpan[]
   detections: Detection[]
   duration_ms: number
 }

@@ -7,9 +7,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: 'http://localhost:8082', changeOrigin: true },
-      '/v1':  { target: 'http://localhost:8082', changeOrigin: true },
-      '/ws':  { target: 'ws://localhost:8082',   ws: true, changeOrigin: true },
+      '/api': { target: 'http://localhost:8080', changeOrigin: true },
+      '/v1':  { target: 'http://localhost:8080', changeOrigin: true },
+      '/ws':  { target: 'ws://localhost:8080',   ws: true, changeOrigin: true },
     }
   },
   build: {
