@@ -11,6 +11,7 @@
 
 import { useAuthStore } from '../stores/auth'
 import { ApiError } from './types'
+import { getCsrfToken, fetchCsrfToken } from './csrf'
 import type {
   SignalsRequest,
   SignalsResponse,
@@ -34,16 +35,32 @@ const API_BASE_URL = ''
 // ============================================================================
 
 /**
+ * Internal options extended with re-entry guards.
+ */
+interface HttpRequestOptions extends RequestInit {
+  /** Set to true to prevent infinite loop on 401 refresh retry */
+  _refreshRetried?: boolean
+  /** Set to true to prevent infinite loop on 403 CSRF retry */
+  _csrfRetried?: boolean
+}
+
+/**
  * Core HTTP request wrapper with auth token injection and error handling.
- * Delegates token refresh logic to existing apiClient pattern.
+ *
+ * Handles:
+ * - JWT Authorization header injection
+ * - CSRF token injection for mutating requests (POST/PUT/DELETE/PATCH)
+ * - 401 token refresh with single retry
+ * - 429 rate-limit surfacing (Retry-After header → ApiError.details.retry_after_seconds)
+ * - 403 CSRF token expiry with single refetch + retry
  *
  * @param url - Relative URL (e.g., '/v1/signals')
- * @param options - Fetch options
+ * @param options - Fetch options (extended with _csrfRetried guard)
  * @returns Parsed response or throws ApiError
  */
 async function httpRequest<T>(
   url: string,
-  options: RequestInit = {}
+  options: HttpRequestOptions = {}
 ): Promise<T> {
   const authStore = useAuthStore.getState()
   const fullUrl = `${API_BASE_URL}${url}`
@@ -53,6 +70,18 @@ async function httpRequest<T>(
   // Inject Authorization header
   if (authStore.token) {
     headers.set('Authorization', `Bearer ${authStore.token}`)
+  }
+
+  // Determine HTTP method
+  const method = (options.method || 'GET').toUpperCase()
+
+  // Inject CSRF token for state-mutating methods
+  if (method !== 'GET' && method !== 'HEAD') {
+    let token = getCsrfToken()
+    if (!token) {
+      token = await fetchCsrfToken()
+    }
+    headers.set('X-CSRF-Token', token)
   }
 
   // Set Content-Type for JSON if body is present
@@ -67,8 +96,19 @@ async function httpRequest<T>(
       credentials: 'include', // Include httpOnly cookies for refresh token
     })
 
-    // Handle 401 - trigger token refresh
-    if (response.status === 401) {
+    // Handle 429 - rate limited
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After')
+      const retryAfterSeconds = parseInt(retryAfter || '60', 10)
+      throw new ApiError(
+        429,
+        { retry_after_seconds: retryAfterSeconds },
+        `Rate limited — retry in ${retryAfterSeconds}s`
+      )
+    }
+
+    // Handle 401 - trigger token refresh (single retry)
+    if (response.status === 401 && !options._refreshRetried) {
       try {
         const refreshResponse = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
           method: 'POST',
@@ -79,11 +119,10 @@ async function httpRequest<T>(
           const data = await refreshResponse.json()
           authStore.setAccessToken(data.access_token)
 
-          // Retry request with new token
-          headers.set('Authorization', `Bearer ${data.access_token}`)
+          // Retry request with new token (mark as retried to avoid loop)
           return httpRequest<T>(url, {
             ...options,
-            headers,
+            _refreshRetried: true,
           })
         } else {
           // Refresh failed - logout user
@@ -97,7 +136,7 @@ async function httpRequest<T>(
       }
     }
 
-    // Parse response
+    // Parse response body
     let data: unknown
     try {
       data = await response.json()
@@ -105,7 +144,25 @@ async function httpRequest<T>(
       data = null
     }
 
-    // Check for error status
+    // Handle 403 - may be a CSRF token expiry (single retry)
+    if (
+      response.status === 403 &&
+      !options._csrfRetried &&
+      data !== null &&
+      typeof data === 'object' &&
+      'error' in data &&
+      typeof (data as any).error === 'string' &&
+      (data as any).error.toLowerCase().includes('csrf')
+    ) {
+      // Refetch CSRF token and retry once
+      await fetchCsrfToken()
+      return httpRequest<T>(url, {
+        ...options,
+        _csrfRetried: true,
+      })
+    }
+
+    // Check for other error statuses
     if (!response.ok) {
       console.error(`HTTP ${response.status}:`, data)
       throw new ApiError(

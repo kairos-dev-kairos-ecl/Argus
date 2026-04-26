@@ -28,6 +28,8 @@ interface AuthStateStore extends AuthState {
   // State
   loading: boolean
   error: string | null
+  csrfToken: string | null
+  mfaPending: { challengeToken: string; email: string } | null
   // Actions
   login(email: string, password: string): Promise<void>
   logout(): Promise<void>
@@ -36,6 +38,8 @@ interface AuthStateStore extends AuthState {
   setUser(user: User | null): void
   setAccessToken(token: string): void
   clearError(): void
+  setMfaPending(state: { challengeToken: string; email: string } | null): void
+  completeMfa(code: string): Promise<void>
   // Checks
   hasPermission(action: string): boolean
   isAdmin(): boolean
@@ -60,23 +64,68 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
   token: null, // In-memory access token only (never stored in localStorage)
   loading: false,
   error: null,
+  csrfToken: null,
+  mfaPending: null,
 
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
     try {
-      const { access_token } = await authService.login(email, password)
-      // Backend returns only the token — decode user claims from the JWT payload
-      const user = decodeUserFromJWT(access_token)
+      const response = await authService.login(email, password)
+
+      if (response.mfa_required) {
+        // MFA is required — store pending state and wait for completeMfa()
+        set({
+          mfaPending: {
+            challengeToken: response.challenge_token ?? '',
+            email,
+          },
+          is_authenticated: false,
+          token: null,
+          error: null,
+        })
+        return
+      }
+
+      // Normal login — decode user claims from the JWT payload
+      const user = decodeUserFromJWT(response.access_token)
       set({
-        token: access_token,
+        token: response.access_token,
         user,
         is_authenticated: true,
+        mfaPending: null,
         error: null,
       })
       // Refresh token is set as HttpOnly cookie by server
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed'
       set({ error: message, is_authenticated: false })
+      throw error
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  setMfaPending: (state) => {
+    set({ mfaPending: state })
+  },
+
+  completeMfa: async (code: string) => {
+    const { mfaPending } = get()
+    if (!mfaPending) throw new Error('No MFA challenge pending')
+    set({ loading: true, error: null })
+    try {
+      const response = await authService.mfaChallenge(mfaPending.challengeToken, code)
+      const user = decodeUserFromJWT(response.access_token)
+      set({
+        token: response.access_token,
+        user,
+        is_authenticated: true,
+        mfaPending: null,
+        error: null,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'MFA verification failed'
+      set({ error: message })
       throw error
     } finally {
       set({ loading: false })
