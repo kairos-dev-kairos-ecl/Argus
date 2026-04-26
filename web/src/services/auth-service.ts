@@ -76,11 +76,14 @@ async function csrfHeaders(extra: Record<string, string> = {}): Promise<Record<s
   if (!token) {
     token = await fetchCsrfToken()
   }
-  return {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-CSRF-Token': token,
     ...extra,
   }
+  if (token) {
+    headers['X-CSRF-Token'] = token
+  }
+  return headers
 }
 
 /**

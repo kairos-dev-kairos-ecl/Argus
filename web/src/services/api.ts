@@ -81,7 +81,9 @@ async function httpRequest<T>(
     if (!token) {
       token = await fetchCsrfToken()
     }
-    headers.set('X-CSRF-Token', token)
+    if (token) {
+      headers.set('X-CSRF-Token', token)
+    }
   }
 
   // Set Content-Type for JSON if body is present

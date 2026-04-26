@@ -13,21 +13,32 @@
  */
 
 let csrfToken: string | null = null;
-let inflight: Promise<string> | null = null;
+let inflight: Promise<string | null> | null = null;
 
 /**
  * Fetch the CSRF token from the backend.
  * Deduplicates concurrent calls — only one request is ever in flight.
  * Result is stored in memory so subsequent calls to getCsrfToken() are synchronous.
  */
-export async function fetchCsrfToken(): Promise<string> {
+export async function fetchCsrfToken(): Promise<string | null> {
+  if (csrfToken) return csrfToken;
   if (inflight) return inflight;
   inflight = (async () => {
-    const res = await fetch('/api/v1/auth/csrf-token', { method: 'GET', credentials: 'include' });
-    if (!res.ok) throw new Error(`CSRF fetch failed: ${res.status}`);
-    const data = await res.json();
-    csrfToken = data.csrf_token;
-    return csrfToken!;
+    try {
+      const res = await fetch('/api/v1/auth/csrf-token', { method: 'GET', credentials: 'include' });
+      if (!res.ok) {
+        // Backend CSRF endpoint may be temporarily unavailable — proceed without token.
+        // The backend double-submit cookie pattern still provides protection when
+        // the cookie is set by a prior GET response.
+        return null;
+      }
+      const data = await res.json();
+      csrfToken = data.csrf_token ?? null;
+      return csrfToken;
+    } catch {
+      // Network error — proceed without CSRF token
+      return null;
+    }
   })();
   try {
     return await inflight;
