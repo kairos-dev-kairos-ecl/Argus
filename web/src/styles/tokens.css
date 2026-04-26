@@ -1,0 +1,39 @@
+:root {
+  /* Brutalist palette */
+  --color-primary: #00F0FF;
+  --color-background: #050506;
+  --color-surface: #111216;
+  --color-text: #E9ECEF;
+  --color-muted: #343A40;
+  --color-alert: #FF2A00;
+  --color-warning: #FFB300;
+
+  /* Status (from CLAUDE.md) */
+  --color-success: #22C55E;
+  --color-status-warning: #EAB308;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  /* Layer colors L1-L10 (from CLAUDE.md) */
+  --color-layer-l1: #EF4444;
+  --color-layer-l2: #F97316;
+  --color-layer-l3: #F59E0B;
+  --color-layer-l4: #EAB308;
+  --color-layer-l5: #84CC16;
+  --color-layer-l6: #22C55E;
+  --color-layer-l7: #14B8A6;
+  --color-layer-l8: #06B6D4;
+  --color-layer-l9: #3B82F6;
+  --color-layer-l10: #F43F5E;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+
+  /* Geometry */
+  --radius: 0px;
+  --border-stark: 1px solid #343A40;
+
+  /* Density */
+  --row-height: 20px;
+}
