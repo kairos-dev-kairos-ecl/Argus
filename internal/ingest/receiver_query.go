@@ -714,15 +714,15 @@ SELECT
     provider_name, provider_model,
     related_signals, incident_id, session_id, conversation_id, user_id,
     data_classification, retention_policy, pii_detected,
-    ctx_l1_cpu_percent, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
+    ctx_l1_cpu_usage_pct, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
     ctx_l2_model_id, ctx_l2_model_hash, ctx_l2_quantization,
-    ctx_l3_input_token_count, ctx_l3_output_token_count, ctx_l3_truncated,
-    ctx_l4_attention_entropy, ctx_l4_kv_cache_hit_rate,
-    ctx_l5_mean_logprob, ctx_l5_top_logprob, ctx_l5_finish_reason,
+    ctx_l3_input_tokens, ctx_l3_output_tokens, ctx_l3_truncated,
+    ctx_l4_attention_entropy_mean, ctx_l4_kv_cache_hit_rate,
+    ctx_l5_mean_logprob, ctx_l5_min_logprob, ctx_l5_finish_reason,
     ctx_l6_safety_score, ctx_l6_policy_violated, ctx_l6_action_taken,
-    ctx_l7_query_text, ctx_l7_retrieved_count, ctx_l7_top_score, ctx_l7_collection_name,
-    ctx_l8_tool_name, ctx_l8_tool_input_hash, ctx_l8_agent_step,
-    ctx_l9_method, ctx_l9_path, ctx_l9_status_code, ctx_l9_latency_ms,
+    ctx_l7_query_text, ctx_l7_results_count, ctx_l7_reranker_score, ctx_l7_index_name,
+    ctx_l8_tool_name, toNullable(NULL) AS ctx_l8_tool_input_hash, ctx_l8_step_number,
+    ctx_l9_method, ctx_l9_path, toString(ctx_l9_status_code), ctx_l9_latency_ms,
     ctx_l10_event_type, ctx_l10_component,
     enrich_baseline_deviation, enrich_geoip_country, enrich_geoip_city, enrich_threat_intel_hit
 FROM signals FINAL
@@ -1157,19 +1157,23 @@ WHERE 1=1`
 		query += ` AND severity >= ` + strconv.FormatInt(int64(severity), 10)
 	}
 
-	// Timestamps are server-generated RFC3339Nano strings — not user-supplied raw strings.
+	// Timestamps: use typed named parameters so the ClickHouse driver handles
+	// conversion — avoids dependency on parseDatetime64BestEffort which may not
+	// exist in all ClickHouse versions.
 	if startTs != nil {
-		query += ` AND timestamp >= parseDatetime64BestEffort('` + startTs.Format(time.RFC3339Nano) + `')`
+		query += ` AND timestamp >= {start_ts:DateTime64(9)}`
+		args = append(args, clickhouse.Named("start_ts", *startTs))
 	}
 
 	if endTs != nil {
-		query += ` AND timestamp <= parseDatetime64BestEffort('` + endTs.Format(time.RFC3339Nano) + `')`
+		query += ` AND timestamp <= {end_ts:DateTime64(9)}`
+		args = append(args, clickhouse.Named("end_ts", *endTs))
 	}
 
 	// Keyset pagination: (timestamp, signal_id) > (last_ts, last_id).
-	// cursorID is user-supplied and uses a named param; cursorTs is server-formatted.
 	if cursorTs != nil && cursorID != "" {
-		query += ` AND (timestamp, signal_id) > (parseDatetime64BestEffort('` + cursorTs.Format(time.RFC3339Nano) + `'), {cursor_id:String})`
+		query += ` AND (timestamp, signal_id) > ({cursor_ts:DateTime64(9)}, {cursor_id:String})`
+		args = append(args, clickhouse.Named("cursor_ts", *cursorTs))
 		args = append(args, clickhouse.Named("cursor_id", cursorID))
 	}
 

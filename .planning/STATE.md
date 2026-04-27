@@ -113,6 +113,7 @@ progress:
 | 2 | Build stabilization + signal validation tests (all 11 layers) | 2026-04-16 | 8edbd43 | 260416-m9t-build-stabilization-and-signal-validatio |
 | 3 | Backend validation harness: docker-compose-test.yml + llama.cpp + signal capture | 2026-04-19 | 16adae2 | 260419-tmi-set-up-backend-validation-harness-docker |
 | 4 | Commit session changes, clean up stale files, update Obsidian docs to reflect current architecture | 2026-04-22 | ac0f054 | 260423-0c1-commit-session-changes-clean-up-stale-fi |
+| 5 | Phase 5 manual validation fixes: Sankey, custom date range, trace discovery, Audit/Sessions/Incidents/API Keys 500s, IAM matrix | 2026-04-27 | 8351126 | (inline) |
 
 ### Plans Completed
 
