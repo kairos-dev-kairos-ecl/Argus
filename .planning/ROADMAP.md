@@ -110,7 +110,7 @@ Plans:
 - [x] 05-06-PLAN.md — Hunting console (Screen 5) 30/70 + CodeMirror SQL + manual JSON coloring + 429 handling (Wave 2, after 05-01/03)
 - [x] 05-07-PLAN.md — Audit ledger (Screen 2) 20px-row grid + zero-trust filters + JSON diff expand (Wave 3, after 05-01/02/03)
 - [x] 05-08-PLAN.md — Incidents (Screen 6) 40/60 inbox + MITRE ATLAS kill chain matrix + YAML rule editor (Wave 3, after 05-01/03/06)
-- [ ] 05-09-PLAN.md — IAM console (Screen 8) 20/80 + Phase 6 security UI: MFA enroll, sessions, API keys, password (Wave 3, after 05-01/02/03)
+- [x] 05-09-PLAN.md — IAM console (Screen 8) 20/80 + Phase 6 security UI: MFA enroll, sessions, API keys, password (Wave 3, after 05-01/02/03)
 - [ ] 05-10-PLAN.md — Kairos engine (Screen 7) display-only + onboarding polish (Screen 1) with Token Vault (Wave 3, after 05-01/02/03)
 
 ---
