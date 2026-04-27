@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { yaml } from '@codemirror/lang-yaml';
