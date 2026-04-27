@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { fetchApiKeys, createApiKey, revokeApiKey } from '../../services/iam-service';
-import type { App } from '../../services/iam-service';
+import type { APIKey } from '../../services/iam-service';
 
 const sectionStyle: React.CSSProperties = {
   padding: '24px',
@@ -88,11 +88,11 @@ function formatDate(s: string | null) {
 }
 
 export function ApiKeys() {
-  const [apps, setApps] = useState<App[]>([]);
+  const [keys, setKeys] = useState<APIKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newKeyName, setNewKeyName] = useState('');
-  const [createdKey, setCreatedKey] = useState<{ id: string; key: string; name: string } | null>(null);
+  const [createdKey, setCreatedKey] = useState<{ id: string; key: string; prefix: string; name: string } | null>(null);
   const [keyCopied, setKeyCopied] = useState(false);
 
   const load = async () => {
@@ -100,7 +100,7 @@ export function ApiKeys() {
     setError(null);
     try {
       const res = await fetchApiKeys();
-      setApps(res.apps ?? []);
+      setKeys(Array.isArray(res) ? res : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load API keys');
     } finally {
@@ -115,7 +115,7 @@ export function ApiKeys() {
     setError(null);
     try {
       const result = await createApiKey(newKeyName.trim());
-      setCreatedKey(result);
+      setCreatedKey({ id: result.id, key: result.key, prefix: result.prefix, name: result.name });
       setNewKeyName('');
       await load();
     } catch (e) {
@@ -200,35 +200,39 @@ export function ApiKeys() {
       )}
 
       {/* Keys list */}
-      {loading && apps.length === 0 ? (
+      {loading && keys.length === 0 ? (
         <div style={{ color: 'var(--color-muted)', fontSize: '12px' }}>Loading API keys...</div>
       ) : (
         <div style={{ borderTop: 'var(--border-stark)' }}>
           <div style={headerRowStyle}>
             <span style={{ flex: 2 }}>NAME</span>
+            <span style={{ width: '120px', flexShrink: 0 }}>PREFIX</span>
             <span style={{ width: '160px', flexShrink: 0 }}>CREATED</span>
             <span style={{ width: '160px', flexShrink: 0 }}>LAST USED</span>
             <span style={{ width: '80px', flexShrink: 0 }}>REVOKE</span>
           </div>
 
-          {apps.map((app) => (
-            <div key={app.id} style={dataRowStyle}>
+          {keys.filter((k) => !k.revoked_at).map((key) => (
+            <div key={key.id} style={dataRowStyle}>
               <span style={{ flex: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {app.name}
+                {key.name}
               </span>
-              <span style={{ width: '160px', flexShrink: 0 }}>{formatDate(app.created_at)}</span>
-              <span style={{ width: '160px', flexShrink: 0 }}>{formatDate(app.last_used_at)}</span>
+              <span style={{ width: '120px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-muted)' }}>
+                {key.prefix}…
+              </span>
+              <span style={{ width: '160px', flexShrink: 0 }}>{formatDate(key.created_at)}</span>
+              <span style={{ width: '160px', flexShrink: 0 }}>{formatDate(key.last_used_at)}</span>
               <span style={{ width: '80px', flexShrink: 0 }}>
-                <button style={revokeBtn} onClick={() => handleRevoke(app.id)}>
+                <button style={revokeBtn} onClick={() => handleRevoke(key.id)}>
                   REVOKE
                 </button>
               </span>
             </div>
           ))}
 
-          {apps.length === 0 && (
+          {keys.filter((k) => !k.revoked_at).length === 0 && (
             <div style={{ color: 'var(--color-muted)', fontSize: '12px', padding: '8px 0' }}>
-              No API keys found.
+              No active API keys.
             </div>
           )}
         </div>

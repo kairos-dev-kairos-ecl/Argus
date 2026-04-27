@@ -24,13 +24,19 @@ export interface Session {
   current?: boolean;
 }
 
-export interface App {
+export interface APIKey {
   id: string;
   name: string;
-  created_at: string;
-  last_used_at: string | null;
+  prefix: string;
   scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
 }
+
+/** @deprecated Use APIKey instead */
+export type App = APIKey;
 
 export interface User {
   id: string;
@@ -73,8 +79,8 @@ export const fetchUsers     = ()                 => call<{ users: User[] }>('/ap
 export const fetchSessions  = ()                 => call<{ sessions: Session[] }>('/api/v1/auth/sessions');
 export const revokeSession  = (id: string)       => call<void>(`/api/v1/auth/sessions/${id}`, 'DELETE');
 export const revokeAllOther = ()                 => call<void>('/api/v1/auth/sessions', 'DELETE');
-export const fetchApiKeys   = ()                 => call<{ apps: App[] }>('/api/v1/apps');
-export const createApiKey   = (name: string)     => call<{ id: string; key: string; name: string }>('/api/v1/apps', 'POST', { name });
-export const revokeApiKey   = (id: string)       => call<void>(`/api/v1/apps/${id}`, 'DELETE');
+export const fetchApiKeys   = ()                 => call<APIKey[]>('/api/v1/api-keys');
+export const createApiKey   = (name: string)     => call<{ id: string; key: string; prefix: string; name: string; created_at: string }>('/api/v1/api-keys', 'POST', { name });
+export const revokeApiKey   = (id: string)       => call<void>(`/api/v1/api-keys/${id}`, 'DELETE');
 export const changePassword = (current: string, next: string) =>
   call<{ changed: true; hibp_breached?: number }>('/api/v1/auth/password', 'POST', { current_password: current, new_password: next });

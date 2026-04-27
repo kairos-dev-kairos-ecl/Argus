@@ -196,7 +196,7 @@ func (s *PgSessionStore) GetSessionByUserID(ctx context.Context, userID string) 
 		return nil, nil
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, refresh_token_hash, user_agent, ip_address,
+        SELECT id, user_id, refresh_token_hash, COALESCE(user_agent, ''), COALESCE(ip_address::text, ''),
                EXTRACT(EPOCH FROM created_at)::bigint,
                EXTRACT(EPOCH FROM expires_at)::bigint,
                EXTRACT(EPOCH FROM revoked_at)::bigint,
@@ -224,7 +224,7 @@ func (s *PgSessionStore) GetSessionByHash(ctx context.Context, hash string) (*Se
 		return nil, fmt.Errorf("database unavailable")
 	}
 	row := s.db.QueryRow(ctx, `
-        SELECT id, user_id, refresh_token_hash, user_agent, ip_address,
+        SELECT id, user_id, refresh_token_hash, COALESCE(user_agent, ''), COALESCE(ip_address::text, ''),
                EXTRACT(EPOCH FROM created_at)::bigint,
                EXTRACT(EPOCH FROM expires_at)::bigint,
                EXTRACT(EPOCH FROM revoked_at)::bigint,
@@ -380,7 +380,7 @@ func (s *PgAuditStore) GetEntries(ctx context.Context, filters map[string]interf
 		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, action, resource, detail, ip_address, user_agent, timestamp
+        SELECT id, user_id, action, resource, COALESCE(detail, '{}'), COALESCE(ip_address::text, ''), COALESCE(user_agent, ''), timestamp
         FROM audit_log ORDER BY timestamp DESC LIMIT $1 OFFSET $2
     `, limit, offset)
 	if err != nil {
@@ -395,7 +395,7 @@ func (s *PgAuditStore) GetEntriesByUser(ctx context.Context, userID uuid.UUID, l
 		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, action, resource, detail, ip_address, user_agent, timestamp
+        SELECT id, user_id, action, resource, COALESCE(detail, '{}'), COALESCE(ip_address::text, ''), COALESCE(user_agent, ''), timestamp
         FROM audit_log WHERE user_id=$1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3
     `, userID, limit, offset)
 	if err != nil {
@@ -410,7 +410,7 @@ func (s *PgAuditStore) GetEntriesByAction(ctx context.Context, action string, li
 		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, action, resource, detail, ip_address, user_agent, timestamp
+        SELECT id, user_id, action, resource, COALESCE(detail, '{}'), COALESCE(ip_address::text, ''), COALESCE(user_agent, ''), timestamp
         FROM audit_log WHERE action=$1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3
     `, action, limit, offset)
 	if err != nil {

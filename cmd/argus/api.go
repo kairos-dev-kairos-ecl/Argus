@@ -166,6 +166,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 			auditStore := auth.NewPgAuditStore(pgPool)
 			auditLogger := auth.NewAuditLogger(auditStore)
 			userSvc := auth.NewUserService(userStore)
+			apiKeyStore := auth.NewPgAPIKeyStore(pgPool)
 			tokenMgr := auth.NewTokenManager(auth.TokenConfig{
 				PrivateKey: privateKey,
 				PublicKey:  publicKey,
@@ -178,6 +179,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 				TokenMgr:     tokenMgr,
 				AuditLog:     auditLogger,
 				SessionStore: sessionStore,
+				APIKeyStore:  apiKeyStore,
 			}
 			log.Info("auth subsystem initialized")
 		}

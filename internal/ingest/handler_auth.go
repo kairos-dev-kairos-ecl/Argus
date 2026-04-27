@@ -134,22 +134,14 @@ func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
-	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
-		user.ID, user.Email, user.DisplayName, user.Role, perms,
-	)
-	if err != nil {
-		h.log.Error("failed to issue access token", zap.Error(err))
-		jsonError(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-
+	// Create session first so we can embed the session_id in the JWT
+	var sessionID string
 	refreshToken, sessionID, err := h.authService.SessionMgr.CreateSession(
 		r.Context(), user.ID, r.UserAgent(), getIP(r),
 	)
 	if err != nil {
 		h.log.Warn("failed to create session", zap.Error(err))
-		// Non-fatal: still return access token
+		// Non-fatal: continue with empty session ID
 	} else if h.authService.SessionStore != nil {
 		now := time.Now()
 		sess := &auth.Session{
@@ -175,6 +167,16 @@ func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   int((7 * 24 * time.Hour).Seconds()),
 		})
+	}
+
+	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
+	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
+		user.ID, user.Email, user.DisplayName, user.Role, perms, sessionID,
+	)
+	if err != nil {
+		h.log.Error("failed to issue access token", zap.Error(err))
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 
 	if h.authService.AuditLog != nil {
@@ -237,7 +239,7 @@ func (h *QueryHandler) handleRefreshToken(w http.ResponseWriter, r *http.Request
 
 	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
 	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
-		user.ID, user.Email, user.DisplayName, user.Role, perms,
+		user.ID, user.Email, user.DisplayName, user.Role, perms, sess.ID,
 	)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)

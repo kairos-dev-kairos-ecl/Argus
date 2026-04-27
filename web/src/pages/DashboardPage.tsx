@@ -203,25 +203,52 @@ interface FilterState {
 
 // ── DashboardPage ─────────────────────────────────────────────────────────────
 
+/** Convert preset TimeRange to ISO start timestamp (now - N). */
+function presetToStart(range: TimeRange): string | undefined {
+  const now = Date.now()
+  const offsets: Record<string, number> = {
+    '5m':  5  * 60 * 1000,
+    '15m': 15 * 60 * 1000,
+    '1h':  60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+  }
+  if (range in offsets) return new Date(now - offsets[range]).toISOString()
+  return undefined
+}
+
 export function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('15m')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [filters, setFilters] = useState<FilterState>({})
   const [signals, setSignals] = useState<ArgusSignal[]>([])
   const [wsStatus, setWsStatus] = useState<'connecting' | 'open' | 'closed' | 'error'>('connecting')
   const [selectedLayer, setSelectedLayer] = useState<number | null>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
 
+  // Compute start/end for the current time range
+  const timeStart = timeRange === 'custom'
+    ? (customFrom ? new Date(customFrom).toISOString() : undefined)
+    : presetToStart(timeRange)
+  const timeEnd = timeRange === 'custom'
+    ? (customTo ? new Date(customTo).toISOString() : undefined)
+    : new Date().toISOString()
+
   // Fetch historical signals on mount / time range / filter change
   useEffect(() => {
+    // Skip custom fetch if from/to aren't both set
+    if (timeRange === 'custom' && (!customFrom || !customTo)) return
     api.getSignals({
       limit: 200,
       layer: filters.layer,
       severity: filters.severity,
       category: filters.category,
+      start: timeStart,
+      end: timeEnd,
     }).then((res) => {
       setSignals(res.signals ?? [])
     }).catch(() => { /* ignore */ })
-  }, [timeRange, filters])
+  }, [timeRange, customFrom, customTo, filters, timeStart, timeEnd])
 
   // WebSocket live feed
   const handleSignal = useCallback((signal: ArgusSignal) => {
@@ -280,7 +307,13 @@ export function DashboardPage() {
     }}>
       {/* ── Top bar ── */}
       <div style={{ display: 'flex', alignItems: 'center', borderBottom: 'var(--border-stark)', flexShrink: 0 }}>
-        <TimeScrubber value={timeRange} onChange={setTimeRange} />
+        <TimeScrubber
+          value={timeRange}
+          onChange={setTimeRange}
+          customFrom={customFrom}
+          customTo={customTo}
+          onCustomChange={(from, to) => { setCustomFrom(from); setCustomTo(to) }}
+        />
         <div style={{ flex: 1 }} />
         <div style={{ padding: '0 16px', fontSize: '11px', color: wsColor, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           ● {wsStatus.toUpperCase()}

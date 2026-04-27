@@ -52,9 +52,14 @@ func NewTokenManager(cfg TokenConfig) *TokenManager {
 }
 
 // IssueAccessToken creates a signed JWT access token
-func (tm *TokenManager) IssueAccessToken(userID uuid.UUID, email, displayName, role string, permissions []string) (string, error) {
+func (tm *TokenManager) IssueAccessToken(userID uuid.UUID, email, displayName, role string, permissions []string, sessionID ...string) (string, error) {
 	now := time.Now()
 	expiresAt := now.Add(tm.config.AccessTokenTTL)
+
+	sid := ""
+	if len(sessionID) > 0 {
+		sid = sessionID[0]
+	}
 
 	claims := Claims{
 		UserID:      userID,
@@ -63,6 +68,7 @@ func (tm *TokenManager) IssueAccessToken(userID uuid.UUID, email, displayName, r
 		Role:        role,
 		Permissions: permissions,
 		TokenID:     uuid.New().String(),
+		SessionID:   sid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    tm.config.Issuer,
 			Audience:  tm.config.Audience,

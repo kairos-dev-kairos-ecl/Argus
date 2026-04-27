@@ -11,7 +11,7 @@ import ReactFlow, {
 import type { Node, Edge, NodeTypes, ReactFlowInstance, NodeProps } from 'reactflow'
 import 'reactflow/dist/style.css'
 import type { TraceResponse, TraceSpan } from '../services/types'
-import { getTrace } from '../services/api'
+import { getTrace, getSignals } from '../services/api'
 import { PayloadViewer } from '../components/trace/PayloadViewer'
 import { SpanHud } from '../components/trace/SpanHud'
 
@@ -133,6 +133,7 @@ export function TracePage() {
   const navigate = useNavigate()
 
   const [traceList, setTraceList] = useState<string[]>([])
+  const [traceSearch, setTraceSearch] = useState('')
   const [trace, setTrace] = useState<TraceResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -143,8 +144,27 @@ export function TracePage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null)
 
+  // Populate trace list from recent signals on mount
   useEffect(() => {
-    if (traceId) setTraceList((prev) => prev.includes(traceId) ? prev : [...prev, traceId])
+    getSignals({ limit: 500 })
+      .then((res) => {
+        const ids: string[] = []
+        const seen = new Set<string>()
+        for (const sig of (res.signals ?? [])) {
+          const tid = (sig as any).trace_id as string | undefined
+          if (tid && !seen.has(tid)) {
+            seen.add(tid)
+            ids.push(tid)
+          }
+        }
+        setTraceList(ids)
+      })
+      .catch(() => { /* signals unavailable — start with empty list */ })
+  }, [])
+
+  // Add current URL trace to the list if not already present
+  useEffect(() => {
+    if (traceId) setTraceList((prev) => prev.includes(traceId) ? prev : [traceId, ...prev])
   }, [traceId])
 
   useEffect(() => {
@@ -209,10 +229,28 @@ export function TracePage() {
           fontSize: '11px', textTransform: 'uppercase', color: 'var(--color-muted)',
           letterSpacing: '0.08em',
         }}>
-          TRACES
+          TRACES ({traceList.length})
+        </div>
+        <div style={{ padding: '6px 8px', borderBottom: 'var(--border-stark)' }}>
+          <input
+            type="text"
+            placeholder="search trace id..."
+            value={traceSearch}
+            onChange={(e) => setTraceSearch(e.target.value)}
+            style={{
+              width: '100%',
+              background: 'var(--color-surface)',
+              border: 'var(--border-stark)',
+              color: 'var(--color-text)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              padding: '4px 6px',
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {traceList.map((id) => (
+          {traceList.filter((id) => !traceSearch || id.toLowerCase().includes(traceSearch.toLowerCase())).map((id) => (
             <div
               key={id}
               onClick={() => navigate(`/trace/${id}`)}
@@ -227,7 +265,7 @@ export function TracePage() {
               {id}
             </div>
           ))}
-          {!traceList.length && (
+          {traceList.length === 0 && (
             <div style={{ padding: '12px', fontSize: '11px', color: 'var(--color-muted)', textAlign: 'center' }}>
               No traces
             </div>

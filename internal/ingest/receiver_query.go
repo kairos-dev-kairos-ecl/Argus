@@ -291,14 +291,8 @@ func (h *QueryHandler) handleGetSignals(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Parse query parameters
+	// app_id is optional; omitting it returns signals across all apps (admin use)
 	appID := r.URL.Query().Get("app_id")
-	if appID == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "app_id is required"})
-		h.log.Warn("query missing app_id")
-		return
-	}
 
 	// Layer: optional, 0 means no filter
 	var layer int32 = 0
@@ -1117,7 +1111,7 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 // Uses FINAL modifier for ReplacingMergeTree deduplication.
 // Returns the query string and the slice of clickhouse.Named args to pass to Query().
 func buildSignalQuery(appID string, layer int32, category string, severity int32, startTs, endTs, cursorTs *time.Time, cursorID string, limit int64) (string, []interface{}) {
-	// Base query with FINAL for dedup. app_id is always required and uses a named param.
+	// Base query with FINAL for dedup.
 	query := `
 SELECT
 	signal_id, trace_id, span_id, parent_span_id,
@@ -1127,21 +1121,27 @@ SELECT
 	provider_name, provider_model,
 	related_signals, incident_id, session_id, conversation_id, user_id,
 	data_classification, retention_policy, pii_detected,
-	ctx_l1_cpu_percent, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
+	ctx_l1_cpu_usage_pct, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
 	ctx_l2_model_id, ctx_l2_model_hash, ctx_l2_quantization,
-	ctx_l3_input_token_count, ctx_l3_output_token_count, ctx_l3_truncated,
-	ctx_l4_attention_entropy, ctx_l4_kv_cache_hit_rate,
-	ctx_l5_mean_logprob, ctx_l5_top_logprob, ctx_l5_finish_reason,
+	ctx_l3_input_tokens, ctx_l3_output_tokens, ctx_l3_truncated,
+	ctx_l4_attention_entropy_mean, ctx_l4_kv_cache_hit_rate,
+	ctx_l5_mean_logprob, ctx_l5_min_logprob, ctx_l5_finish_reason,
 	ctx_l6_safety_score, ctx_l6_policy_violated, ctx_l6_action_taken,
-	ctx_l7_query_text, ctx_l7_retrieved_count, ctx_l7_top_score, ctx_l7_collection_name,
-	ctx_l8_tool_name, ctx_l8_tool_input_hash, ctx_l8_agent_step,
-	ctx_l9_method, ctx_l9_path, ctx_l9_status_code, ctx_l9_latency_ms,
+	ctx_l7_query_text, ctx_l7_results_count, ctx_l7_reranker_score, ctx_l7_index_name,
+	ctx_l8_tool_name, toNullable(NULL) AS ctx_l8_tool_input_hash, ctx_l8_step_number,
+	ctx_l9_method, ctx_l9_path, toString(ctx_l9_status_code), ctx_l9_latency_ms,
 	ctx_l10_event_type, ctx_l10_component,
 	enrich_baseline_deviation, enrich_geoip_country, enrich_geoip_city, enrich_threat_intel_hit
 FROM signals FINAL
-WHERE app_id = {app_id:String}`
+WHERE 1=1`
 
-	args := []interface{}{clickhouse.Named("app_id", appID)}
+	args := []interface{}{}
+
+	// app_id filter is optional; omitting returns all apps (admin/dashboard use)
+	if appID != "" {
+		query += ` AND app_id = {app_id:String}`
+		args = append(args, clickhouse.Named("app_id", appID))
+	}
 
 	// Numeric params (layer, severity) are safe to interpolate — parsed from integers, no user string injection.
 	if layer > 0 {

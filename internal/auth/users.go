@@ -157,6 +157,10 @@ func (us *UserService) AuthenticateUser(ctx context.Context, email, password, ip
 		}
 		return nil, fmt.Errorf("authentication error: %w", err)
 	}
+	// pgx returns nil, nil when no rows match — treat as invalid credentials
+	if user == nil {
+		return nil, fmt.Errorf("invalid credentials")
+	}
 
 	// Check if user is locked
 	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
