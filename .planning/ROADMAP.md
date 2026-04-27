@@ -88,7 +88,7 @@ Plans:
 **Goal:** Production-quality brutalist frontend rebuild — replace scaffolding with the 8-screen Argus design spec, fully connected to real backend APIs (signals, traces, query, audit, alerts, sessions, MFA, API keys), WebSocket live feed, and Phase 6 security UI (CSRF, MFA, sessions, password change with HIBP).
 
 **Status:** Replanned (2026-04-25 — design system reset + 8-screen rebuild)
-**Plans:** 6/10 plans executed
+**Plans:** 8/10 plans executed
 
 **Requirements:**
 - REQ-P5-01: HTTP service layer with typed API functions + CSRF interceptor
@@ -108,8 +108,8 @@ Plans:
 - [x] 05-04-PLAN.md — Health dashboard (Screen 4) + WebSocket + 70/30 signal log + L1-L10 horizon grid (Wave 2, after 05-01/03)
 - [x] 05-05-PLAN.md — Trace waterfall (Screen 3) 50/50 split + CSS Gantt + payload viewer + hover HUD (Wave 2, after 05-01/03)
 - [x] 05-06-PLAN.md — Hunting console (Screen 5) 30/70 + CodeMirror SQL + manual JSON coloring + 429 handling (Wave 2, after 05-01/03)
-- [ ] 05-07-PLAN.md — Audit ledger (Screen 2) 20px-row grid + zero-trust filters + JSON diff expand (Wave 3, after 05-01/02/03)
-- [ ] 05-08-PLAN.md — Incidents (Screen 6) 40/60 inbox + MITRE ATLAS kill chain matrix + YAML rule editor (Wave 3, after 05-01/03/06)
+- [x] 05-07-PLAN.md — Audit ledger (Screen 2) 20px-row grid + zero-trust filters + JSON diff expand (Wave 3, after 05-01/02/03)
+- [x] 05-08-PLAN.md — Incidents (Screen 6) 40/60 inbox + MITRE ATLAS kill chain matrix + YAML rule editor (Wave 3, after 05-01/03/06)
 - [ ] 05-09-PLAN.md — IAM console (Screen 8) 20/80 + Phase 6 security UI: MFA enroll, sessions, API keys, password (Wave 3, after 05-01/02/03)
 - [ ] 05-10-PLAN.md — Kairos engine (Screen 7) display-only + onboarding polish (Screen 1) with Token Vault (Wave 3, after 05-01/02/03)
 
