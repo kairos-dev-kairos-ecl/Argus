@@ -1,473 +1,197 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { apiClient } from '../lib/axios-client'
-import { useAuthStore } from '../stores/auth'
+import { useState } from 'react'
+import { TokenVault } from '../components/setup/TokenVault'
+import { ValidationConsole } from '../components/setup/ValidationConsole'
+import { createApiKey } from '../services/iam-service'
 
-/**
- * SetupWizard Component
- * 5-step first-run onboarding flow:
- * 1. Admin Account Creation
- * 2. Instance Configuration
- * 3. Notification Channels (optional)
- * 4. First App Registration
- * 5. Done
- */
+type Step = 'ORG' | 'INGESTION' | 'TOKEN' | 'VALIDATION'
+const STEPS: Step[] = ['ORG', 'INGESTION', 'TOKEN', 'VALIDATION']
+
+const inputStyle = {
+  width: '100%',
+  marginTop: '6px',
+  padding: '8px',
+  background: 'var(--color-background)',
+  border: 'var(--border-stark)',
+  color: 'var(--color-text)',
+  fontFamily: 'var(--font-mono)',
+  fontSize: '12px',
+  boxSizing: 'border-box' as const,
+}
+
+const btnPrimary = {
+  marginTop: '16px',
+  padding: '8px 16px',
+  border: '1px solid var(--color-primary)',
+  color: 'var(--color-primary)',
+  background: 'transparent',
+  fontFamily: 'var(--font-mono)',
+  fontSize: '12px',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.06em',
+  cursor: 'pointer',
+}
+
+const labelStyle = {
+  fontSize: '11px',
+  color: 'var(--color-muted)',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.06em',
+  display: 'block',
+}
+
 export function SetupWizard() {
-  const navigate = useNavigate()
-  const { login } = useAuthStore()
-
-  const [currentStep, setCurrentStep] = useState(1)
-  const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState<Step>('ORG')
+  const [orgName, setOrgName] = useState('')
+  const [appName, setAppName] = useState('default-app')
+  const [issuedToken, setIssuedToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  // Step 1: Admin Account
-  const [admin, setAdmin] = useState({
-    email: '',
-    display_name: '',
-    password: '',
-    confirm_password: '',
-  })
-  const [passwordStrength, setPasswordStrength] = useState(0)
-
-  // Step 2: Instance Config
-  const [instance, setInstance] = useState({
-    instance_name: '',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    signal_retention_days: 30,
-    incident_retention_days: 90,
-    audit_retention_days: 365,
-  })
-
-  // Step 3: Notifications
-  const [notifications, setNotifications] = useState({
-    slack_webhook: '',
-    smtp_host: '',
-    smtp_port: 587,
-    pagerduty_key: '',
-  })
-
-  // Step 4: App Registration
-  const [app, setApp] = useState({
-    app_name: '',
-    description: '',
-    environment: 'dev' as 'dev' | 'staging' | 'prod',
-  })
-  const [apiKey, setApiKey] = useState<string | null>(null)
-
-  // Calculate password strength
-  useEffect(() => {
-    const password = admin.password
-    let strength = 0
-    if (password.length >= 12) strength++
-    if (password.length >= 16) strength++
-    if (/[A-Z]/.test(password)) strength++
-    if (/[0-9]/.test(password)) strength++
-    if (/[^A-Za-z0-9]/.test(password)) strength++
-    setPasswordStrength(Math.min(5, strength))
-  }, [admin.password])
-
-  const handleNext = async () => {
-    setError(null)
-
-    // Validation
-    if (currentStep === 1) {
-      if (!admin.email || !admin.display_name || !admin.password) {
-        setError('Please fill in all fields')
-        return
-      }
-      if (admin.password !== admin.confirm_password) {
-        setError('Passwords do not match')
-        return
-      }
-      if (admin.password.length < 12) {
-        setError('Password must be at least 12 characters')
-        return
-      }
-      if (passwordStrength < 3) {
-        setError('Password is too weak')
-        return
-      }
-    }
-
-    if (currentStep === 2) {
-      if (!instance.instance_name) {
-        setError('Instance name is required')
-        return
-      }
-    }
-
-    if (currentStep === 4) {
-      if (!app.app_name) {
-        setError('App name is required')
-        return
-      }
-    }
-
-    // Move to next step (steps 1-4 are local form only — no API calls yet)
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
-
-  const handleCompleteSetup = async () => {
+  const issueToken = async () => {
     setLoading(true)
     setError(null)
     try {
-      // 1. Create admin account + instance config on backend
-      await apiClient.post('/auth/setup', {
-        email: admin.email,
-        display_name: admin.display_name,
-        password: admin.password,
-        instance_name: instance.instance_name,
-        timezone: instance.timezone,
-        app_name: app.app_name,
-      })
-
-      // 2. Auto-login with the newly created admin credentials
-      await login(admin.email, admin.password)
-
-      // 3. Register the first app (best-effort — requires auth from step 2)
-      if (app.app_name) {
-        try {
-          const response = await apiClient.post('/apps', {
-            name: app.app_name,
-            description: app.description,
-            environment: app.environment,
-          })
-          setApiKey(response.data.api_key)
-        } catch {
-          // Non-fatal: user can register apps later from Apps page
-        }
-      }
-
-      // 4. Redirect to dashboard after brief success pause
-      setTimeout(() => {
-        navigate('/', { replace: true })
-      }, 1500)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Setup failed'
-      setError(message)
+      const res = await createApiKey(appName || 'default-app')
+      setIssuedToken(res.key)
+      setStep('TOKEN')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Token issuance failed')
     } finally {
       setLoading(false)
     }
   }
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
-              Create Admin Account
-            </h2>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={admin.email}
-                onChange={(e) =>
-                  setAdmin({ ...admin, email: e.target.value })
-                }
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Display Name
-              </label>
-              <input
-                type="text"
-                value={admin.display_name}
-                onChange={(e) =>
-                  setAdmin({ ...admin, display_name: e.target.value })
-                }
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={admin.password}
-                onChange={(e) =>
-                  setAdmin({ ...admin, password: e.target.value })
-                }
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-              {admin.password && (
-                <div className="mt-2">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div
-                        key={i}
-                        className={`h-2 flex-1 rounded ${
-                          i <= passwordStrength
-                            ? 'bg-green-500'
-                            : 'bg-[#2A2A2F]'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {passwordStrength < 3 ? 'Weak' : 'Strong'} password
-                  </p>
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                value={admin.confirm_password}
-                onChange={(e) =>
-                  setAdmin({ ...admin, confirm_password: e.target.value })
-                }
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-          </div>
-        )
-
-      case 2:
-        return (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
-              Instance Configuration
-            </h2>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Instance Name
-              </label>
-              <input
-                type="text"
-                value={instance.instance_name}
-                onChange={(e) =>
-                  setInstance({ ...instance, instance_name: e.target.value })
-                }
-                placeholder="My Argus Instance"
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Timezone
-              </label>
-              <input
-                type="text"
-                value={instance.timezone}
-                readOnly
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Signal Retention (days)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={instance.signal_retention_days}
-                onChange={(e) =>
-                  setInstance({
-                    ...instance,
-                    signal_retention_days: parseInt(e.target.value),
-                  })
-                }
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-          </div>
-        )
-
-      case 3:
-        return (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
-              Notification Channels (Optional)
-            </h2>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Slack Webhook URL
-              </label>
-              <input
-                type="text"
-                value={notifications.slack_webhook}
-                onChange={(e) =>
-                  setNotifications({
-                    ...notifications,
-                    slack_webhook: e.target.value,
-                  })
-                }
-                placeholder="https://hooks.slack.com/..."
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                SMTP Host
-              </label>
-              <input
-                type="text"
-                value={notifications.smtp_host}
-                onChange={(e) =>
-                  setNotifications({
-                    ...notifications,
-                    smtp_host: e.target.value,
-                  })
-                }
-                placeholder="smtp.example.com"
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <p className="text-sm text-muted-foreground py-3">
-              Skip for now and configure these later.
-            </p>
-          </div>
-        )
-
-      case 4:
-        return (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
-              Register First App
-            </h2>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                App Name
-              </label>
-              <input
-                type="text"
-                value={app.app_name}
-                onChange={(e) => setApp({ ...app, app_name: e.target.value })}
-                placeholder="My LLM Application"
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-2">
-                Environment
-              </label>
-              <select
-                value={app.environment}
-                onChange={(e) =>
-                  setApp({
-                    ...app,
-                    environment: e.target.value as
-                      | 'dev'
-                      | 'staging'
-                      | 'prod',
-                  })
-                }
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground"
-              >
-                <option value="dev">Development</option>
-                <option value="staging">Staging</option>
-                <option value="prod">Production</option>
-              </select>
-            </div>
-          </div>
-        )
-
-      case 5:
-        return (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
-              Setup Complete!
-            </h2>
-            {apiKey ? (
-              <div>
-                <p className="text-foreground/90 mb-4">
-                  Your API key has been generated. Keep it safe!
-                </p>
-                <div className="bg-background border border-border rounded-lg p-4 font-mono text-sm break-all text-status-success select-all">
-                  {apiKey}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-foreground/90">
-                  Welcome to Argus XDR! You're all set.
-                </p>
-              </div>
-            )}
-          </div>
-        )
-
-      default:
-        return null
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            {[1, 2, 3, 4, 5].map((step) => (
-              <div
-                key={step}
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-all ${
-                  step <= currentStep
-                    ? 'bg-primary text-foreground'
-                    : 'bg-[#2A2A2F] text-muted-foreground'
-                }`}
-              >
-                {step}
-              </div>
-            ))}
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--color-background)',
+      color: 'var(--color-text)',
+      fontFamily: 'var(--font-mono)',
+      padding: '24px',
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '800px',
+        display: 'grid',
+        gridTemplateColumns: '30% 70%',
+        border: 'var(--border-stark)',
+        background: 'var(--color-surface)',
+        minHeight: '500px',
+      }}>
+        {/* ── Left: progress tracker ── */}
+        <aside style={{
+          borderRight: 'var(--border-stark)',
+          padding: '24px 16px',
+          background: 'var(--color-background)',
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '16px',
+            color: 'var(--color-primary)',
+            textTransform: 'uppercase',
+            marginBottom: '20px',
+            letterSpacing: '0.04em',
+          }}>
+            ARGUS_XDR<span style={{ animation: 'blink 1s steps(1) infinite' }}>_</span>
           </div>
-          <div className="bg-[#2A2A2F] h-1 rounded-full overflow-hidden">
-            <div
-              className="bg-primary h-full transition-all duration-300"
-              style={{ width: `${(currentStep / 5) * 100}%` }}
-            />
-          </div>
-        </div>
 
-        {/* Content Card */}
-        <div className="bg-muted-background rounded-lg border border-border shadow-lg p-6 md:p-8">
-          {error && (
-            <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4 mb-6">
-              <p className="text-status-error text-sm">{error}</p>
+          {STEPS.map((s, i) => {
+            const isDone = STEPS.indexOf(step) > i
+            const isActive = s === step
+            return (
+              <div key={s} style={{
+                padding: '8px 0',
+                paddingLeft: '8px',
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: isActive ? 'var(--color-primary)' : isDone ? 'var(--color-text)' : 'var(--color-muted)',
+                borderLeft: isActive ? '2px solid var(--color-primary)' : '2px solid transparent',
+              }}>
+                {String(i + 1).padStart(2, '0')} · {s}
+              </div>
+            )
+          })}
+        </aside>
+
+        {/* ── Right: active step ── */}
+        <main style={{ padding: '24px' }}>
+          {step === 'ORG' && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--color-primary)', textTransform: 'uppercase', marginBottom: '16px' }}>
+                STEP 01 · ORG
+              </h2>
+              <label style={labelStyle}>ORGANIZATION NAME</label>
+              <input
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Acme Corp"
+                style={inputStyle}
+              />
+              <button
+                onClick={() => setStep('INGESTION')}
+                disabled={!orgName.trim()}
+                style={{ ...btnPrimary, opacity: orgName.trim() ? 1 : 0.4 }}
+              >
+                NEXT
+              </button>
             </div>
           )}
 
-          {renderStepContent()}
-
-          {/* Navigation Buttons */}
-          <div className="flex gap-4 mt-8">
-            {currentStep > 1 && (
+          {step === 'INGESTION' && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--color-primary)', textTransform: 'uppercase', marginBottom: '16px' }}>
+                STEP 02 · INGESTION
+              </h2>
+              <label style={labelStyle}>APP NAME</label>
+              <input
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                placeholder="my-llm-app"
+                style={inputStyle}
+              />
+              <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--color-muted)' }}>
+                A dedicated API key will be issued for this application.
+              </div>
+              {error && (
+                <div style={{ marginTop: '12px', color: 'var(--color-alert)', fontSize: '11px', textTransform: 'uppercase' }}>
+                  ERROR: {error}
+                </div>
+              )}
               <button
-                onClick={() => setCurrentStep(currentStep - 1)}
-                className="flex-1 py-2 px-4 bg-[#2A2A2F] hover:bg-[#3A3A3F] text-foreground font-medium rounded-lg transition-colors"
-                disabled={loading}
+                onClick={issueToken}
+                disabled={loading || !appName.trim()}
+                style={{ ...btnPrimary, opacity: loading || !appName.trim() ? 0.4 : 1 }}
               >
-                Back
+                {loading ? 'ISSUING…' : 'ISSUE TOKEN'}
               </button>
-            )}
-            <button
-              onClick={
-                currentStep === 5 ? handleCompleteSetup : handleNext
-              }
-              className="flex-1 py-2 px-4 bg-primary hover:bg-primary/90 text-foreground font-medium rounded-lg transition-colors"
-              disabled={loading}
-            >
-              {loading
-                ? 'Processing...'
-                : currentStep === 5
-                  ? 'Go to Dashboard'
-                  : 'Next'}
-            </button>
-          </div>
-        </div>
+            </div>
+          )}
+
+          {step === 'TOKEN' && issuedToken && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--color-primary)', textTransform: 'uppercase', marginBottom: '16px' }}>
+                STEP 03 · TOKEN
+              </h2>
+              <TokenVault token={issuedToken} onAcknowledge={() => setStep('VALIDATION')} />
+            </div>
+          )}
+
+          {step === 'VALIDATION' && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--color-primary)', textTransform: 'uppercase', marginBottom: '16px' }}>
+                STEP 04 · VALIDATION
+              </h2>
+              <ValidationConsole onComplete={() => { window.location.href = '/dashboard' }} />
+            </div>
+          )}
+        </main>
       </div>
+
+      <style>{`@keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }`}</style>
     </div>
   )
 }
