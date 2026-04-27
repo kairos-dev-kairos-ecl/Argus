@@ -126,3 +126,4 @@ progress:
 | 6 | 7 | TOTP Handlers & Login Branching — Wave 5 | 2026-04-24 | 1e7a7e9, bd477c5, a74c6fa | Complete |
 | 6 | 8 | Session Management & CSRF Protection — Wave 6 (FINAL) | 2026-04-24 | 71eb040, 752d3b7, 608f977 | Complete |
 | 5 | 1 | Design System Tokens Reset (brutalist theme) | 2026-04-26 | a558f44, 673ca7a, 2cb0fff | Complete |
+| 5 | 8 | Incidents MITRE ATLAS Screen (Screen 6) | 2026-04-27 | 1aa51cd, 2db4f8a | Complete |
