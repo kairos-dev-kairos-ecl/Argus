@@ -1157,23 +1157,20 @@ WHERE 1=1`
 		query += ` AND severity >= ` + strconv.FormatInt(int64(severity), 10)
 	}
 
-	// Timestamps: use typed named parameters so the ClickHouse driver handles
-	// conversion — avoids dependency on parseDatetime64BestEffort which may not
-	// exist in all ClickHouse versions.
+	// Timestamps: use parseDateTime64BestEffort (note capital T — the original code
+	// had a case typo: parseDatetime64BestEffort). Values are server-generated RFC3339
+	// strings, not user input, so string interpolation is safe here.
 	if startTs != nil {
-		query += ` AND timestamp >= {start_ts:DateTime64(9)}`
-		args = append(args, clickhouse.Named("start_ts", *startTs))
+		query += ` AND timestamp >= parseDateTime64BestEffort('` + startTs.UTC().Format(time.RFC3339Nano) + `')`
 	}
 
 	if endTs != nil {
-		query += ` AND timestamp <= {end_ts:DateTime64(9)}`
-		args = append(args, clickhouse.Named("end_ts", *endTs))
+		query += ` AND timestamp <= parseDateTime64BestEffort('` + endTs.UTC().Format(time.RFC3339Nano) + `')`
 	}
 
 	// Keyset pagination: (timestamp, signal_id) > (last_ts, last_id).
 	if cursorTs != nil && cursorID != "" {
-		query += ` AND (timestamp, signal_id) > ({cursor_ts:DateTime64(9)}, {cursor_id:String})`
-		args = append(args, clickhouse.Named("cursor_ts", *cursorTs))
+		query += ` AND (timestamp, signal_id) > (parseDateTime64BestEffort('` + cursorTs.UTC().Format(time.RFC3339Nano) + `'), {cursor_id:String})`
 		args = append(args, clickhouse.Named("cursor_id", cursorID))
 	}
 
