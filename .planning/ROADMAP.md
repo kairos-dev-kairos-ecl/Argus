@@ -85,9 +85,62 @@ Plans:
 ---
 
 ### Phase 5: Dashboard Integration
-**Goal:** Frontend fully connected to real API data, WebSocket live feed working.
+**Goal:** Production-quality brutalist frontend rebuild — replace scaffolding with the 8-screen Argus design spec, fully connected to real backend APIs (signals, traces, query, audit, alerts, sessions, MFA, API keys), WebSocket live feed, and Phase 6 security UI (CSRF, MFA, sessions, password change with HIBP).
 
-**Status:** Not started
+**Status:** Replanned (2026-04-25 — design system reset + 8-screen rebuild)
+**Plans:** 8/10 plans executed
+
+**Requirements:**
+- REQ-P5-01: HTTP service layer with typed API functions + CSRF interceptor
+- REQ-P5-02: API request/response types matching backend contracts
+- REQ-P5-03: Login form with JWT token flow + MFA challenge step
+- REQ-P5-04: Session validation, token refresh, active session management UI
+- REQ-P5-05: Telemetry dashboard (Screen 4) real data binding
+- REQ-P5-06: WebSocket signal subscription with exponential-backoff reconnection
+- REQ-P5-07: Trace flow (Screen 3) real data binding with CSS Gantt waterfall
+- REQ-P5-08: Hunting console (Screen 5) query execution + Incidents (Screen 6) MITRE ATLAS triage
+- REQ-P5-09: Audit ledger (Screen 2) real data binding with zero-trust filters
+
+Plans:
+- [x] 05-01-PLAN.md — Design system foundation: tokens.css, design-tokens.ts, Tailwind theme, fonts, brutalist body/html (Wave 1)
+- [x] 05-02-PLAN.md — Auth flow + CSRF interceptor + MFA challenge + brutalist LoginPage (Wave 1)
+- [x] 05-03-PLAN.md — Layout shell: SideNav with 8 nav items, MainLayout 2-column, /kairos route (Wave 2, after 05-01)
+- [x] 05-04-PLAN.md — Health dashboard (Screen 4) + WebSocket + 70/30 signal log + L1-L10 horizon grid (Wave 2, after 05-01/03)
+- [x] 05-05-PLAN.md — Trace waterfall (Screen 3) 50/50 split + CSS Gantt + payload viewer + hover HUD (Wave 2, after 05-01/03)
+- [x] 05-06-PLAN.md — Hunting console (Screen 5) 30/70 + CodeMirror SQL + manual JSON coloring + 429 handling (Wave 2, after 05-01/03)
+- [x] 05-07-PLAN.md — Audit ledger (Screen 2) 20px-row grid + zero-trust filters + JSON diff expand (Wave 3, after 05-01/02/03)
+- [x] 05-08-PLAN.md — Incidents (Screen 6) 40/60 inbox + MITRE ATLAS kill chain matrix + YAML rule editor (Wave 3, after 05-01/03/06)
+- [x] 05-09-PLAN.md — IAM console (Screen 8) 20/80 + Phase 6 security UI: MFA enroll, sessions, API keys, password (Wave 3, after 05-01/02/03)
+- [ ] 05-10-PLAN.md — Kairos engine (Screen 7) display-only + onboarding polish (Screen 1) with Token Vault (Wave 3, after 05-01/02/03)
+
+---
+
+### Phase 6: Security Hardening — Zero-Trust Auth & API Protection
+**Goal:** Harden the platform to production security standards: wire RBAC enforcement to all routes, protect signal ingestion with API keys, add endpoint-level rate limiting, complete the secrets architecture, and fix auth gaps (CSRF, password policy, session management UI) — so that a security-focused platform is itself secure.
+
+**Status:** Executing
+**Plans:** 6/8 complete
+
+**Requirements:**
+- REQ-P6-01: Wire RBAC middleware (RequireRole/RequirePermission) to all protected routes — admin, analyst, viewer scoped
+- REQ-P6-02: API key schema + issuance — scoped bearer tokens for SDK/machine identity (separate from user JWTs)
+- REQ-P6-03: Authenticate signal ingestion endpoints (/v1/signals, /v1/signals/stream) via API key middleware
+- REQ-P6-04: Endpoint rate limiting — wire Redis rate limiter to /auth/login (5/60s per IP), /auth/refresh (30/60s per session), /api/v1/query (60/60s per user)
+- REQ-P6-05: Secrets file architecture — argus.key encrypted file replacing raw env vars for JWT private key, DB credentials, API keys
+- REQ-P6-06: Fix HIBP password breach check (response parsing broken in setup.go)
+- REQ-P6-07: Complete TOTP 2FA flow — enroll, verify, backup codes endpoints
+- REQ-P6-08: Session management — list active sessions, remote kill endpoint, UI for active devices
+- REQ-P6-09: CSRF protection — double-submit cookie or signed CSRF token on all POST auth endpoints
+
+Plans:
+- [x] 06-01-PLAN.md — RBAC wiring + context helpers (RequireAuth, UserIDFromContext) + HIBP fix (Wave 1)
+- [x] 06-02-PLAN.md — Rate limiting: /auth/login (5/60s), /auth/refresh (30/60s), /api/v1/query (60/60s) (Wave 2, after 06-01)
+- [x] 06-03-PLAN.md — API key schema migration 009 + CRUD endpoints + ValidateAPIKey (Wave 2, after 06-01)
+- [x] 06-04-PLAN.md — Secrets file architecture: internal/secrets + argus.key + CLI (Wave 3, after 06-01/02)
+- [ ] 06-05-PLAN.md — Signal endpoint auth via X-Argus-API-Key + ingest token bucket (Wave 3, after 06-02/03)
+- [x] 06-06-PLAN.md — TOTP primitives: totp.go + migration 010_mfa + backup codes table (Wave 4, after 06-01/04)
+- [x] 06-07-PLAN.md — TOTP handlers: enroll/verify/disable/challenge + login MFA branch (Wave 5, after 06-06)
+- [ ] 06-08-PLAN.md — Session management endpoints + CSRF double-submit + ExcludedPaths tightening (Wave 6, after 06-05/07)
 
 ---
 
@@ -117,3 +170,12 @@ Plans:
 | REQ-P3-06 | 3 | Apps CRUD implementation |
 | REQ-P3-07 | 3 | Health endpoint expansion |
 | REQ-P3-08 | 3 | Integration tests |
+| REQ-P6-01 | 6 | RBAC middleware wired to all protected routes |
+| REQ-P6-02 | 6 | API key schema + issuance for SDK/machine identity |
+| REQ-P6-03 | 6 | Signal ingestion endpoints authenticated via API key |
+| REQ-P6-04 | 6 | Endpoint rate limiting wired (auth, query, ingest) |
+| REQ-P6-05 | 6 | Secrets file architecture (argus.key replaces raw env vars) |
+| REQ-P6-06 | 6 | HIBP password breach check fixed |
+| REQ-P6-07 | 6 | TOTP 2FA flow complete (enroll, verify, backup codes) |
+| REQ-P6-08 | 6 | Session management UI (list, kill remote sessions) |
+| REQ-P6-09 | 6 | CSRF protection on all POST auth endpoints |

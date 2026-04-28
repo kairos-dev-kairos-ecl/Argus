@@ -2,24 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-last_updated: "2026-04-19T14:40:47.892Z"
+current_plan: 1
+status: executing
+last_updated: "2026-04-27T10:07:22.179Z"
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 30
+  completed_plans: 29
 ---
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-19 - Completed quick task 260419-tmi: backend validation harness with llama.cpp and signal capture test
+> Last activity: 2026-04-26 - Completed Phase 5 Plan 1: Design System Tokens Reset
 
 ---
 
 ## Current Status
 
-**Active phase:** Phase 1 — Proto Schema Rewrite (planned)
+**Active phase:** Phase 6 — Security Hardening: Zero-Trust Auth & API Protection (complete)
+**Current plan:** 1
 **Milestone:** M1 — Foundation & Observability
 
 ---
@@ -40,9 +42,10 @@ progress:
 - `internal/storage/` — ClickHouse + PostgreSQL clients, schema.go (80+ columns)
 - `internal/baseline/` — Async 10-min computation cycle, ProfileStore (Redis + PG)
 - `internal/notify/` — Dispatcher + adapters (Slack, PagerDuty, Email, Webhook, Syslog)
-- `internal/auth/` — JWT (RS256), API keys, RBAC (build failures present)
+- `internal/auth/` — JWT (RS256), API keys, RBAC, TOTP primitives + backup codes
 - `internal/detection/kairos/` — Kairos HTTP policy evaluator (build failures)
 - `migrations/007_auth.up.sql` — users, sessions, audit_log, token_revocations
+- `migrations/010_mfa.up.sql` — mfa_enabled, mfa_secret_encrypted, user_backup_codes table
 
 ### Proto Schema
 
@@ -63,7 +66,7 @@ progress:
 - `web/src/` — 22 pages, 20+ components
 - Zustand stores: auth, signal filters, trace view
 - TanStack Query hooks, WebSocket listener
-- **Status:** Ready to plan
+- **Status:** Executing Phase 05
 
 ---
 
@@ -87,6 +90,11 @@ progress:
 - **Inference-engine-agnostic:** optional fields per engine, no engine-specific structs.
 - **Kairos:** Sidecar now → capability differentiator later (Approach C).
 - **Tech stack locked:** Go core, ClickHouse signals, PostgreSQL config, Redis ephemeral, React+TS.
+- **Auth context storage:** Single canonical claimsKey constant for context.Context value storage (backward compatible with old ContextKeyUser).
+- **HIBP fail-open:** Network errors during password breach check allow setup to proceed (security-first, usability-second).
+- **RBAC granularity:** Permission-based (not role-based) for read endpoints to allow admin/analyst to carry same permissions as viewer role.
+- **Tailwind v4 CSS entrypoint:** globals.css (not index.css) is the actual CSS entrypoint imported by main.tsx; both files updated for brutalist theme.
+- **Tailwind v4 theme config:** tailwind.config.js CSS var references used for color tokens — allows live token editing without rebuild.
 
 ---
 
@@ -104,3 +112,20 @@ progress:
 | 1 | Proto schema rewrite — all 10 layers + LDecision (14 reqs) | 2026-04-16 | f1606bc | 260416-lxk-proto-schema-rewrite-covering-all-10-lay |
 | 2 | Build stabilization + signal validation tests (all 11 layers) | 2026-04-16 | 8edbd43 | 260416-m9t-build-stabilization-and-signal-validatio |
 | 3 | Backend validation harness: docker-compose-test.yml + llama.cpp + signal capture | 2026-04-19 | 16adae2 | 260419-tmi-set-up-backend-validation-harness-docker |
+| 4 | Commit session changes, clean up stale files, update Obsidian docs to reflect current architecture | 2026-04-22 | ac0f054 | 260423-0c1-commit-session-changes-clean-up-stale-fi |
+| 5 | Phase 5 manual validation fixes: Sankey, custom date range, trace discovery, Audit/Sessions/Incidents/API Keys 500s, IAM matrix | 2026-04-27 | 8351126 | (inline) |
+| 6 | Browser console error fixes: audit DTO snake_case, trace query column names, signals datetime filter typo (parseDatetime64→parseDateTime64), settings 401 graceful fallback | 2026-04-28 | bfaf98a, bf74189 | (inline) |
+
+### Plans Completed
+
+| Phase | Plan | Name | Date | Commits | Status |
+|-------|------|------|------|---------|--------|
+| 6 | 1 | Security Hardening — RBAC Middleware & HIBP | 2026-04-24 | 97d6206, b40eb83, 6e54a17 | Complete |
+| 6 | 2 | Rate Limiting — Wave 2 | 2026-04-24 | af26f4f, b055b90 | Complete |
+| 6 | 3 | API Key Schema & CRUD | 2026-04-24 | 5c364cb, b26674f, b84178a | Complete |
+| 6 | 4 | Secrets File Architecture — Wave 3 | 2026-04-24 | 9b3634f, e1cd8b6, 2923a22, 8565a50 | Complete |
+| 6 | 6 | TOTP Primitives — Wave 4 | 2026-04-24 | 9078ef5, 5776217, d677532 | Complete |
+| 6 | 7 | TOTP Handlers & Login Branching — Wave 5 | 2026-04-24 | 1e7a7e9, bd477c5, a74c6fa | Complete |
+| 6 | 8 | Session Management & CSRF Protection — Wave 6 (FINAL) | 2026-04-24 | 71eb040, 752d3b7, 608f977 | Complete |
+| 5 | 1 | Design System Tokens Reset (brutalist theme) | 2026-04-26 | a558f44, 673ca7a, 2cb0fff | Complete |
+| 5 | 8 | Incidents MITRE ATLAS Screen (Screen 6) | 2026-04-27 | 1aa51cd, 2db4f8a | Complete |

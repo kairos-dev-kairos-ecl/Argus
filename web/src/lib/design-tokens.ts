@@ -1,73 +1,53 @@
-/**
- * Argus Design System Tokens
- * Dark-first theme with Geist typography
- */
+// Design tokens — single source of truth in TypeScript.
+// Values MUST match web/src/styles/tokens.css exactly.
 
 export const colors = {
-  // Background & Surface
-  background: '#0A0A0B',
-  foreground: '#FFFFFF',
-  muted_background: '#1F1F23',
-  muted_foreground: '#A0A0A0',
-  border: '#2A2A2F',
+  // Brutalist palette (CONTEXT.md locked values)
+  primary: '#00F0FF',
+  background: '#050506',
+  surface: '#111216',
+  foreground: '#E9ECEF',
+  muted_background: '#111216',
+  muted_foreground: '#343A40',
+  border: '#343A40',
+  alert: '#FF2A00',
+  warning: '#FFB300',
+  secondary: '#111216',
+  destructive: '#FF2A00',
+  accent: '#00F0FF',
 
-  // Layer Colors (L1-L10)
   layer: {
-    l1: '#EF4444',  // Red
-    l2: '#F97316',  // Orange
-    l3: '#EAB308',  // Yellow
-    l4: '#22C55E',  // Green
-    l5: '#10B981',  // Emerald
-    l6: '#06B6D4',  // Cyan
-    l7: '#3B82F6',  // Blue
-    l8: '#8B5CF6',  // Violet
-    l9: '#EC4899',  // Pink
-    l10: '#F43F5E', // Rose
+    l1: '#EF4444',
+    l2: '#F97316',
+    l3: '#F59E0B',
+    l4: '#EAB308',
+    l5: '#84CC16',
+    l6: '#22C55E',
+    l7: '#14B8A6',
+    l8: '#06B6D4',
+    l9: '#3B82F6',
+    l10: '#F43F5E',
   },
 
-  // Status Colors
   status: {
     success: '#22C55E',
     warning: '#EAB308',
     error: '#EF4444',
     info: '#3B82F6',
   },
-
-  // Semantic
-  primary: '#3B82F6',
-  secondary: '#8B5CF6',
-  destructive: '#EF4444',
-  accent: '#3B82F6',
-};
+} as const;
 
 export const typography = {
   fontFamily: {
-    sans: '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    mono: '"Geist Mono", "SF Mono", Monaco, "Cascadia Code", monospace',
+    sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
+    mono: ['JetBrains Mono', 'ui-monospace', 'Consolas', 'monospace'],
+    display: ['Space Grotesk', 'system-ui', 'sans-serif'],
   },
-  fontSize: {
-    xs: '12px',
-    sm: '14px',
-    base: '16px',
-    lg: '18px',
-    xl: '20px',
-    '2xl': '24px',
-  },
-  fontWeight: {
-    normal: 400,
-    medium: 500,
-    semibold: 600,
-    bold: 700,
-  },
-  lineHeight: {
-    tight: 1.2,
-    normal: 1.5,
-    relaxed: 1.75,
-  },
-};
+} as const;
 
 export const spacing = {
-  0: '0px',
+  px: '1px',
+  0: '0',
   1: '4px',
   2: '8px',
   3: '12px',
@@ -77,49 +57,39 @@ export const spacing = {
   8: '32px',
   10: '40px',
   12: '48px',
+  14: '56px',
   16: '64px',
-};
+} as const;
 
+// Brutalist: zero radius everywhere
 export const radius = {
-  none: '0px',
-  sm: '4px',
-  base: '6px',
-  md: '8px',
-  lg: '12px',
-  full: '9999px',
-};
+  none: '0',
+  sm: '0',
+  DEFAULT: '0',
+  md: '0',
+  lg: '0',
+  xl: '0',
+  full: '0',
+} as const;
+
+export const borders = {
+  stark: '1px solid #343A40',
+  width: '1px',
+  color: '#343A40',
+} as const;
 
 export const shadows = {
   none: 'none',
-  sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-  base: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-  md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-  lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-};
+  sm: 'none',
+  DEFAULT: 'none',
+  md: 'none',
+  lg: 'none',
+} as const;
 
 export const transitions = {
-  fast: '150ms ease-out',
-  base: '200ms ease-out',
-  slow: '300ms ease-out',
-};
+  fast: '100ms ease-out',
+  base: '150ms ease-out',
+  slow: '200ms ease-out',
+} as const;
 
-export const zIndex = {
-  hide: -1,
-  auto: 'auto',
-  base: 0,
-  dropdown: 1000,
-  modal: 1050,
-  toast: 1100,
-  tooltip: 1200,
-};
-
-// Accessibility
-export const focus = {
-  outline: `2px solid ${colors.primary}`,
-  outlineOffset: '2px',
-};
-
-export const contrast = {
-  minRatio: 4.5, // WCAG AA standard
-  touchTarget: 44, // px
-};
+export const rowHeight = '20px';

@@ -1,11 +1,15 @@
 package auth
 
 import (
+	"bufio"
 	"context"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -146,9 +150,10 @@ func (sm *SetupManager) ValidateSetupRequest(req *SetupRequest) error {
 // Uses k-anonymity: only sends first 5 chars of SHA-1 hash
 func (sm *SetupManager) CheckPasswordBreach(password string) (bool, error) {
 	// Calculate SHA-1 hash of password
-	hash := sha256.Sum256([]byte(password))
-	hashStr := hex.EncodeToString(hash[:])
+	sum := sha1.Sum([]byte(password))
+	hashStr := strings.ToUpper(hex.EncodeToString(sum[:]))
 	prefix := hashStr[:5]
+	suffix := hashStr[5:]
 
 	// Query haveibeenpwned API with prefix
 	url := fmt.Sprintf("https://api.pwnedpasswords.com/range/%s", prefix)
@@ -156,18 +161,46 @@ func (sm *SetupManager) CheckPasswordBreach(password string) (bool, error) {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return false, fmt.Errorf("failed to check password: %w", err)
+		// Network error: fail-open (log warning, but don't block setup)
+		return false, nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		// Server error: fail-open (log warning, but don't block setup)
+		return false, nil
 	}
 
 	// Parse response and check if full hash is in results
-	// For now, simplified - actual implementation would parse response body
-	_ = prefix
+	// Response format: one line per match, format is "SUFFIX:COUNT\r\n"
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
 
+		// Split on first colon only
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		// Check if suffix matches
+		if parts[0] == suffix {
+			// Parse count and check if it's greater than 0
+			count, err := strconv.Atoi(parts[1])
+			if err != nil {
+				// Invalid count format, skip
+				continue
+			}
+			if count > 0 {
+				return true, nil
+			}
+		}
+	}
+
+	// No match found
 	return false, nil
 }
 

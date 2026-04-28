@@ -17,6 +17,8 @@ type Claims struct {
 	Role        string      `json:"role"`
 	Permissions []string    `json:"permissions"`
 	TokenID     string      `json:"jti"`
+	SessionID   string      `json:"session_id"`
+	MFAPending  bool        `json:"mfa_pending,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -50,9 +52,14 @@ func NewTokenManager(cfg TokenConfig) *TokenManager {
 }
 
 // IssueAccessToken creates a signed JWT access token
-func (tm *TokenManager) IssueAccessToken(userID uuid.UUID, email, displayName, role string, permissions []string) (string, error) {
+func (tm *TokenManager) IssueAccessToken(userID uuid.UUID, email, displayName, role string, permissions []string, sessionID ...string) (string, error) {
 	now := time.Now()
 	expiresAt := now.Add(tm.config.AccessTokenTTL)
+
+	sid := ""
+	if len(sessionID) > 0 {
+		sid = sessionID[0]
+	}
 
 	claims := Claims{
 		UserID:      userID,
@@ -61,6 +68,7 @@ func (tm *TokenManager) IssueAccessToken(userID uuid.UUID, email, displayName, r
 		Role:        role,
 		Permissions: permissions,
 		TokenID:     uuid.New().String(),
+		SessionID:   sid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    tm.config.Issuer,
 			Audience:  tm.config.Audience,
@@ -142,4 +150,57 @@ func (tm *TokenManager) GetTokenTTL(claims *Claims) time.Duration {
 		return 0
 	}
 	return ttl
+}
+
+// IssueMFAToken creates a signed JWT MFA token with a 2-minute TTL and mfa_pending claim.
+// Used when a user with MFA enabled has successfully authenticated with their password,
+// but still needs to provide a valid TOTP code or backup code.
+func (tm *TokenManager) IssueMFAToken(userID uuid.UUID) (string, error) {
+	now := time.Now()
+	expiresAt := now.Add(2 * time.Minute)
+
+	claims := Claims{
+		UserID:     userID,
+		MFAPending: true,
+		TokenID:    uuid.New().String(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    tm.config.Issuer,
+			Audience:  tm.config.Audience,
+			Subject:   userID.String(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			NotBefore: jwt.NewNumericDate(now),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(tm.config.PrivateKey)
+}
+
+// VerifyMFAToken verifies an MFA token and returns the userID.
+// Returns an error if the token is invalid, expired, or does not have the mfa_pending claim.
+// Rejects normal access tokens (those without the mfa_pending claim set to true).
+func (tm *TokenManager) VerifyMFAToken(tokenString string) (uuid.UUID, error) {
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return tm.config.PublicKey, nil
+	})
+
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("token parsing failed: %w", err)
+	}
+
+	if !token.Valid {
+		return uuid.Nil, fmt.Errorf("invalid token")
+	}
+
+	// Verify that the mfa_pending claim is present and true
+	if !claims.MFAPending {
+		return uuid.Nil, fmt.Errorf("token does not have mfa_pending claim")
+	}
+
+	return claims.UserID, nil
 }

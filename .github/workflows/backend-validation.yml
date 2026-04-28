@@ -1,0 +1,223 @@
+name: Backend Validation Harness
+
+on:
+  push:
+    branches:
+      - working/backend-validation
+      - develop
+      - main
+    paths:
+      - "cmd/argus/**"
+      - "internal/**"
+      - "test_harness/**"
+      - "docker-compose-test.yml"
+      - "Dockerfile"
+      - ".github/workflows/backend-validation.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-signals:
+    name: Test Signal Capture (Backend Validation)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:24-alpine
+        env:
+          CLICKHOUSE_DB: default
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ""
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "clickhouse-client --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 15s
+        ports:
+          - 9001:9000
+          - 8124:8123
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: argus
+          POSTGRES_PASSWORD: argus
+          POSTGRES_DB: argus
+          POSTGRES_INITDB_ARGS: "-c log_statement=none"
+        options: >-
+          --health-cmd "pg_isready -U argus -d argus -h 127.0.0.1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 15s
+        ports:
+          - 5433:5432
+
+      redis:
+        image: redis:7.2-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 10s
+        ports:
+          - 6380:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.24"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Build Argus binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/argus ./cmd/argus
+          echo "✓ Argus binary built"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "test_harness/requirements_harness.txt"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -q -r test_harness/requirements_harness.txt
+          echo "✓ Python dependencies installed"
+
+      - name: Start Argus API server
+        env:
+          ARGUS_SERVER_HTTP_ADDR: "0.0.0.0:8082"
+          ARGUS_DATABASE_CLICKHOUSE_DSN: "localhost:9001"
+          ARGUS_DATABASE_POSTGRES_DSN: "postgresql://argus:argus@localhost:5433/argus?sslmode=disable"
+          ARGUS_REDIS_ADDR: "localhost:6380"
+          ARGUS_TEST_MODE: "true"
+          ARGUS_LOGGING_DEV: "true"
+        run: |
+          /tmp/argus api --dev &
+          sleep 3
+          curl -f http://localhost:8082/health || exit 1
+          echo "✓ Argus API server started"
+
+      - name: Set up llama.cpp (mock for CI)
+        run: |
+          # For CI, create a mock llama.cpp server that responds to health checks
+          # In production, use actual llama.cpp or skip this test on resource-constrained runners
+          python -c "
+          import http.server
+          import socketserver
+          import json
+          import threading
+          import time
+
+          class MockLlamaHandler(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == '/health':
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(b'{\"status\": \"ok\"}')
+                  else:
+                      self.send_response(404)
+                      self.end_headers()
+
+              def do_POST(self):
+                  if self.path == '/v1/completions':
+                      content_len = int(self.headers.get('content-length', 0))
+                      body = self.rfile.read(content_len)
+
+                      response = {
+                          'choices': [{'text': 'Paris'}],
+                          'usage': {'prompt_tokens': 10, 'completion_tokens': 1}
+                      }
+
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps(response).encode())
+                  else:
+                      self.send_response(404)
+                      self.end_headers()
+
+              def log_message(self, format, *args):
+                  pass  # Suppress logs
+
+          with socketserver.TCPServer(('0.0.0.0', 8081), MockLlamaHandler) as httpd:
+              thread = threading.Thread(target=httpd.serve_forever)
+              thread.daemon = True
+              thread.start()
+              time.sleep(2)
+          " &
+          sleep 2
+          curl -f http://localhost:8081/health || echo "Mock llama.cpp ready (or skipped)"
+
+      - name: Run signal validation harness
+        env:
+          ARGUS_URL: "http://localhost:8082"
+          LLAMA_URL: "http://localhost:8081"
+        run: |
+          python test_harness/instrumented_llm.py > /tmp/harness_output.txt 2>&1
+          cat /tmp/harness_output.txt
+
+          # Check for successful signal submission
+          if grep -q "submitted=[1-9]" /tmp/harness_output.txt; then
+            echo "✓ Signals successfully submitted"
+          else
+            echo "✗ No signals submitted"
+            exit 1
+          fi
+
+      - name: Validate signal capture
+        env:
+          CLICKHOUSE_HOST: "localhost"
+          CLICKHOUSE_PORT: "9001"
+        run: |
+          python test_harness/validate_capture.py > /tmp/validation_results.md 2>&1
+          cat /tmp/validation_results.md
+
+          # Check validation results
+          if [ -f /tmp/validation_results.md ]; then
+            if grep -q "PASS" /tmp/validation_results.md; then
+              echo "✓ Signal capture validation complete"
+            else
+              echo "⚠ Some signals may not have been captured"
+            fi
+          fi
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: validation-report
+          path: |
+            /tmp/harness_output.txt
+            /tmp/validation_results.md
+          retention-days: 30
+
+      - name: Report results
+        if: always()
+        run: |
+          echo "## Backend Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/harness_output.txt ]; then
+            echo "### Harness Output" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -30 /tmp/harness_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

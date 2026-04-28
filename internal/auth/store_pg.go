@@ -47,7 +47,7 @@ func (s *PgUserStore) GetUserByID(ctx context.Context, id uuid.UUID) (*User, err
         SELECT id, email, display_name, role, password_hash, status,
                password_changed_at, last_login_at, last_login_ip,
                failed_login_count, locked_until, created_by,
-               invited_at, mfa_secret, external_provider, external_id,
+               invited_at, mfa_secret, mfa_enabled, mfa_secret_encrypted, external_provider, external_id,
                created_at, updated_at
         FROM users WHERE id = $1
     `, id)
@@ -62,7 +62,7 @@ func (s *PgUserStore) GetUserByEmail(ctx context.Context, email string) (*User, 
         SELECT id, email, display_name, role, password_hash, status,
                password_changed_at, last_login_at, last_login_ip,
                failed_login_count, locked_until, created_by,
-               invited_at, mfa_secret, external_provider, external_id,
+               invited_at, mfa_secret, mfa_enabled, mfa_secret_encrypted, external_provider, external_id,
                created_at, updated_at
         FROM users WHERE email = $1
     `, email)
@@ -84,7 +84,7 @@ func (s *PgUserStore) ListUsers(ctx context.Context, filters map[string]interfac
         SELECT id, email, display_name, role, password_hash, status,
                password_changed_at, last_login_at, last_login_ip,
                failed_login_count, locked_until, created_by,
-               invited_at, mfa_secret, external_provider, external_id,
+               invited_at, mfa_secret, mfa_enabled, mfa_secret_encrypted, external_provider, external_id,
                created_at, updated_at
         FROM users ORDER BY created_at DESC LIMIT 1000
     `)
@@ -112,12 +112,12 @@ func (s *PgUserStore) UpdateUser(ctx context.Context, user *User) error {
         UPDATE users SET
             display_name = $2, role = $3, password_hash = $4, status = $5,
             password_changed_at = $6, last_login_at = $7, last_login_ip = $8,
-            failed_login_count = $9, locked_until = $10, updated_at = $11
+            failed_login_count = $9, locked_until = $10, mfa_enabled = $11, mfa_secret_encrypted = $12, updated_at = $13
         WHERE id = $1
     `,
 		user.ID, user.DisplayName, user.Role, user.PasswordHash, user.Status,
 		user.PasswordChangedAt, user.LastLoginAt, user.LastLoginIP,
-		user.FailedLoginCount, user.LockedUntil, time.Now(),
+		user.FailedLoginCount, user.LockedUntil, user.MFAEnabled, user.MFASecretEncrypted, time.Now(),
 	)
 	return err
 }
@@ -170,7 +170,7 @@ func scanUser(row scannable) (*User, error) {
 		&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.PasswordHash, &u.Status,
 		&u.PasswordChangedAt, &u.LastLoginAt, &u.LastLoginIP,
 		&u.FailedLoginCount, &u.LockedUntil, &u.CreatedBy,
-		&u.InvitedAt, &u.MFASecret, &u.ExternalProvider, &u.ExternalID,
+		&u.InvitedAt, &u.MFASecret, &u.MFAEnabled, &u.MFASecretEncrypted, &u.ExternalProvider, &u.ExternalID,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
@@ -196,7 +196,7 @@ func (s *PgSessionStore) GetSessionByUserID(ctx context.Context, userID string) 
 		return nil, nil
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, refresh_token_hash, user_agent, ip_address,
+        SELECT id, user_id, refresh_token_hash, COALESCE(user_agent, ''), COALESCE(ip_address::text, ''),
                EXTRACT(EPOCH FROM created_at)::bigint,
                EXTRACT(EPOCH FROM expires_at)::bigint,
                EXTRACT(EPOCH FROM revoked_at)::bigint,
@@ -224,7 +224,7 @@ func (s *PgSessionStore) GetSessionByHash(ctx context.Context, hash string) (*Se
 		return nil, fmt.Errorf("database unavailable")
 	}
 	row := s.db.QueryRow(ctx, `
-        SELECT id, user_id, refresh_token_hash, user_agent, ip_address,
+        SELECT id, user_id, refresh_token_hash, COALESCE(user_agent, ''), COALESCE(ip_address::text, ''),
                EXTRACT(EPOCH FROM created_at)::bigint,
                EXTRACT(EPOCH FROM expires_at)::bigint,
                EXTRACT(EPOCH FROM revoked_at)::bigint,
@@ -380,7 +380,7 @@ func (s *PgAuditStore) GetEntries(ctx context.Context, filters map[string]interf
 		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, action, resource, detail, ip_address, user_agent, timestamp
+        SELECT id, user_id, action, resource, COALESCE(detail, '{}'), COALESCE(ip_address::text, ''), COALESCE(user_agent, ''), timestamp
         FROM audit_log ORDER BY timestamp DESC LIMIT $1 OFFSET $2
     `, limit, offset)
 	if err != nil {
@@ -395,7 +395,7 @@ func (s *PgAuditStore) GetEntriesByUser(ctx context.Context, userID uuid.UUID, l
 		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, action, resource, detail, ip_address, user_agent, timestamp
+        SELECT id, user_id, action, resource, COALESCE(detail, '{}'), COALESCE(ip_address::text, ''), COALESCE(user_agent, ''), timestamp
         FROM audit_log WHERE user_id=$1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3
     `, userID, limit, offset)
 	if err != nil {
@@ -410,7 +410,7 @@ func (s *PgAuditStore) GetEntriesByAction(ctx context.Context, action string, li
 		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, action, resource, detail, ip_address, user_agent, timestamp
+        SELECT id, user_id, action, resource, COALESCE(detail, '{}'), COALESCE(ip_address::text, ''), COALESCE(user_agent, ''), timestamp
         FROM audit_log WHERE action=$1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3
     `, action, limit, offset)
 	if err != nil {

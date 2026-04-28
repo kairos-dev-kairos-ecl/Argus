@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
-import { apiClient } from '../lib/axios-client'
 import type { QueryResult } from '../types/index'
+import { ApiError } from '../services/types'
+import * as api from '../services/api'
 
 /**
  * Hook for managing SQL query execution against ClickHouse.
- * Handles query state, loading, error, and result caching.
+ * Integrates with the API service layer for proper authentication and error handling.
+ *
+ * Usage:
+ * const { sql, setSql, result, loading, error, execute, reset } = useQuery()
  */
 export function useQuery() {
   const [sql, setSql] = useState('')
@@ -23,34 +26,34 @@ export function useQuery() {
       setLoading(true)
       setError(null)
 
-      // POST /api/v1/query with SQL and limit
-      const response = await apiClient.post(
-        '/query',
-        {
-          sql: sql.trim(),
-          limit: 10000
-        },
-        {
-          timeout: 30000 // 30 second timeout
-        }
-      )
+      // Call API service executeQuery function
+      const queryResult = await api.executeQuery({
+        query: sql.trim(),
+      })
 
-      setResult(response.data as QueryResult)
+      setResult(queryResult)
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 400) {
-          const errorMsg = (err.response.data as any)?.error || 'Invalid query'
-          setError(`Query error: ${errorMsg}`)
-        } else if (err.response?.status === 500) {
-          setError('Server error while executing query')
-        } else if (err.code === 'ECONNABORTED') {
-          setError('Query timeout (>30s)')
+      let errorMessage = 'Query execution failed'
+
+      if (err instanceof ApiError) {
+        if (err.status === 400) {
+          errorMessage = `Query error: ${err.message}`
+        } else if (err.status === 401) {
+          errorMessage = 'Session expired - please login again'
+        } else if (err.status === 403) {
+          errorMessage = 'Permission denied - cannot execute query'
+        } else if (err.status === 408) {
+          errorMessage = 'Query timeout - execution took too long'
+        } else if (err.status === 500) {
+          errorMessage = 'Server error while executing query'
         } else {
-          setError(`Request failed: ${err.message}`)
+          errorMessage = err.message || 'Query execution failed'
         }
-      } else {
-        setError(`Execution failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      } else if (err instanceof Error) {
+        errorMessage = err.message
       }
+
+      setError(errorMessage)
       setResult(null)
     } finally {
       setLoading(false)

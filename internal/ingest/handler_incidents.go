@@ -24,7 +24,7 @@ func (h *QueryHandler) handleListIncidents(w http.ResponseWriter, r *http.Reques
 	}
 
 	query := `
-		SELECT id, title, description, severity, app_id, status, alert_ids, trace_ids,
+		SELECT id, title, description, severity, app_id, status, alert_ids,
 		       created_at, updated_at, acknowledged_at, resolved_at
 		FROM incidents WHERE 1=1`
 	args := []interface{}{}
@@ -48,11 +48,10 @@ func (h *QueryHandler) handleListIncidents(w http.ResponseWriter, r *http.Reques
 		ID             string     `json:"id"`
 		Title          string     `json:"title"`
 		Description    *string    `json:"description,omitempty"`
-		Severity       int        `json:"severity"`
+		Severity       string     `json:"severity"`
 		AppID          string     `json:"app_id"`
 		Status         string     `json:"status"`
 		AlertIDs       []string   `json:"alert_ids"`
-		TraceIDs       []string   `json:"trace_ids"`
 		CreatedAt      time.Time  `json:"created_at"`
 		UpdatedAt      time.Time  `json:"updated_at"`
 		AcknowledgedAt *time.Time `json:"acknowledged_at,omitempty"`
@@ -64,7 +63,7 @@ func (h *QueryHandler) handleListIncidents(w http.ResponseWriter, r *http.Reques
 		var inc incidentRow
 		if err := rows.Scan(
 			&inc.ID, &inc.Title, &inc.Description, &inc.Severity, &inc.AppID, &inc.Status,
-			&inc.AlertIDs, &inc.TraceIDs, &inc.CreatedAt, &inc.UpdatedAt, &inc.AcknowledgedAt, &inc.ResolvedAt,
+			&inc.AlertIDs, &inc.CreatedAt, &inc.UpdatedAt, &inc.AcknowledgedAt, &inc.ResolvedAt,
 		); err != nil {
 			continue
 		}
@@ -91,11 +90,10 @@ func (h *QueryHandler) handleGetIncident(w http.ResponseWriter, r *http.Request)
 		ID             string     `json:"id"`
 		Title          string     `json:"title"`
 		Description    *string    `json:"description,omitempty"`
-		Severity       int        `json:"severity"`
+		Severity       string     `json:"severity"`
 		AppID          string     `json:"app_id"`
 		Status         string     `json:"status"`
 		AlertIDs       []string   `json:"alert_ids"`
-		TraceIDs       []string   `json:"trace_ids"`
 		CreatedAt      time.Time  `json:"created_at"`
 		UpdatedAt      time.Time  `json:"updated_at"`
 		AcknowledgedAt *time.Time `json:"acknowledged_at,omitempty"`
@@ -104,12 +102,12 @@ func (h *QueryHandler) handleGetIncident(w http.ResponseWriter, r *http.Request)
 
 	var inc incidentDetail
 	err := h.alertRouter.pool.QueryRow(r.Context(), `
-		SELECT id, title, description, severity, app_id, status, alert_ids, trace_ids,
+		SELECT id, title, description, severity, app_id, status, alert_ids,
 		       created_at, updated_at, acknowledged_at, resolved_at
 		FROM incidents WHERE id = $1
 	`, id).Scan(
 		&inc.ID, &inc.Title, &inc.Description, &inc.Severity, &inc.AppID, &inc.Status,
-		&inc.AlertIDs, &inc.TraceIDs, &inc.CreatedAt, &inc.UpdatedAt, &inc.AcknowledgedAt, &inc.ResolvedAt,
+		&inc.AlertIDs, &inc.CreatedAt, &inc.UpdatedAt, &inc.AcknowledgedAt, &inc.ResolvedAt,
 	)
 	if err != nil {
 		jsonError(w, "incident not found", http.StatusNotFound)

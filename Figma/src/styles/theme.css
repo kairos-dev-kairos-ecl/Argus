@@ -1,7 +1,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ArgusXDR Brutalist Design System */
+  /* ArgusXDR Brutalist Design System with Onum/Falcon Enhancements */
   --color-primary: #00F0FF;
   --color-background: #050506;
   --color-surface: #111216;
@@ -9,11 +9,23 @@
   --color-muted: #343A40;
   --color-accent: #FF2A00;
   --color-warning: #FFB300;
-  
+
+  /* Onum/Falcon Gradient Colors */
+  --color-blue-light: #3B82F6;
+  --color-blue: #2563EB;
+  --color-purple-light: #A78BFA;
+  --color-purple: #8B5CF6;
+  --color-purple-dark: #7C3AED;
+  --color-pink: #EC4899;
+  --color-amber: #FBBF24;
+  --color-teal: #14B8A6;
+  --color-green: #10B981;
+
   --font-primary: 'JetBrains Mono', monospace;
   --font-display: 'Space Grotesk', sans-serif;
-  
+
   --radius: 0px;
+  --radius-soft: 8px;
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -219,4 +231,30 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 16px currentColor;
+  }
+}
+
+.glow-effect {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Gradient Utilities */
+.gradient-flow {
+  background: linear-gradient(135deg, var(--color-blue-light) 0%, var(--color-purple) 50%, var(--color-pink) 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, var(--color-purple-dark) 0%, var(--color-purple-light) 100%);
+}
+
+.gradient-blue {
+  background: linear-gradient(135deg, var(--color-blue) 0%, var(--color-blue-light) 100%);
 }

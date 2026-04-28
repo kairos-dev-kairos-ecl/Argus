@@ -6,14 +6,16 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"os"
+
+	"github.com/argusxdr/argus/internal/secrets"
 )
 
-// LoadOrGenerateRSAKey loads an RSA private key from the PEM string in ARGUS_JWT_PRIVATE_KEY_PEM
-// or generates an ephemeral 2048-bit key if the env var is absent.
+// LoadOrGenerateRSAKey loads an RSA private key from the PEM string via secrets.GetSecret
+// (preferring argus.key, falling back to ARGUS_JWT_PRIVATE_KEY_PEM env var),
+// or generates an ephemeral 2048-bit key if neither source has the value.
 // Returns the private key and matching public key.
 func LoadOrGenerateRSAKey() (*rsa.PrivateKey, *rsa.PublicKey, error) {
-	pemStr := os.Getenv("ARGUS_JWT_PRIVATE_KEY_PEM")
+	pemStr, _ := secrets.GetSecret(secrets.KeyJWTPrivateKey)
 	if pemStr != "" {
 		block, _ := pem.Decode([]byte(pemStr))
 		if block == nil {

@@ -1,21 +1,40 @@
+# =============================================================================
+# ArgusXDR — Production .gitignore
+# =============================================================================
+
+# Planning & local tooling (GSD workflow artifacts, never committed)
 .planning/
-
-# Git worktrees
-.worktrees/
+.claude/
 .claude/worktrees/
+.worktrees/
 
-# Development artifacts
-build.log
-*.log
-*.tmp
-*.swp
-*.swo
-*~
-.DS_Store
-.vscode/
-.idea/
+# ─── Binaries & Build Outputs ─────────────────────────────────────────────────
+# Go build outputs
+bin/
+*.exe
+*.out
+argus
+argus-api
+pipeline.test.*
 
-# Python
+# Web build
+web/dist/
+web/.env.local
+
+# ─── Secrets & Credentials ────────────────────────────────────────────────────
+# Never commit secrets — use environment variables or the secrets CLI
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+argus.key
+secrets.yml
+secrets.yaml
+
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -23,24 +42,33 @@ __pycache__/
 .mypy_cache/
 .coverage
 *.egg-info/
-dist/
-build/
-
-# Node
-web/node_modules/
-web/dist/
-web/.env.local
-
-# IDE
-.env
-.env.*.local
-*.iml
-
-# Docker
-.env.docker
-docker-compose.override.yml
-
-# LLM model weights (large binary files — download separately)
+test_harness/venv/
 test_harness/models/*.gguf
 test_harness/models/*.bin
 test_harness/models/*.safetensors
+
+# ─── Node ─────────────────────────────────────────────────────────────────────
+web/node_modules/
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+.env.docker
+docker-compose.override.yml
+
+# ─── OS & Editor Artifacts ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.tmp
+*.log
+build.log
+
+# IDE directories (keep per-project settings in separate dotfiles repo if needed)
+.vscode/
+.idea/
+*.iml
+
+# ─── Local Dev Notes ──────────────────────────────────────────────────────────
+# Obsidian vault is personal dev notes, not part of the codebase
+.obsidian-vault/

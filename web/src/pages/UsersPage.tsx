@@ -1,347 +1,214 @@
-import { useEffect, useState } from 'react'
-import { apiClient } from '../lib/axios-client'
-import { useAuthStore } from '../stores/auth'
-import type { User } from '../types'
-
 /**
- * UsersPage Component
- * Allows admins to manage users: create, edit, suspend/activate, reset password
+ * UsersPage — IAM Console (Screen 8)
+ *
+ * 20/80 sidebar layout:
+ * Left (20%): vertical section nav (USERS, ROLES, MFA, SESSIONS, API KEYS, PASSWORD)
+ * Right (80%): renders content for the active section
  */
-export function UsersPage() {
-  const { isAdmin } = useAuthStore()
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
 
-  // Create user form
-  const [newUser, setNewUser] = useState({
-    email: '',
-    display_name: '',
-    role: 'analyst' as 'admin' | 'analyst' | 'viewer',
-  })
+import { useEffect, useState } from 'react';
+import { fetchUsers, type User } from '../services/iam-service';
+import { RolePermissionMatrix } from '../components/iam/RolePermissionMatrix';
+import { MfaEnrollment, ActiveSessions, ApiKeys, PasswordChange } from './SettingsPages';
+
+type Section = 'USERS' | 'ROLES' | 'MFA' | 'SESSIONS' | 'API KEYS' | 'PASSWORD';
+
+const SECTIONS: Section[] = ['USERS', 'ROLES', 'MFA', 'SESSIONS', 'API KEYS', 'PASSWORD'];
+
+const containerStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '20% 80%',
+  height: '100vh',
+  background: 'var(--color-background)',
+  color: 'var(--color-text)',
+  fontFamily: 'var(--font-mono)',
+};
+
+const sidebarStyle: React.CSSProperties = {
+  borderRight: 'var(--border-stark)',
+  background: 'var(--color-surface)',
+  overflowY: 'auto',
+};
+
+const sidebarItemBase: React.CSSProperties = {
+  padding: '12px 16px',
+  fontSize: '12px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  cursor: 'pointer',
+  borderBottom: 'var(--border-stark)',
+  userSelect: 'none',
+};
+
+function sidebarItemStyle(active: boolean): React.CSSProperties {
+  return {
+    ...sidebarItemBase,
+    borderLeft: active ? '2px solid var(--color-primary)' : '2px solid transparent',
+    color: active ? 'var(--color-primary)' : 'var(--color-text)',
+    background: active ? 'var(--color-background)' : 'transparent',
+  };
+}
+
+const mainStyle: React.CSSProperties = {
+  overflowY: 'auto',
+};
+
+// --- Users data grid ---
+
+const headerRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  fontSize: '10px',
+  color: 'var(--color-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  borderBottom: 'var(--border-stark)',
+  height: '20px',
+  padding: '0 24px',
+};
+
+const dataRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  fontSize: '12px',
+  borderBottom: 'var(--border-stark)',
+  height: '20px',
+  padding: '0 24px',
+};
+
+function formatDate(s: string) {
+  try {
+    return new Date(s).toISOString().slice(0, 10);
+  } catch {
+    return s;
+  }
+}
+
+function UsersGrid() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadUsers()
-  }, [])
-
-  const loadUsers = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await apiClient.get('/users')
-      setUsers(response.data.users || [])
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load users'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newUser.email || !newUser.display_name) {
-      setError('Email and display name are required')
-      return
-    }
-
-    setLoading(true)
-    try {
-      const response = await apiClient.post('/users', {
-        email: newUser.email,
-        display_name: newUser.display_name,
-        role: newUser.role,
-      })
-      setUsers([...users, response.data.user])
-      setNewUser({ email: '', display_name: '', role: 'analyst' })
-      setShowCreateForm(false)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create user'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleUpdateRole = async (userId: string, newRole: string) => {
-    setLoading(true)
-    try {
-      await apiClient.put(`/users/${userId}`, { role: newRole })
-      setUsers(
-        users.map((u) =>
-          u.id === userId ? { ...u, role: newRole as any } : u
-        )
-      )
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update role'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSuspendUser = async (userId: string, shouldSuspend: boolean) => {
-    setLoading(true)
-    try {
-      await apiClient.put(`/users/${userId}`, {
-        status: shouldSuspend ? 'suspended' : 'active',
-      })
-      setUsers(
-        users.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                status: shouldSuspend ? 'suspended' : 'active',
-              }
-            : u
-        )
-      )
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update status'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleResetPassword = async (userId: string, userEmail: string) => {
-    if (!confirm(`Send password reset email to ${userEmail}?`)) return
-
-    setLoading(true)
-    try {
-      await apiClient.post(`/users/${userId}/reset-password`)
-      alert('Password reset email sent')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to reset password'
-      setError(message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!isAdmin()) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-status-error mb-2">Access Denied</h1>
-          <p className="text-muted-foreground">Only admins can access this page</p>
-        </div>
-      </div>
-    )
-  }
-
-  const filteredUsers = users.filter(
-    (u) =>
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.display_name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    setLoading(true);
+    fetchUsers()
+      .then((res) => setUsers(res.users ?? []))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load users'))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-muted-background border-b border-border p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Users</h1>
-            <p className="text-muted-foreground mt-1">{users.length} total users</p>
-          </div>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="h-10 px-4 bg-primary hover:bg-primary/90 text-foreground rounded-lg transition-colors duration-200 font-medium"
-            aria-label={showCreateForm ? 'Cancel creating user' : 'Create new user'}
-          >
-            {showCreateForm ? 'Cancel' : 'Create User'}
-          </button>
-        </div>
+    <div style={{ padding: '24px 0', fontFamily: 'var(--font-mono)' }}>
+      <div
+        style={{
+          padding: '0 24px 12px',
+          fontSize: '11px',
+          color: 'var(--color-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+        }}
+      >
+        {loading ? 'LOADING...' : error ? `ERROR: ${error}` : `${users.length} USERS`}
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Error */}
-        {error && (
-          <div className="bg-status-error/10 border border-status-error/30 rounded-lg p-4 mb-6" role="alert">
-            <p className="text-status-error">{error}</p>
-          </div>
-        )}
-
-        {/* Create Form */}
-        {showCreateForm && (
-          <div className="bg-muted-background rounded-lg border border-border p-6 mb-6">
-            <h2 className="text-xl font-bold text-foreground mb-4">Create New User</h2>
-            <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, email: e.target.value })
-                  }
-                  className="w-full h-10 px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label htmlFor="display-name" className="block text-sm font-medium text-foreground mb-2">
-                  Display Name
-                </label>
-                <input
-                  id="display-name"
-                  type="text"
-                  value={newUser.display_name}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, display_name: e.target.value })
-                  }
-                  className="w-full h-10 px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-foreground mb-2">
-                  Role
-                </label>
-                <select
-                  id="role"
-                  value={newUser.role}
-                  onChange={(e) =>
-                    setNewUser({
-                      ...newUser,
-                      role: e.target.value as any,
-                    })
-                  }
-                  className="w-full h-10 px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                  disabled={loading}
-                >
-                  <option value="admin">Admin</option>
-                  <option value="analyst">Analyst</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="md:col-span-3 h-10 px-4 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-foreground rounded-lg transition-colors duration-200 font-medium"
-              >
-                {loading ? 'Creating...' : 'Create User'}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Search */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search users by email or name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-10 px-4 py-2 rounded-lg bg-muted-background border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-            aria-label="Search users"
-          />
+      <div style={{ borderTop: 'var(--border-stark)' }}>
+        <div style={headerRowStyle}>
+          <span style={{ width: '240px', flexShrink: 0 }}>EMAIL</span>
+          <span style={{ width: '180px', flexShrink: 0 }}>DISPLAY NAME</span>
+          <span style={{ width: '100px', flexShrink: 0 }}>ROLE</span>
+          <span style={{ width: '60px', flexShrink: 0 }}>MFA</span>
+          <span style={{ width: '100px', flexShrink: 0 }}>STATUS</span>
+          <span style={{ flex: 1 }}>CREATED</span>
         </div>
 
-        {/* Users Table */}
-        {loading && filteredUsers.length === 0 ? (
-          <p className="text-muted-foreground">Loading users...</p>
-        ) : filteredUsers.length === 0 ? (
-          <p className="text-muted-foreground">No users found</p>
-        ) : (
-          <div className="bg-muted-background rounded-lg border border-border overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-background border-b border-border">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                    Last Login
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-background/50 transition-colors">
-                    <td className="px-6 py-4 text-foreground">{user.email}</td>
-                    <td className="px-6 py-4 text-foreground/80">{user.display_name}</td>
-                    <td className="px-6 py-4">
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleUpdateRole(user.id, e.target.value)}
-                        className="h-8 px-2 py-1 rounded bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                        disabled={loading}
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="analyst">Analyst</option>
-                        <option value="viewer">Viewer</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          user.status === 'active'
-                            ? 'bg-status-success/20 text-status-success'
-                            : 'bg-status-error/20 text-status-error'
-                        }`}
-                      >
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground text-sm">
-                      {user.last_login_at
-                        ? new Date(user.last_login_at).toLocaleDateString()
-                        : 'Never'}
-                    </td>
-                    <td className="px-6 py-4 space-x-2 flex flex-wrap">
-                      <button
-                        onClick={() =>
-                          handleResetPassword(user.id, user.email)
-                        }
-                        className="h-8 px-2 text-xs bg-primary hover:bg-primary/90 text-foreground rounded transition-colors duration-200"
-                        disabled={loading}
-                      >
-                        Reset PW
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleSuspendUser(
-                            user.id,
-                            user.status === 'active'
-                          )
-                        }
-                        className={`h-8 px-2 text-xs rounded text-foreground transition-colors duration-200 ${
-                          user.status === 'active'
-                            ? 'bg-status-error hover:bg-status-error/90'
-                            : 'bg-status-success hover:bg-status-success/90'
-                        }`}
-                        disabled={loading}
-                      >
-                        {user.status === 'active' ? 'Suspend' : 'Activate'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {users.map((u) => (
+          <div key={u.id} style={dataRowStyle}>
+            <span
+              style={{
+                width: '240px',
+                flexShrink: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {u.email}
+            </span>
+            <span
+              style={{
+                width: '180px',
+                flexShrink: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {u.display_name}
+            </span>
+            <span style={{ width: '100px', flexShrink: 0 }}>{u.role}</span>
+            <span
+              style={{
+                width: '60px',
+                flexShrink: 0,
+                color: u.mfa_enabled ? 'var(--color-primary)' : 'var(--color-muted)',
+              }}
+            >
+              {u.mfa_enabled ? 'ON' : 'OFF'}
+            </span>
+            <span style={{ width: '100px', flexShrink: 0 }}>{u.status}</span>
+            <span style={{ flex: 1 }}>{formatDate(u.created_at)}</span>
+          </div>
+        ))}
+
+        {!loading && users.length === 0 && (
+          <div
+            style={{
+              padding: '8px 24px',
+              color: 'var(--color-muted)',
+              fontSize: '12px',
+            }}
+          >
+            No users found.
           </div>
         )}
       </div>
     </div>
-  )
+  );
+}
+
+// --- Main component ---
+
+export function UsersPage() {
+  const [section, setSection] = useState<Section>('USERS');
+
+  return (
+    <div style={containerStyle}>
+      {/* Left sidebar — 20% */}
+      <nav style={sidebarStyle} aria-label="IAM Console navigation">
+        {SECTIONS.map((s) => (
+          <div
+            key={s}
+            style={sidebarItemStyle(section === s)}
+            onClick={() => setSection(s)}
+            role="button"
+            aria-pressed={section === s}
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setSection(s)}
+          >
+            {s}
+          </div>
+        ))}
+      </nav>
+
+      {/* Right pane — 80% */}
+      <main style={mainStyle}>
+        {section === 'USERS' && <UsersGrid />}
+        {section === 'ROLES' && <RolePermissionMatrix />}
+        {section === 'MFA' && <MfaEnrollment />}
+        {section === 'SESSIONS' && <ActiveSessions />}
+        {section === 'API KEYS' && <ApiKeys />}
+        {section === 'PASSWORD' && <PasswordChange />}
+      </main>
+    </div>
+  );
 }

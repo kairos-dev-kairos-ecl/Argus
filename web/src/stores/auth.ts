@@ -1,17 +1,45 @@
 import { create } from 'zustand'
 import type { User, AuthState } from '../types'
+import * as authService from '../services/auth-service'
+
+/**
+ * Decode user claims from a JWT access token without verifying the signature.
+ * Safe here because the token was issued by our own backend — we're just
+ * reading the payload that the backend already validated and signed.
+ */
+function decodeUserFromJWT(token: string): User | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return {
+      id: payload.sub,
+      email: payload.email,
+      display_name: payload.name,
+      role: payload.role,
+      permissions: payload.permissions ?? [],
+      status: 'active',
+      created_at: new Date(payload.iat * 1000).toISOString(),
+    } as User
+  } catch {
+    return null
+  }
+}
 
 interface AuthStateStore extends AuthState {
   // State
   loading: boolean
   error: string | null
+  csrfToken: string | null
+  mfaPending: { challengeToken: string; email: string } | null
   // Actions
   login(email: string, password: string): Promise<void>
   logout(): Promise<void>
   refreshToken(): Promise<void>
+  validateSession(): Promise<void>
   setUser(user: User | null): void
   setAccessToken(token: string): void
   clearError(): void
+  setMfaPending(state: { challengeToken: string; email: string } | null): void
+  completeMfa(code: string): Promise<void>
   // Checks
   hasPermission(action: string): boolean
   isAdmin(): boolean
@@ -36,27 +64,35 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
   token: null, // In-memory access token only (never stored in localStorage)
   loading: false,
   error: null,
+  csrfToken: null,
+  mfaPending: null,
 
   login: async (email: string, password: string) => {
     set({ loading: true, error: null })
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include', // Include cookies
-      })
+      const response = await authService.login(email, password)
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || 'Login failed')
+      if (response.mfa_required) {
+        // MFA is required — store pending state and wait for completeMfa()
+        set({
+          mfaPending: {
+            challengeToken: response.challenge_token ?? '',
+            email,
+          },
+          is_authenticated: false,
+          token: null,
+          error: null,
+        })
+        return
       }
 
-      const data = await response.json()
+      // Normal login — decode user claims from the JWT payload
+      const user = decodeUserFromJWT(response.access_token)
       set({
-        token: data.access_token,
-        user: data.user,
+        token: response.access_token,
+        user,
         is_authenticated: true,
+        mfaPending: null,
         error: null,
       })
       // Refresh token is set as HttpOnly cookie by server
@@ -69,14 +105,38 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
     }
   },
 
+  setMfaPending: (state) => {
+    set({ mfaPending: state })
+  },
+
+  completeMfa: async (code: string) => {
+    const { mfaPending } = get()
+    if (!mfaPending) throw new Error('No MFA challenge pending')
+    set({ loading: true, error: null })
+    try {
+      const response = await authService.mfaChallenge(mfaPending.challengeToken, code)
+      const user = decodeUserFromJWT(response.access_token)
+      set({
+        token: response.access_token,
+        user,
+        is_authenticated: true,
+        mfaPending: null,
+        error: null,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'MFA verification failed'
+      set({ error: message })
+      throw error
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   logout: async () => {
     set({ loading: true })
     try {
-      // Call logout endpoint to revoke refresh token
-      await fetch('/api/v1/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      })
+      // Call logout endpoint to revoke refresh token on server
+      await authService.logout()
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
@@ -91,22 +151,30 @@ export const useAuthStore = create<AuthStateStore>((set, get) => ({
 
   refreshToken: async () => {
     try {
-      const response = await fetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        // Refresh failed, need to re-login
-        set({ is_authenticated: false, token: null })
-        throw new Error('Token refresh failed')
-      }
-
-      const data = await response.json()
-      set({ token: data.access_token })
+      const { access_token } = await authService.refreshToken()
+      // Decode user from token so ProtectedRoute has role/permissions immediately
+      const user = decodeUserFromJWT(access_token)
+      set({ token: access_token, user, is_authenticated: true })
     } catch (error) {
-      // Silently fail - caller will redirect to login
-      set({ is_authenticated: false, token: null })
+      // Refresh token expired or not present — user must log in again
+      set({ is_authenticated: false, token: null, user: null })
+    }
+  },
+
+  validateSession: async () => {
+    try {
+      // Try to refresh token first (using httpOnly cookie)
+      const { access_token } = await authService.refreshToken()
+      // If refresh succeeded, verify user is still valid
+      const user = await authService.getProfile(access_token)
+      set({ token: access_token, user: user as User, is_authenticated: true })
+    } catch (error) {
+      // Session invalid or expired
+      set({
+        user: null,
+        token: null,
+        is_authenticated: false,
+      })
     }
   },
 

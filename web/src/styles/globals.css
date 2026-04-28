@@ -1,110 +1,75 @@
+@import './tokens.css';
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
 
-:root {
-  /* Design System Tokens */
-  --color-background: #0A0A0B;
-  --color-foreground: #FFFFFF;
-  --color-muted-background: #1F1F23;
-  --color-muted-foreground: #A0A0A0;
-  --color-border: #2A2A2F;
-
-  /* Layer Colors */
-  --color-layer-l1: #EF4444;
-  --color-layer-l2: #F97316;
-  --color-layer-l3: #EAB308;
-  --color-layer-l4: #22C55E;
-  --color-layer-l5: #10B981;
-  --color-layer-l6: #06B6D4;
-  --color-layer-l7: #3B82F6;
-  --color-layer-l8: #8B5CF6;
-  --color-layer-l9: #EC4899;
-  --color-layer-l10: #F43F5E;
-
-  /* Status Colors */
-  --color-status-success: #22C55E;
-  --color-status-warning: #EAB308;
-  --color-status-error: #EF4444;
-  --color-status-info: #3B82F6;
-
-  /* Accessibility */
-  --focus-outline: 2px solid #3B82F6;
-  --focus-outline-offset: 2px;
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;
 }
 
-* {
+html, body {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body {
-  height: 100%;
-  width: 100%;
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
-  height: 100%;
-  width: 100%;
+  min-height: 100vh;
+  background: var(--color-background);
+  color: var(--color-text);
 }
 
-/* Typography */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
-code, pre {
-  font-family: 'Geist Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
 }
 
-/* Focus Styles */
-:focus-visible {
-  outline: var(--focus-outline);
-  outline-offset: var(--focus-outline-offset);
-  border-radius: 2px;
+button {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  background: transparent;
+  color: var(--color-text);
+  border: var(--border-stark);
+  padding: 6px 12px;
+  cursor: pointer;
 }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: var(--focus-outline);
-  outline-offset: var(--focus-outline-offset);
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-/* Scrollbar styling */
+input, textarea, select {
+  font-family: var(--font-mono);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: var(--border-stark);
+  padding: 6px 8px;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  background: var(--color-muted-background);
+  background: var(--color-background);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3A3A3F;
-}
-
-/* Selection styling */
-::selection {
-  background-color: var(--color-layer-l7);
-  color: var(--color-foreground);
+  background: var(--color-muted);
 }
 
 /* Animations */

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -14,14 +15,38 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	v1 "github.com/argusxdr/argus/gen/go/argus/v1"
+	"github.com/argusxdr/argus/internal/auth"
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/metrics"
+	"github.com/argusxdr/argus/internal/resilience"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// SDK authentication contract:
+//
+// Clients MUST send their API key via the X-Argus-API-Key header (not Authorization: Bearer).
+// Bearer tokens are reserved for user JWTs issued by /api/v1/auth/login.
+//
+// Scope Requirements:
+//   - POST /v1/signals requires scope "signals:write"
+//   - POST /v1/signals/stream requires scope "signals:write"
+//   - GET /v1/schema/signals requires scope "signals:read"
+//
+// Rate Limiting:
+//   - POST /v1/signals and /v1/signals/stream are rate-limited per api_key_prefix
+//   - Token bucket: burst=100 requests, rate=10,000 requests/second
+//   - Excess requests receive HTTP 429 with Retry-After: 1 header
+//
+// Example:
+//   curl -X POST \
+//     -H "X-Argus-API-Key: argus_sk_..." \
+//     -H "Content-Type: application/json" \
+//     http://localhost:8080/v1/signals \
+//     -d '{"layer": "L5_OUTPUT_DECODING", ...}'
 
 // QueryHandler implements the query API (GET /v1/signals).
 // STORE-06 requirement: cursor-based pagination for ClickHouse signal queries.
@@ -33,6 +58,7 @@ type QueryHandler struct {
 	alertRouter *AlertRouter      // may be nil — alert pipeline disabled
 	authService *AuthService      // may be nil — auth disabled
 	pool        *pgxpool.Pool     // may be nil — PostgreSQL not configured
+	rl          *resilience.RedisRateLimiter // may be nil — rate limiting disabled
 }
 
 // NewQueryHandler creates a new QueryHandler.
@@ -68,6 +94,11 @@ func (h *QueryHandler) SetAuthService(svc *AuthService) {
 // SetPool wires the PostgreSQL pool for rules and apps CRUD handlers.
 func (h *QueryHandler) SetPool(p *pgxpool.Pool) { h.pool = p }
 
+// SetRateLimiter wires the Redis-backed rate limiter for endpoint protection.
+func (h *QueryHandler) SetRateLimiter(rl *resilience.RedisRateLimiter) {
+	h.rl = rl
+}
+
 // authAvailable returns true if the auth service is configured.
 func (h *QueryHandler) authAvailable() bool {
 	return h.authService != nil
@@ -75,51 +106,149 @@ func (h *QueryHandler) authAvailable() bool {
 
 // RegisterRoutes mounts query API routes onto the chi mux.
 func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
-	// Tier 1: Core signal query routes
+	// Tier 1: Core signal query routes (public)
 	mux.Get("/v1/signals", h.handleGetSignals)
-	mux.Get("/v1/schema/signals", h.handleGetSignalSchema)
-	mux.Get("/api/v1/layers/status", h.handleGetLayerStatus)
-	mux.Get("/api/v1/traces/{traceId}", h.handleGetTrace)
-	mux.Post("/api/v1/query", h.handlePostQuery)
+	mux.Get("/v1/schema/signals", h.HandleGetSignalSchema)
 
-	// Tier 2: Rules
-	mux.Get("/api/v1/rules", h.handleListRules)
-	mux.Post("/api/v1/rules", h.handleCreateRule)
-	mux.Get("/api/v1/rules/{id}", h.handleGetRule)
-	mux.Put("/api/v1/rules/{id}", h.handleUpdateRule)
-	mux.Delete("/api/v1/rules/{id}", h.handleDeleteRule)
-	mux.Post("/api/v1/rules/validate", h.handleValidateRule)
-	mux.Post("/api/v1/rules/test", h.handleTestRule)
+	// Protected API routes
+	mux.Route("/api/v1", func(r chi.Router) {
+		// Layer status and traces (require authentication)
+		r.Get("/layers/status", h.handleGetLayerStatus)
+		r.Get("/traces/{traceId}", h.handleGetTrace)
 
-	// Tier 2: Alerts
-	mux.Get("/api/v1/alerts", h.handleListAlerts)
-	mux.Get("/api/v1/alerts/{id}", h.handleGetAlert)
-	mux.Post("/api/v1/alerts/{id}/acknowledge", h.handleAcknowledgeAlert)
+		// Query endpoint (require authentication)
+		// Rate limited (60/60s per user)
+		if h.rl != nil {
+			queryKeyFn := func(r *http.Request) string {
+				if uid, ok := auth.UserIDFromContext(r.Context()); ok {
+					return "rl:query:" + uid.String()
+				}
+				return ""
+			}
+			r.With(resilience.Limit(h.rl, queryKeyFn, 60, 60*time.Second)).Post("/query", h.handlePostQuery)
+		} else {
+			r.Post("/query", h.handlePostQuery)
+		}
 
-	// Tier 2: Incidents
-	mux.Get("/api/v1/incidents", h.handleListIncidents)
-	mux.Get("/api/v1/incidents/{id}", h.handleGetIncident)
-	mux.Post("/api/v1/incidents/{id}/acknowledge", h.handleAcknowledgeIncident)
-	mux.Post("/api/v1/incidents/{id}/resolve", h.handleResolveIncident)
+		// Rules
+		r.Route("/rules", func(r chi.Router) {
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Get("/", h.handleListRules)
+			r.With(auth.RequirePermission(auth.PermRulesCreate)).Post("/", h.handleCreateRule)
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Get("/{id}", h.handleGetRule)
+			r.With(auth.RequirePermission(auth.PermRulesUpdate)).Put("/{id}", h.handleUpdateRule)
+			r.With(auth.RequirePermission(auth.PermRulesDelete)).Delete("/{id}", h.handleDeleteRule)
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Post("/validate", h.handleValidateRule)
+			r.With(auth.RequirePermission(auth.PermRulesRead)).Post("/test", h.handleTestRule)
+		})
 
-	// Tier 3: Auth
-	mux.Post("/api/v1/auth/login", h.handleLogin)
-	mux.Post("/api/v1/auth/refresh", h.handleRefreshToken)
-	mux.Post("/api/v1/auth/logout", h.handleLogout)
-	mux.Post("/api/v1/auth/setup", h.handleSetup)
+		// Alerts
+		r.Route("/alerts", func(r chi.Router) {
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/", h.handleListAlerts)
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/{id}", h.handleGetAlert)
+			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/acknowledge", h.handleAcknowledgeAlert)
+		})
 
-	// Tier 3: Users
-	mux.Get("/api/v1/users", h.handleListUsers)
-	mux.Post("/api/v1/users", h.handleCreateUser)
+		// Incidents
+		r.Route("/incidents", func(r chi.Router) {
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/", h.handleListIncidents)
+			r.With(auth.RequirePermission(auth.PermAlertsRead)).Get("/{id}", h.handleGetIncident)
+			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/acknowledge", h.handleAcknowledgeIncident)
+			r.With(auth.RequirePermission(auth.PermAlertsAcknowledge)).Post("/{id}/resolve", h.handleResolveIncident)
+		})
 
-	// Tier 3: Apps
-	mux.Get("/api/v1/apps", h.handleListApps)
-	mux.Post("/api/v1/apps", h.handleCreateApp)
-	mux.Get("/api/v1/apps/{id}/key", h.handleGetAppKey)
-	mux.Post("/api/v1/apps/{id}/key/rotate", h.handleRotateAppKey)
+		// Auth (public and protected endpoints)
+		r.Route("/auth", func(r chi.Router) {
+			// Mount CSRF middleware for all mutating auth routes
+			// Excluded paths: /refresh (uses HttpOnly cookie, not CSRF-protected)
+			r.Use(auth.CSRFMiddleware([]string{"/api/v1/auth/refresh"}))
 
-	// Tier 3: Audit
-	mux.Get("/api/v1/audit", h.handleListAuditLog)
+			// Login with rate limiting (5/60s per IP)
+			if h.rl != nil {
+				loginKeyFn := func(r *http.Request) string {
+					return "rl:login:" + clientIP(r)
+				}
+				r.With(resilience.Limit(h.rl, loginKeyFn, 5, 60*time.Second)).Post("/login", h.handleLogin)
+			} else {
+				r.Post("/login", h.handleLogin)
+			}
+
+			// Refresh with rate limiting (30/60s per session) — NOT protected by CSRF middleware
+			if h.rl != nil {
+				refreshKeyFn := func(r *http.Request) string {
+					if c, err := r.Cookie("refresh_token"); err == nil && c.Value != "" {
+						return "rl:refresh:" + auth.HashToken(c.Value)
+					}
+					return "rl:refresh:ip:" + clientIP(r)
+				}
+				r.With(resilience.Limit(h.rl, refreshKeyFn, 30, 60*time.Second)).Post("/refresh", h.handleRefreshToken)
+			} else {
+				r.Post("/refresh", h.handleRefreshToken)
+			}
+
+			// Logout (no rate limiting)
+			r.Post("/logout", h.handleLogout)
+			// Setup (no rate limiting)
+			r.Post("/setup", h.handleSetup)
+
+			// CSRF Token endpoint (GET, safe method)
+			r.Get("/csrf-token", h.handleCSRFToken)
+
+			// MFA endpoints (require JWT for enroll/verify/disable; challenge is public)
+			r.Route("/mfa", func(r chi.Router) {
+				// Enroll (protected by JWT and CSRF)
+				r.Post("/enroll", h.handleMFAEnroll)
+				// Verify (protected by JWT and CSRF)
+				r.Post("/verify", h.handleMFAVerify)
+				// Disable (protected by JWT and CSRF)
+				r.Post("/disable", h.handleMFADisable)
+				// Challenge (public — uses mfa_token instead of access token)
+				r.Post("/challenge", h.handleMFAChallenge)
+			})
+
+			// Session Management (require JWT)
+			r.Route("/sessions", func(r chi.Router) {
+				// List active sessions
+				r.Get("/", h.handleListSessions)
+				// Revoke all other sessions
+				r.Delete("/", h.handleRevokeOtherSessions)
+				// Revoke single session
+				r.Delete("/{id}", h.handleRevokeSession)
+			})
+		})
+
+		// API Keys (machine identities)
+		r.Route("/api-keys", func(r chi.Router) {
+			// Create: admin or analyst
+			r.With(auth.RequireRole(auth.RoleAdmin, auth.RoleAnalyst)).
+				Post("/", h.handleCreateAPIKey)
+			// List: any authenticated user (sees own)
+			r.Get("/", h.handleListAPIKeys)
+			// Delete: own key OR admin — enforced inside handler
+			r.Delete("/{id}", h.handleRevokeAPIKey)
+		})
+
+		// Users (admin only)
+		r.Route("/users", func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/", h.handleListUsers)
+			r.Post("/", h.handleCreateUser)
+		})
+
+		// Apps (admin only)
+		r.Route("/apps", func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/", h.handleListApps)
+			r.Post("/", h.handleCreateApp)
+			r.Get("/{id}/key", h.handleGetAppKey)
+			r.Post("/{id}/key/rotate", h.handleRotateAppKey)
+		})
+
+		// Audit (admin only)
+		r.Route("/audit", func(r chi.Router) {
+			r.Use(auth.RequireRole(auth.RoleAdmin))
+			r.Get("/", h.handleListAuditLog)
+		})
+	})
 }
 
 // QueryResponse is the JSON response for GET /v1/signals.
@@ -162,14 +291,8 @@ func (h *QueryHandler) handleGetSignals(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Parse query parameters
+	// app_id is optional; omitting it returns signals across all apps (admin use)
 	appID := r.URL.Query().Get("app_id")
-	if appID == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "app_id is required"})
-		h.log.Warn("query missing app_id")
-		return
-	}
 
 	// Layer: optional, 0 means no filter
 	var layer int32 = 0
@@ -347,8 +470,8 @@ type SchemaResponse struct {
 	Columns []SchemaColumn `json:"columns"`
 }
 
-// handleGetSignalSchema handles GET /v1/schema/signals and returns the signal table schema.
-func (h *QueryHandler) handleGetSignalSchema(w http.ResponseWriter, r *http.Request) {
+// HandleGetSignalSchema handles GET /v1/schema/signals and returns the signal table schema.
+func (h *QueryHandler) HandleGetSignalSchema(w http.ResponseWriter, r *http.Request) {
 	schema := SchemaResponse{
 		Columns: []SchemaColumn{
 			// Identity
@@ -591,15 +714,15 @@ SELECT
     provider_name, provider_model,
     related_signals, incident_id, session_id, conversation_id, user_id,
     data_classification, retention_policy, pii_detected,
-    ctx_l1_cpu_percent, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
+    ctx_l1_cpu_usage_pct, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
     ctx_l2_model_id, ctx_l2_model_hash, ctx_l2_quantization,
-    ctx_l3_input_token_count, ctx_l3_output_token_count, ctx_l3_truncated,
-    ctx_l4_attention_entropy, ctx_l4_kv_cache_hit_rate,
-    ctx_l5_mean_logprob, ctx_l5_top_logprob, ctx_l5_finish_reason,
+    ctx_l3_input_tokens, ctx_l3_output_tokens, ctx_l3_truncated,
+    ctx_l4_attention_entropy_mean, ctx_l4_kv_cache_hit_rate,
+    ctx_l5_mean_logprob, ctx_l5_min_logprob, ctx_l5_finish_reason,
     ctx_l6_safety_score, ctx_l6_policy_violated, ctx_l6_action_taken,
-    ctx_l7_query_text, ctx_l7_retrieved_count, ctx_l7_top_score, ctx_l7_collection_name,
-    ctx_l8_tool_name, ctx_l8_tool_input_hash, ctx_l8_agent_step,
-    ctx_l9_method, ctx_l9_path, ctx_l9_status_code, ctx_l9_latency_ms,
+    ctx_l7_query_text, ctx_l7_results_count, ctx_l7_reranker_score, ctx_l7_index_name,
+    ctx_l8_tool_name, toNullable(NULL) AS ctx_l8_tool_input_hash, ctx_l8_step_number,
+    ctx_l9_method, ctx_l9_path, toString(ctx_l9_status_code), ctx_l9_latency_ms,
     ctx_l10_event_type, ctx_l10_component,
     enrich_baseline_deviation, enrich_geoip_country, enrich_geoip_city, enrich_threat_intel_hit
 FROM signals FINAL
@@ -943,20 +1066,24 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 		columns[i] = ct.Name()
 	}
 
-	// Scan all rows into map[string]interface{} objects
+	// Scan all rows into map[string]interface{} objects.
+	// ClickHouse Go v2 native driver requires concrete typed destinations — scanning
+	// into *interface{} fails silently. Use reflect to allocate the correct type per column.
 	var resultRows []map[string]interface{}
 	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		ptrs := make([]interface{}, len(columns))
-		for i := range values {
-			ptrs[i] = &values[i]
+		// Allocate a typed pointer for each column using its ScanType (from driver metadata).
+		ptrs := make([]interface{}, len(colTypes))
+		for i, ct := range colTypes {
+			ptrs[i] = reflect.New(ct.ScanType()).Interface()
 		}
 		if err := rows.Scan(ptrs...); err != nil {
+			h.log.Warn("query row scan failed", zap.Error(err))
 			continue
 		}
 		row := make(map[string]interface{}, len(columns))
 		for i, col := range columns {
-			row[col] = values[i]
+			// Dereference the pointer to get the concrete value.
+			row[col] = reflect.ValueOf(ptrs[i]).Elem().Interface()
 		}
 		resultRows = append(resultRows, row)
 	}
@@ -984,7 +1111,7 @@ func (h *QueryHandler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 // Uses FINAL modifier for ReplacingMergeTree deduplication.
 // Returns the query string and the slice of clickhouse.Named args to pass to Query().
 func buildSignalQuery(appID string, layer int32, category string, severity int32, startTs, endTs, cursorTs *time.Time, cursorID string, limit int64) (string, []interface{}) {
-	// Base query with FINAL for dedup. app_id is always required and uses a named param.
+	// Base query with FINAL for dedup.
 	query := `
 SELECT
 	signal_id, trace_id, span_id, parent_span_id,
@@ -994,21 +1121,27 @@ SELECT
 	provider_name, provider_model,
 	related_signals, incident_id, session_id, conversation_id, user_id,
 	data_classification, retention_policy, pii_detected,
-	ctx_l1_cpu_percent, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
+	ctx_l1_cpu_usage_pct, ctx_l1_memory_used_mb, ctx_l1_gpu_utilization_pct,
 	ctx_l2_model_id, ctx_l2_model_hash, ctx_l2_quantization,
-	ctx_l3_input_token_count, ctx_l3_output_token_count, ctx_l3_truncated,
-	ctx_l4_attention_entropy, ctx_l4_kv_cache_hit_rate,
-	ctx_l5_mean_logprob, ctx_l5_top_logprob, ctx_l5_finish_reason,
+	ctx_l3_input_tokens, ctx_l3_output_tokens, ctx_l3_truncated,
+	ctx_l4_attention_entropy_mean, ctx_l4_kv_cache_hit_rate,
+	ctx_l5_mean_logprob, ctx_l5_min_logprob, ctx_l5_finish_reason,
 	ctx_l6_safety_score, ctx_l6_policy_violated, ctx_l6_action_taken,
-	ctx_l7_query_text, ctx_l7_retrieved_count, ctx_l7_top_score, ctx_l7_collection_name,
-	ctx_l8_tool_name, ctx_l8_tool_input_hash, ctx_l8_agent_step,
-	ctx_l9_method, ctx_l9_path, ctx_l9_status_code, ctx_l9_latency_ms,
+	ctx_l7_query_text, ctx_l7_results_count, ctx_l7_reranker_score, ctx_l7_index_name,
+	ctx_l8_tool_name, toNullable(NULL) AS ctx_l8_tool_input_hash, ctx_l8_step_number,
+	ctx_l9_method, ctx_l9_path, toString(ctx_l9_status_code), ctx_l9_latency_ms,
 	ctx_l10_event_type, ctx_l10_component,
 	enrich_baseline_deviation, enrich_geoip_country, enrich_geoip_city, enrich_threat_intel_hit
 FROM signals FINAL
-WHERE app_id = {app_id:String}`
+WHERE 1=1`
 
-	args := []interface{}{clickhouse.Named("app_id", appID)}
+	args := []interface{}{}
+
+	// app_id filter is optional; omitting returns all apps (admin/dashboard use)
+	if appID != "" {
+		query += ` AND app_id = {app_id:String}`
+		args = append(args, clickhouse.Named("app_id", appID))
+	}
 
 	// Numeric params (layer, severity) are safe to interpolate — parsed from integers, no user string injection.
 	if layer > 0 {
@@ -1024,19 +1157,20 @@ WHERE app_id = {app_id:String}`
 		query += ` AND severity >= ` + strconv.FormatInt(int64(severity), 10)
 	}
 
-	// Timestamps are server-generated RFC3339Nano strings — not user-supplied raw strings.
+	// Timestamps: use parseDateTime64BestEffort (note capital T — the original code
+	// had a case typo: parseDatetime64BestEffort). Values are server-generated RFC3339
+	// strings, not user input, so string interpolation is safe here.
 	if startTs != nil {
-		query += ` AND timestamp >= parseDatetime64BestEffort('` + startTs.Format(time.RFC3339Nano) + `')`
+		query += ` AND timestamp >= parseDateTime64BestEffort('` + startTs.UTC().Format(time.RFC3339Nano) + `')`
 	}
 
 	if endTs != nil {
-		query += ` AND timestamp <= parseDatetime64BestEffort('` + endTs.Format(time.RFC3339Nano) + `')`
+		query += ` AND timestamp <= parseDateTime64BestEffort('` + endTs.UTC().Format(time.RFC3339Nano) + `')`
 	}
 
 	// Keyset pagination: (timestamp, signal_id) > (last_ts, last_id).
-	// cursorID is user-supplied and uses a named param; cursorTs is server-formatted.
 	if cursorTs != nil && cursorID != "" {
-		query += ` AND (timestamp, signal_id) > (parseDatetime64BestEffort('` + cursorTs.Format(time.RFC3339Nano) + `'), {cursor_id:String})`
+		query += ` AND (timestamp, signal_id) > (parseDateTime64BestEffort('` + cursorTs.UTC().Format(time.RFC3339Nano) + `'), {cursor_id:String})`
 		args = append(args, clickhouse.Named("cursor_id", cursorID))
 	}
 
@@ -1046,4 +1180,43 @@ ORDER BY timestamp ASC, signal_id ASC
 LIMIT ` + strconv.FormatInt(limit, 10)
 
 	return query, args
+}
+
+// clientIP extracts the client IP from the request, handling X-Forwarded-For and X-Real-IP headers.
+func clientIP(r *http.Request) string {
+	var ip string
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		ip = xff
+	} else if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		ip = xri
+	} else {
+		ip = r.RemoteAddr
+	}
+
+	// Safeguard against empty IP
+	if len(ip) == 0 {
+		return ""
+	}
+
+	// For X-Forwarded-For which can have multiple IPs, take the first one
+	if idx := strings.Index(ip, ","); idx >= 0 {
+		ip = strings.TrimSpace(ip[:idx])
+	}
+
+	// Strip port from IP:port format
+	if idx := strings.LastIndex(ip, ":"); idx > 0 {
+		// Check if it's IPv6 (has multiple colons)
+		if strings.Count(ip, ":") > 1 {
+			// IPv6 address in brackets like [::1]:port, strip port
+			if ip[0] == '[' && idx > 1 {
+				return ip[1 : idx-1]
+			}
+			// IPv6 without brackets, return as-is
+			return ip
+		}
+		// IPv4 with port
+		return ip[:idx]
+	}
+
+	return ip
 }

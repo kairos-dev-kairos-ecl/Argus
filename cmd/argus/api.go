@@ -21,6 +21,8 @@ import (
 	"github.com/argusxdr/argus/internal/kairos"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/argusxdr/argus/internal/notify"
+	"github.com/argusxdr/argus/internal/resilience"
+	"github.com/argusxdr/argus/internal/secrets"
 	"github.com/argusxdr/argus/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -91,6 +93,24 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	}
 	defer log.Sync()
 
+	// Initialize secrets store (optional but preferred)
+	// If ARGUS_SECRETS_FILE is set or ./argus.key exists, load it.
+	// Otherwise fall back to env-var-only mode.
+	secretsFile := os.Getenv("ARGUS_SECRETS_FILE")
+	if secretsFile == "" {
+		if _, err := os.Stat("./argus.key"); err == nil {
+			secretsFile = "./argus.key"
+		}
+	}
+	if secretsFile != "" {
+		if store, err := secrets.NewStore(secretsFile, nil); err == nil {
+			secrets.SetStore(store)
+			log.Info("secrets store initialized", zap.String("file", secretsFile))
+		} else {
+			log.Warn("secrets file configured but unloadable; falling back to env vars", zap.Error(err))
+		}
+	}
+
 	log.Info("starting Argus query API subsystem")
 
 	// Connect to ClickHouse — non-fatal (P3: graceful degradation)
@@ -146,6 +166,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 			auditStore := auth.NewPgAuditStore(pgPool)
 			auditLogger := auth.NewAuditLogger(auditStore)
 			userSvc := auth.NewUserService(userStore)
+			apiKeyStore := auth.NewPgAPIKeyStore(pgPool)
 			tokenMgr := auth.NewTokenManager(auth.TokenConfig{
 				PrivateKey: privateKey,
 				PublicKey:  publicKey,
@@ -158,6 +179,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 				TokenMgr:     tokenMgr,
 				AuditLog:     auditLogger,
 				SessionStore: sessionStore,
+				APIKeyStore:  apiKeyStore,
 			}
 			log.Info("auth subsystem initialized")
 		}
@@ -319,6 +341,29 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 
+	// CORS middleware for development (allow localhost:5173)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Allow requests from localhost:5173 (Vite dev server)
+			origin := r.Header.Get("Origin")
+			if origin == "http://localhost:5173" || origin == "http://127.0.0.1:5173" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Max-Age", "3600")
+			}
+
+			// Handle preflight requests
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	// Auth middleware on protected routes
 	if authSvc != nil {
 		r.Use(func(next http.Handler) http.Handler {
@@ -328,14 +373,20 @@ func runAPI(cmd *cobra.Command, args []string) error {
 				AuditLogger:  authSvc.AuditLog,
 				Logger:       log,
 				ExcludedPaths: map[string]bool{
-					"/health":              true,
-					"/metrics":             true,
-					"/api/v1/auth/login":   true,
-					"/api/v1/auth/refresh": true,
-					"/api/v1/auth/setup":   true,
-					"/v1/signals":          true,
-					"/v1/signals/stream":   true,
-					"/v1/schema/signals":   true,
+					// Health and observability (always public)
+					"/health":    true,
+					"/metrics":   true,
+					// Setup endpoint (public until first admin created)
+					"/api/v1/setup": true,
+					// Unauthenticated auth entry points
+					"/api/v1/auth/login":        true,
+					"/api/v1/auth/refresh":      true,
+					"/api/v1/auth/mfa/challenge": true,
+					"/api/v1/auth/csrf-token":   true,
+					// Signal ingest (protected by API key, not JWT)
+					"/v1/signals":        true,
+					"/v1/signals/stream": true,
+					"/v1/schema/signals": true,
 				},
 			})(next)
 		})
@@ -346,6 +397,13 @@ func runAPI(cmd *cobra.Command, args []string) error {
 
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
+
+	// Wire rate limiter to query handler if Redis is available
+	if redisClient != nil {
+		rl := resilience.NewRedisRateLimiter(redisClient)
+		queryHandler.SetRateLimiter(rl)
+		log.Info("rate limiter wired to query handler")
+	}
 
 	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
 	queryHandler.RegisterRoutes(r)
@@ -402,6 +460,33 @@ func runAPI(cmd *cobra.Command, args []string) error {
 
 		// Create HTTP receiver for signal ingest
 		httpReceiver := ingest.NewHTTPReceiver(queue, authValidator, ingestMetrics, broadcaster, log)
+
+		// Create API key store for signal ingest protection
+		var apiKeyStore auth.ApiKeyStore
+		if pgPool != nil {
+			apiKeyStore = auth.NewPgAPIKeyStore(pgPool)
+			httpReceiver.SetAPIKeyStore(apiKeyStore)
+
+			// Create token bucket rate limiter for signal ingest (per API key)
+			ingestLimiter := resilience.NewAPIKeyTokenBucketLimiter(10000, 100)
+
+			// Mount API key middleware on signal ingest endpoints
+			// Routes requiring signals:write scope
+			r.Route("/v1", func(r chi.Router) {
+				r.Group(func(r chi.Router) {
+					r.Use(auth.APIKeyMiddleware(apiKeyStore, "signals:write"))
+					r.Use(ingestLimiter.Middleware()) // Rate limit after auth
+					r.Post("/signals", httpReceiver.HandlePostSignals)
+				})
+				// Route requiring signals:read scope
+				r.Group(func(r chi.Router) {
+					r.Use(auth.APIKeyMiddleware(apiKeyStore, "signals:read"))
+					r.Get("/schema/signals", queryHandler.HandleGetSignalSchema)
+				})
+			})
+		}
+
+		// Register HTTP receiver routes (skips /v1/signals if apiKeyStore is set)
 		httpReceiver.RegisterRoutes(r)
 
 		// Register ingest metrics endpoint

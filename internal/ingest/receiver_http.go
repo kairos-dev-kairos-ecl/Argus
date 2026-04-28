@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/argusxdr/argus/gen/go/argus/v1"
+	"github.com/argusxdr/argus/internal/auth"
 	"github.com/argusxdr/argus/internal/metrics"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -18,38 +19,48 @@ import (
 
 // HTTPReceiver implements HTTP handlers for signal ingestion.
 type HTTPReceiver struct {
-	queue       *Queue
-	auth        *AuthValidator
-	metrics     *metrics.Ingest
-	log         *zap.Logger
-	broadcaster *SignalBroadcaster
+	queue        *Queue
+	authValidator *AuthValidator
+	metrics      *metrics.Ingest
+	log          *zap.Logger
+	broadcaster  *SignalBroadcaster
+	apiKeyStore  auth.ApiKeyStore // optional: if provided, replaces auth middleware
 }
 
 // NewHTTPReceiver creates a new HTTP ingest receiver.
-func NewHTTPReceiver(queue *Queue, auth *AuthValidator, metrics *metrics.Ingest, broadcaster *SignalBroadcaster, log *zap.Logger) *HTTPReceiver {
+func NewHTTPReceiver(queue *Queue, authValidator *AuthValidator, metrics *metrics.Ingest, broadcaster *SignalBroadcaster, log *zap.Logger) *HTTPReceiver {
 	if log == nil {
 		log = zap.NewNop()
 	}
 	return &HTTPReceiver{
-		queue:       queue,
-		auth:        auth,
-		metrics:     metrics,
-		broadcaster: broadcaster,
-		log:         log,
+		queue:         queue,
+		authValidator: authValidator,
+		metrics:       metrics,
+		broadcaster:   broadcaster,
+		log:           log,
 	}
 }
 
-// RegisterRoutes mounts HTTP receiver routes onto the chi mux.
-// All routes are protected by auth middleware.
-func (r *HTTPReceiver) RegisterRoutes(mux *chi.Mux) {
-	// Wrap handler with auth middleware
-	wrappedHandler := r.auth.HTTPMiddleware()(http.HandlerFunc(r.handlePostSignals))
-	mux.Post("/v1/signals", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		wrappedHandler.ServeHTTP(w, req)
-	}))
+// SetAPIKeyStore sets the API key store for API key authentication.
+// If set, APIKeyMiddleware is used instead of the legacy auth middleware.
+func (r *HTTPReceiver) SetAPIKeyStore(store auth.ApiKeyStore) {
+	r.apiKeyStore = store
 }
 
-// handlePostSignals handles POST /v1/signals.
+// RegisterRoutes mounts HTTP receiver routes onto the chi mux.
+// If apiKeyStore is set, the route is not registered here (it's handled via APIKeyMiddleware in api.go).
+// Otherwise, use legacy auth middleware for backward compatibility.
+func (r *HTTPReceiver) RegisterRoutes(mux *chi.Mux) {
+	// Only register if API key middleware is not being used (backward compatibility)
+	if r.apiKeyStore == nil && r.authValidator != nil {
+		wrappedHandler := r.authValidator.HTTPMiddleware()(http.HandlerFunc(r.HandlePostSignals))
+		mux.Post("/v1/signals", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			wrappedHandler.ServeHTTP(w, req)
+		}))
+	}
+}
+
+// HandlePostSignals handles POST /v1/signals and accepts signal ingestion requests.
 //
 // Request body (Content-Type: application/json):
 //   Single signal:  { "signal_id": "...", "layer": "L5_OUTPUT_DECODING", ... }
@@ -65,7 +76,7 @@ func (r *HTTPReceiver) RegisterRoutes(mux *chi.Mux) {
 //   { "error": "ingest queue full", "retry_after": 1 }
 //
 // Body size limit: 4MB (chi middleware r.Body = http.MaxBytesReader(w, r.Body, 4<<20))
-func (r *HTTPReceiver) handlePostSignals(w http.ResponseWriter, req *http.Request) {
+func (r *HTTPReceiver) HandlePostSignals(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	startTime := time.Now()
 

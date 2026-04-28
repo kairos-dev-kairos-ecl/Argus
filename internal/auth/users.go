@@ -12,24 +12,26 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID                uuid.UUID
-	Email             string
-	DisplayName       string
-	Role              string
-	Status            string
-	PasswordHash      string
-	PasswordChangedAt *time.Time
-	LastLoginAt       *time.Time
-	LastLoginIP       *string
-	FailedLoginCount  int
-	LockedUntil       *time.Time
-	CreatedBy         *uuid.UUID
-	InvitedAt         *time.Time
-	MFASecret         *string
-	ExternalProvider  *string
-	ExternalID        *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                   uuid.UUID
+	Email                string
+	DisplayName          string
+	Role                 string
+	Status               string
+	PasswordHash         string
+	PasswordChangedAt    *time.Time
+	LastLoginAt          *time.Time
+	LastLoginIP          *string
+	FailedLoginCount     int
+	LockedUntil          *time.Time
+	CreatedBy            *uuid.UUID
+	InvitedAt            *time.Time
+	MFASecret            *string
+	MFAEnabled           bool
+	MFASecretEncrypted   *string
+	ExternalProvider     *string
+	ExternalID           *string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // UserStore defines the interface for user persistence
@@ -154,6 +156,10 @@ func (us *UserService) AuthenticateUser(ctx context.Context, email, password, ip
 			return nil, fmt.Errorf("invalid credentials")
 		}
 		return nil, fmt.Errorf("authentication error: %w", err)
+	}
+	// pgx returns nil, nil when no rows match — treat as invalid credentials
+	if user == nil {
+		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// Check if user is locked

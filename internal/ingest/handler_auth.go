@@ -3,6 +3,7 @@ package ingest
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/argusxdr/argus/internal/auth"
@@ -18,7 +19,8 @@ type AuthService struct {
 	SessionMgr   *auth.SessionManager
 	TokenMgr     *auth.TokenManager
 	AuditLog     *auth.AuditLogger    // audit logging
-	SessionStore *auth.PgSessionStore
+	SessionStore auth.SessionStore     // SessionStore interface for session management
+	APIKeyStore  auth.ApiKeyStore     // API key store for machine identities
 }
 
 // ---- request/response types ----
@@ -103,26 +105,43 @@ func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.authService.UserSvc.AuthenticateUser(r.Context(), req.Email, req.Password, getIP(r))
 	if err != nil {
-		jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		errMsg := err.Error()
+		switch {
+		case strings.HasPrefix(errMsg, "account locked"):
+			jsonError(w, errMsg, http.StatusUnauthorized)
+		case strings.HasPrefix(errMsg, "account is"):
+			jsonError(w, errMsg, http.StatusForbidden)
+		default:
+			jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		}
 		return
 	}
 
-	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
-	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
-		user.ID, user.Email, user.DisplayName, user.Role, perms,
-	)
-	if err != nil {
-		h.log.Error("failed to issue access token", zap.Error(err))
-		jsonError(w, "internal error", http.StatusInternalServerError)
+	// If MFA is enabled, issue an MFA token instead of full access token
+	if user.MFAEnabled {
+		mfaToken, err := h.authService.TokenMgr.IssueMFAToken(user.ID)
+		if err != nil {
+			h.log.Error("failed to issue MFA token", zap.Error(err))
+			jsonError(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(map[string]any{
+			"mfa_required": true,
+			"mfa_token":    mfaToken,
+		})
 		return
 	}
 
+	// Create session first so we can embed the session_id in the JWT
+	var sessionID string
 	refreshToken, sessionID, err := h.authService.SessionMgr.CreateSession(
 		r.Context(), user.ID, r.UserAgent(), getIP(r),
 	)
 	if err != nil {
 		h.log.Warn("failed to create session", zap.Error(err))
-		// Non-fatal: still return access token
+		// Non-fatal: continue with empty session ID
 	} else if h.authService.SessionStore != nil {
 		now := time.Now()
 		sess := &auth.Session{
@@ -148,6 +167,16 @@ func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   int((7 * 24 * time.Hour).Seconds()),
 		})
+	}
+
+	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
+	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
+		user.ID, user.Email, user.DisplayName, user.Role, perms, sessionID,
+	)
+	if err != nil {
+		h.log.Error("failed to issue access token", zap.Error(err))
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 
 	if h.authService.AuditLog != nil {
@@ -210,7 +239,7 @@ func (h *QueryHandler) handleRefreshToken(w http.ResponseWriter, r *http.Request
 
 	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
 	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
-		user.ID, user.Email, user.DisplayName, user.Role, perms,
+		user.ID, user.Email, user.DisplayName, user.Role, perms, sess.ID,
 	)
 	if err != nil {
 		jsonError(w, "internal error", http.StatusInternalServerError)
@@ -321,6 +350,42 @@ func countChar(s string, c byte) int {
 		}
 	}
 	return count
+}
+
+func (h *QueryHandler) handleCSRFToken(w http.ResponseWriter, r *http.Request) {
+	// This handler is called AFTER CSRFMiddleware has set the cookie and header
+	// Extract the csrf_token cookie or generate one if absent
+	cookie, err := r.Cookie("csrf_token")
+	var tokenValue string
+
+	if err != nil || cookie.Value == "" {
+		// Generate new token
+		token, err := auth.GenerateCSRFToken()
+		if err != nil {
+			jsonError(w, "csrf token generation failed", http.StatusInternalServerError)
+			return
+		}
+		tokenValue = token
+
+		// Set cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     "csrf_token",
+			Value:    tokenValue,
+			Path:     "/api/v1/auth",
+			HttpOnly: false,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   12 * 3600,
+		})
+	} else {
+		tokenValue = cookie.Value
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"csrf_token": tokenValue,
+	})
 }
 
 func hashTokenStr(token string) string {

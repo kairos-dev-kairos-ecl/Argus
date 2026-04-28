@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +18,11 @@ const (
 	// ContextKeyUser is the context key for storing the authenticated user claims
 	ContextKeyUser = "user"
 )
+
+// claimsKey is the private type used to avoid collisions on context.Context.
+type contextKey string
+
+const claimsKey contextKey = "argus_claims"
 
 // MiddlewareConfig holds configuration for auth middleware
 type MiddlewareConfig struct {
@@ -39,6 +45,12 @@ type SessionStore interface {
 	RevokeSession(ctx context.Context, sessionID string) error
 	// CheckTokenRevocation checks if a token hash is revoked
 	CheckTokenRevocation(ctx context.Context, tokenHash string) (bool, error)
+	// CreateSession inserts a new session
+	CreateSession(ctx context.Context, sess *Session) error
+	// UpdateSessionHash updates the refresh token hash (rotation)
+	UpdateSessionHash(ctx context.Context, sessionID, newHash string) error
+	// RevokeTokenHash adds a token hash to the revocation list
+	RevokeTokenHash(ctx context.Context, tokenHash string, expiresAt time.Time) error
 }
 
 // Session represents a user session
@@ -128,6 +140,8 @@ func AuthMiddleware(cfg MiddlewareConfig) func(next http.Handler) http.Handler {
 
 								// Update context with new claims and continue
 								ctx := context.WithValue(r.Context(), ContextKeyUser, claims)
+								// Also add to the new claimsKey for context extractors
+								ctx = context.WithValue(ctx, claimsKey, claims)
 								next.ServeHTTP(w, r.WithContext(ctx))
 								return
 							}
@@ -162,6 +176,8 @@ func AuthMiddleware(cfg MiddlewareConfig) func(next http.Handler) http.Handler {
 
 			// Token is valid, add to context and continue
 			ctx := context.WithValue(r.Context(), ContextKeyUser, claims)
+			// Also add to the new claimsKey for context extractors
+			ctx = context.WithValue(ctx, claimsKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -250,3 +266,53 @@ func HashToken(token string) string { return hashToken(token) }
 
 // currentUnixTime returns the current time as a Unix timestamp.
 func currentUnixTime() int64 { return time.Now().Unix() }
+
+// RequireAuth builds a standard chi/http middleware that validates the JWT,
+// loads the session via SessionStore, emits audit events, and injects *Claims
+// into the request context under claimsKey. It is a thin wrapper around the
+// existing AuthMiddleware config struct with ExcludedPaths left empty (the
+// outer router is responsible for attaching this only on protected subtrees).
+func RequireAuth(tm *TokenManager, ss SessionStore, al *AuditLogger, log *zap.Logger) func(http.Handler) http.Handler {
+	cfg := MiddlewareConfig{
+		TokenManager:    tm,
+		SessionStore:    ss,
+		AuditLogger:     al,
+		Logger:          log,
+		ExcludedPaths:   nil, // outer router decides what is protected
+		AllowRefreshOnly: false,
+	}
+	return AuthMiddleware(cfg)
+}
+
+// ClaimsFromContext retrieves Claims from a plain context.Context.
+// Returns (nil, false) if no claims are in the context.
+func ClaimsFromContext(ctx context.Context) (*Claims, bool) {
+	c, ok := ctx.Value(claimsKey).(*Claims)
+	return c, ok && c != nil
+}
+
+// UserIDFromContext retrieves the user ID from context.
+// Returns (uuid.Nil, false) if no claims are in the context.
+func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
+	c, ok := ClaimsFromContext(ctx)
+	if !ok {
+		return uuid.Nil, false
+	}
+	return c.UserID, true
+}
+
+// SessionIDFromContext retrieves the session ID from context.
+// Returns ("", false) if no claims or session ID are in the context.
+func SessionIDFromContext(ctx context.Context) (string, bool) {
+	c, ok := ClaimsFromContext(ctx)
+	if !ok || c.SessionID == "" {
+		return "", false
+	}
+	return c.SessionID, true
+}
+
+// ContextWithClaims is a test helper that injects claims into a context
+// using the internal claimsKey so that UserIDFromContext and SessionIDFromContext work.
+func ContextWithClaims(ctx context.Context, claims *Claims) context.Context {
+	return context.WithValue(ctx, claimsKey, claims)
+}

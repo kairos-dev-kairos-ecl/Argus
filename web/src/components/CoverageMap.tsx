@@ -1,27 +1,21 @@
-import { useLayerStore } from '../stores/layer'
-import { useCoverageMap } from '../hooks/useCoverageMap'
 import { LayerStatusCell } from './LayerStatusCell'
+import type { LayerStatus } from '../types'
+
+interface CoverageMapProps {
+  layerStatus: LayerStatus[]
+}
 
 /**
  * CoverageMap Component
  *
  * Displays the health status of all 10 layers (L1-L10) in a grid.
- * Each cell shows:
- * - Layer name and status color (green/yellow/gray/red)
- * - Last signal timestamp
- * - Signal count in last 5 minutes
- * - Error messages if present
- *
- * Updates layer status every 30 seconds via the useCoverageMap hook.
- *
- * Layout: 5 columns × 2 rows to display all 10 layers
+ * Receives layerStatus as a prop from DashboardPage (computed by useSignalStream)
+ * rather than reading from the layerStore — avoids the update loop caused by
+ * syncing derived data back into a store during render.
  */
-export const CoverageMap: React.FC = () => {
-  const { statuses } = useLayerStore()
-  useCoverageMap() // Initialize polling
-
+export const CoverageMap: React.FC<CoverageMapProps> = ({ layerStatus }) => {
   // Sort layers for consistent display order
-  const sortedLayers = Object.entries(statuses).sort(([a], [b]) => a.localeCompare(b))
+  const sortedLayers = [...layerStatus].sort((a, b) => a.layer.localeCompare(b.layer))
 
   return (
     <div className="p-4 bg-muted-background rounded-lg border border-border">
@@ -30,10 +24,10 @@ export const CoverageMap: React.FC = () => {
 
       {/* Grid of layer status cells - responsive: 1 col (mobile) → 2 col (sm) → 3 col (md) → 5 col (lg+) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {sortedLayers.map(([layer, status]) => (
+        {sortedLayers.map((status) => (
           <LayerStatusCell
-            key={layer}
-            layer={layer as Parameters<typeof LayerStatusCell>[0]['layer']}
+            key={status.layer}
+            layer={status.layer}
             status={status}
           />
         ))}

@@ -211,7 +211,14 @@
       "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" state record-metric --phase \"04-detection-engine\" --plan \"07\" --duration 20 --tasks 2 --files 3)",
       "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" state record-session --stopped-at \"Completed 04-07-PLAN.md\")",
       "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" requirements mark-complete D-01 D-03 D-04 D-05 D-06 D-07 D-09 D-13 D-18 D-19)",
-      "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" state add-decision --phase \"04-detection-engine\" --summary \"Integration tests use external test packages and real infra \\(PG+Redis\\) to prove detection pipeline correctness without ClickHouse dependency\")"
+      "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" state add-decision --phase \"04-detection-engine\" --summary \"Integration tests use external test packages and real infra \\(PG+Redis\\) to prove detection pipeline correctness without ClickHouse dependency\")",
+      "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" phase complete 04)",
+      "Bash(node \"C:/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" init execute-phase \"05-dashboard-integration\")",
+      "Bash(npm list *)",
+      "Bash(node .claude/get-shit-done/bin/gsd-tools.cjs init execute-phase \"05-dashboard-integration/05-PLAN.md\")",
+      "Bash(node \"/c/Users/Drupad/.claude/get-shit-done/bin/gsd-tools.cjs\" init execute-phase)",
+      "Bash(chmod +x /tmp/full_stack_test.sh)",
+      "Bash(bash /tmp/full_stack_test.sh)"
     ]
   }
 }
