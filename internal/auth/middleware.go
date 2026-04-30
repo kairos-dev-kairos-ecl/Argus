@@ -26,13 +26,14 @@ const claimsKey contextKey = "argus_claims"
 
 // MiddlewareConfig holds configuration for auth middleware
 type MiddlewareConfig struct {
-	TokenManager     *TokenManager
-	AuditLogger      *AuditLogger
-	SessionStore     SessionStore
-	RefreshURL       string
-	Logger           *zap.Logger
-	ExcludedPaths    map[string]bool
-	AllowRefreshOnly bool
+	TokenManager        *TokenManager
+	AuditLogger         *AuditLogger
+	SessionStore        SessionStore
+	RefreshURL          string
+	Logger              *zap.Logger
+	ExcludedPaths       map[string]bool
+	ExcludedPrefixes    []string // path prefix exclusions for parameterised routes
+	AllowRefreshOnly    bool
 }
 
 // SessionStore defines the interface for session persistence
@@ -70,10 +71,17 @@ type Session struct {
 func AuthMiddleware(cfg MiddlewareConfig) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Check if path is excluded
+			// Check if path is excluded (exact match)
 			if cfg.ExcludedPaths != nil && cfg.ExcludedPaths[r.URL.Path] {
 				next.ServeHTTP(w, r)
 				return
+			}
+			// Check if path starts with an excluded prefix (parameterised routes)
+			for _, prefix := range cfg.ExcludedPrefixes {
+				if strings.HasPrefix(r.URL.Path, prefix) {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 
 			// Extract token from Authorization header

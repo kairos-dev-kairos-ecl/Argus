@@ -110,6 +110,11 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 	mux.Get("/v1/signals", h.handleGetSignals)
 	mux.Get("/v1/schema/signals", h.HandleGetSignalSchema)
 
+	// Public: setup status check and invite flow (no JWT required)
+	mux.Get("/api/v1/setup/status", h.handleSetupStatus)
+	mux.Get("/api/v1/invite/{token}", h.handleInviteGet)
+	mux.Post("/api/v1/invite/{token}/accept", h.handleInviteAccept)
+
 	// Protected API routes
 	mux.Route("/api/v1", func(r chi.Router) {
 		// Layer status and traces (require authentication)
@@ -232,6 +237,7 @@ func (h *QueryHandler) RegisterRoutes(mux *chi.Mux) {
 			r.Use(auth.RequireRole(auth.RoleAdmin))
 			r.Get("/", h.handleListUsers)
 			r.Post("/", h.handleCreateUser)
+			r.Post("/invite", h.handleInviteCreate)
 		})
 
 		// Apps (admin only)
