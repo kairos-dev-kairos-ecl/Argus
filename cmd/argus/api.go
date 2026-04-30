@@ -376,8 +376,9 @@ func runAPI(cmd *cobra.Command, args []string) error {
 					// Health and observability (always public)
 					"/health":    true,
 					"/metrics":   true,
-					// Setup endpoint (public until first admin created)
-					"/api/v1/setup": true,
+					// Setup status check + setup endpoint (public until first admin created)
+					"/api/v1/setup/status": true,
+					"/api/v1/setup":        true,
 					// Unauthenticated auth entry points
 					"/api/v1/auth/login":        true,
 					"/api/v1/auth/refresh":      true,
@@ -387,6 +388,10 @@ func runAPI(cmd *cobra.Command, args []string) error {
 					"/v1/signals":        true,
 					"/v1/signals/stream": true,
 					"/v1/schema/signals": true,
+				},
+				// Invite routes have path parameters — use prefix exclusion
+				ExcludedPrefixes: []string{
+					"/api/v1/invite/",
 				},
 			})(next)
 		})

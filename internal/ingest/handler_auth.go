@@ -2,11 +2,13 @@ package ingest
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/argusxdr/argus/internal/auth"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -46,6 +48,24 @@ type setupRequest struct {
 
 // ---- handlers ----
 
+// handleSetupStatus reports whether first-run setup is still required.
+// GET /api/v1/setup/status — public, no auth required.
+func (h *QueryHandler) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
+	if !h.authAvailable() {
+		// No auth service means we can't check — treat as setup not required
+		writeJSON(w, map[string]bool{"needs_setup": false})
+		return
+	}
+	sm := auth.NewSetupManager(h.authService.UserSvc, h.authService.UserStore)
+	needed, err := sm.IsSetupRequired(r.Context())
+	if err != nil {
+		h.log.Error("setup status check failed", zap.Error(err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]bool{"needs_setup": needed})
+}
+
 func (h *QueryHandler) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if !h.authAvailable() {
 		jsonError(w, "auth service unavailable", http.StatusServiceUnavailable)
@@ -82,9 +102,174 @@ func (h *QueryHandler) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Issue an access token so the user is logged in immediately after setup.
+	var accessToken string
+	if h.authService.TokenMgr != nil && setupResp.User != nil {
+		perms := auth.NewPermissionChecker().GetPermissionsForRole(setupResp.User.Role)
+		accessToken, err = h.authService.TokenMgr.IssueAccessToken(
+			setupResp.User.ID, setupResp.User.Email, setupResp.User.DisplayName,
+			setupResp.User.Role, perms, "",
+		)
+		if err != nil {
+			h.log.Warn("failed to issue access token after setup", zap.Error(err))
+			// Non-fatal: return setup response without token
+		}
+	}
+
+	type setupWithToken struct {
+		User        interface{}            `json:"user"`
+		App         map[string]interface{} `json:"app"`
+		APIKey      string                 `json:"api_key"`
+		AccessToken string                 `json:"access_token,omitempty"`
+		Message     string                 `json:"message"`
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(setupResp)
+	json.NewEncoder(w).Encode(setupWithToken{
+		User:        setupResp.User,
+		App:         setupResp.App,
+		APIKey:      setupResp.APIKey,
+		AccessToken: accessToken,
+		Message:     setupResp.Message,
+	})
+}
+
+// ---- invite handlers ----
+
+type inviteCreateRequest struct {
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
+
+type inviteAcceptRequest struct {
+	DisplayName string `json:"display_name"`
+	Password    string `json:"password"`
+}
+
+// handleInviteCreate creates an invite for a new user.
+// POST /api/v1/users/invite — requires admin JWT.
+func (h *QueryHandler) handleInviteCreate(w http.ResponseWriter, r *http.Request) {
+	if !h.authAvailable() || h.pool == nil {
+		jsonError(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	var req inviteCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+		jsonError(w, "email and role required", http.StatusBadRequest)
+		return
+	}
+	if req.Role == "" {
+		req.Role = "analyst"
+	}
+
+	// Get the inviting admin's ID from the JWT claims in context.
+	callerID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		jsonError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	store := auth.NewPgInviteStore(h.pool)
+	svc := auth.NewInviteService(store, h.authService.UserSvc)
+
+	rawToken, invite, err := svc.CreateInvite(r.Context(), req.Email, req.Role, callerID)
+	if err != nil {
+		h.log.Error("create invite failed", zap.Error(err))
+		jsonError(w, "failed to create invite", http.StatusInternalServerError)
+		return
+	}
+
+	// Build shareable URL using server.base_url config or Host header fallback.
+	baseURL := fmt.Sprintf("http://%s", r.Host)
+	inviteURL := fmt.Sprintf("%s/accept-invite?token=%s", baseURL, rawToken)
+
+	writeJSON(w, map[string]interface{}{
+		"invite_url": inviteURL,
+		"token":      rawToken,
+		"expires_at": invite.ExpiresAt.UTC().Format(time.RFC3339),
+	})
+}
+
+// handleInviteGet validates an invite token and returns the associated email/role.
+// GET /api/v1/invite/{token} — public.
+func (h *QueryHandler) handleInviteGet(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		writeJSON(w, map[string]interface{}{"valid": false, "reason": "service unavailable"})
+		return
+	}
+
+	rawToken := chi.URLParam(r, "token")
+	if rawToken == "" {
+		writeJSON(w, map[string]interface{}{"valid": false, "reason": "missing token"})
+		return
+	}
+
+	store := auth.NewPgInviteStore(h.pool)
+	svc := auth.NewInviteService(store, h.authService.UserSvc)
+
+	invite, err := svc.GetByToken(r.Context(), rawToken)
+	if err != nil {
+		writeJSON(w, map[string]interface{}{"valid": false, "reason": err.Error()})
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"valid": true,
+		"email": invite.Email,
+		"role":  invite.Role,
+	})
+}
+
+// handleInviteAccept completes invite acceptance: creates the user account and issues a JWT.
+// POST /api/v1/invite/{token}/accept — public.
+func (h *QueryHandler) handleInviteAccept(w http.ResponseWriter, r *http.Request) {
+	if !h.authAvailable() || h.pool == nil {
+		jsonError(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	rawToken := chi.URLParam(r, "token")
+	if rawToken == "" {
+		jsonError(w, "missing token", http.StatusBadRequest)
+		return
+	}
+
+	var req inviteAcceptRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.DisplayName == "" || req.Password == "" {
+		jsonError(w, "display_name and password required", http.StatusBadRequest)
+		return
+	}
+
+	store := auth.NewPgInviteStore(h.pool)
+	svc := auth.NewInviteService(store, h.authService.UserSvc)
+
+	user, err := svc.AcceptInvite(r.Context(), rawToken, req.DisplayName, req.Password, nil)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Issue access token so the new user is immediately authenticated.
+	perms := auth.NewPermissionChecker().GetPermissionsForRole(user.Role)
+	accessToken, err := h.authService.TokenMgr.IssueAccessToken(
+		user.ID, user.Email, user.DisplayName, user.Role, perms, "",
+	)
+	if err != nil {
+		h.log.Error("failed to issue access token for invited user", zap.Error(err))
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"access_token": accessToken,
+		"user":         user,
+	})
 }
 
 func (h *QueryHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -390,4 +575,11 @@ func (h *QueryHandler) handleCSRFToken(w http.ResponseWriter, r *http.Request) {
 
 func hashTokenStr(token string) string {
 	return auth.HashToken(token)
+}
+
+// writeJSON serialises v as JSON with 200 OK. Used by handlers that always succeed.
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(v)
 }
