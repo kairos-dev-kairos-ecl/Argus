@@ -14,7 +14,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-26 - Completed Phase 5 Plan 1: Design System Tokens Reset
+> Last activity: 2026-04-30 - Completed quick task 260430-nxf: user onboarding first-run setup + invite flow
 
 ---
 
@@ -115,6 +115,7 @@ progress:
 | 4 | Commit session changes, clean up stale files, update Obsidian docs to reflect current architecture | 2026-04-22 | ac0f054 | 260423-0c1-commit-session-changes-clean-up-stale-fi |
 | 5 | Phase 5 manual validation fixes: Sankey, custom date range, trace discovery, Audit/Sessions/Incidents/API Keys 500s, IAM matrix | 2026-04-27 | 8351126 | (inline) |
 | 6 | Browser console error fixes: audit DTO snake_case, trace query column names, signals datetime filter typo (parseDatetime64→parseDateTime64), settings 401 graceful fallback | 2026-04-28 | bfaf98a, bf74189 | (inline) |
+| 7 | User onboarding first-run setup wizard + invite flow: setup-status endpoint, auto-login after setup, invite migration+service+handlers, rewritten SetupWizard, AcceptInvitePage, UsersPage invite button | 2026-04-30 | 20a44ab, 43fc5e6 | 260430-nxf-implement-user-onboarding-first-run-setu |
 
 ### Plans Completed
 
