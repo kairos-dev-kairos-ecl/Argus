@@ -5,6 +5,7 @@ import { MainLayout } from './layouts/MainLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { SetupWizard } from './pages/SetupWizard'
+import { AcceptInvitePage } from './pages/AcceptInvitePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SignalTopologyPage } from './pages/SignalTopologyPage'
 import { TracePage } from './pages/TracePage'
@@ -94,6 +95,7 @@ function App() {
           {/* ── Public routes (no layout, no auth guard) ── */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/setup" element={<SetupWizard />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
           {/* ── Protected routes (auth guard + app shell) ── */}
           <Route

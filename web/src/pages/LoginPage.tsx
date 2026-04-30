@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 import { fetchCsrfToken } from '../services/csrf';
 import { scrambleText } from '../lib/text-scramble';
+import { checkSetupStatus } from '../services/iam-service';
 
 /**
  * LoginPage — brutalist terminal-style authentication panel (Screen 1 spec).
@@ -24,6 +25,15 @@ export function LoginPage() {
   const [code, setCode] = useState('');
   const [headline, setHeadline] = useState('ARGUS XDR');
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
+
+  // On mount: redirect to /setup if no users have been created yet
+  useEffect(() => {
+    checkSetupStatus()
+      .then(({ needs_setup }) => {
+        if (needs_setup) navigate('/setup', { replace: true });
+      })
+      .catch(() => {}); // fail silently — don't block login if endpoint errors
+  }, [navigate]);
 
   // Pre-fetch CSRF token so it is ready when the form is submitted
   useEffect(() => { fetchCsrfToken().catch(() => {}); }, []);

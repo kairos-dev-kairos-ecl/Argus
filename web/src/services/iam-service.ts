@@ -84,3 +84,44 @@ export const createApiKey   = (name: string)     => call<{ id: string; key: stri
 export const revokeApiKey   = (id: string)       => call<void>(`/api/v1/api-keys/${id}`, 'DELETE');
 export const changePassword = (current: string, next: string) =>
   call<{ changed: true; hibp_breached?: number }>('/api/v1/auth/password', 'POST', { current_password: current, new_password: next });
+
+// ---- Onboarding / invite endpoints (no auth header needed for public ones) ----
+
+async function callPublic<T>(url: string, method: string = 'GET', body?: unknown): Promise<T> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const res = await fetch(url, {
+    method,
+    credentials: 'include',
+    headers: h,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).message ?? `${method} ${url} failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export const checkSetupStatus = (): Promise<{ needs_setup: boolean }> =>
+  callPublic('/api/v1/setup/status');
+
+export const performSetup = (body: {
+  email: string;
+  password: string;
+  display_name: string;
+  instance_name: string;
+  app_name: string;
+}): Promise<{ user: unknown; app: unknown; api_key: string; access_token: string; message: string }> =>
+  callPublic('/api/v1/auth/setup', 'POST', body);
+
+export const getInvite = (token: string): Promise<{ email: string; role: string; valid: boolean; reason?: string }> =>
+  callPublic(`/api/v1/invite/${token}`);
+
+export const acceptInvite = (
+  token: string,
+  body: { display_name: string; password: string },
+): Promise<{ access_token: string; user: unknown }> =>
+  callPublic(`/api/v1/invite/${token}/accept`, 'POST', body);
+
+export const createInvite = (body: { email: string; role: string }): Promise<{ invite_url: string; token: string; expires_at: string }> =>
+  call('/api/v1/users/invite', 'POST', body);
