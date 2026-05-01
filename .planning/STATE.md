@@ -14,7 +14,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-04-30 - Completed quick task 260430-nxf: user onboarding first-run setup + invite flow
+> Last activity: 2026-05-01 - Completed quick task 260501-h8b: backdrop image + clear navigation flow on all auth pages
 
 ---
 
@@ -116,6 +116,7 @@ progress:
 | 5 | Phase 5 manual validation fixes: Sankey, custom date range, trace discovery, Audit/Sessions/Incidents/API Keys 500s, IAM matrix | 2026-04-27 | 8351126 | (inline) |
 | 6 | Browser console error fixes: audit DTO snake_case, trace query column names, signals datetime filter typo (parseDatetime64→parseDateTime64), settings 401 graceful fallback | 2026-04-28 | bfaf98a, bf74189 | (inline) |
 | 7 | User onboarding first-run setup wizard + invite flow: setup-status endpoint, auto-login after setup, invite migration+service+handlers, rewritten SetupWizard, AcceptInvitePage, UsersPage invite button | 2026-04-30 | 20a44ab, 43fc5e6 | 260430-nxf-implement-user-onboarding-first-run-setu |
+| 8 | Backdrop image + clear navigation flow: Login shows 'FIRST TIME SETUP →' and 'HAVE AN INVITE →' links; SetupWizard has '← BACK TO LOGIN'; AcceptInvitePage has '← LOGIN' header link; backdrop.png on all auth pages | 2026-05-01 | 1ae83ff | 260501-h8b-add-backdrop-image-to-login-setup-pages- |
 
 ### Plans Completed
 
