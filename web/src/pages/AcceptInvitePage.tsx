@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { getInvite, acceptInvite } from '../services/iam-service'
+import backdropUrl from '../assets/backdrop.png'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -49,20 +50,20 @@ export function AcceptInvitePage() {
 
   useEffect(() => {
     if (!token) {
-      setInvalidReason('No token provided.')
+      setInvalidReason('No invite token found in URL. Check the link in your invitation email.')
       setValidating(false)
       return
     }
     getInvite(token)
       .then(res => {
         if (!res.valid) {
-          setInvalidReason(res.reason ?? 'Invalid or expired invite link.')
+          setInvalidReason(res.reason ?? 'This invite link is invalid or has expired.')
         } else {
           setInvite({ email: res.email, role: res.role })
         }
       })
       .catch(() => {
-        setInvalidReason('Failed to validate invite link.')
+        setInvalidReason('Could not validate invite link. The server may be unavailable.')
       })
       .finally(() => setValidating(false))
   }, [token])
@@ -107,7 +108,7 @@ export function AcceptInvitePage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--color-background)',
+      position: 'relative',
       color: 'var(--color-text)',
       fontFamily: 'var(--font-mono)',
       display: 'flex',
@@ -115,37 +116,78 @@ export function AcceptInvitePage() {
       justifyContent: 'center',
       padding: '24px',
     }}>
+      {/* Backdrop */}
       <div style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundImage: `url(${backdropUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center right',
+        zIndex: 0,
+      }} />
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(10, 10, 11, 0.82)',
+        zIndex: 1,
+      }} />
+
+      {/* Panel */}
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
         width: '100%',
-        maxWidth: '520px',
+        maxWidth: '480px',
         border: 'var(--border-stark)',
-        background: 'var(--color-surface)',
+        background: 'rgba(10, 10, 11, 0.92)',
+        backdropFilter: 'blur(12px)',
         padding: '32px',
       }}>
-        <div style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '24px',
-          color: 'var(--color-primary)',
-          marginBottom: '24px',
-          letterSpacing: '0.02em',
-        }}>
-          ACCEPT INVITE<span style={{ animation: 'blink 1s steps(1) infinite' }}>_</span>
+        {/* Header row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '24px' }}>
+          <div style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '22px',
+            color: 'var(--color-primary)',
+            letterSpacing: '0.02em',
+          }}>
+            ACCEPT INVITE<span style={{ animation: 'blink 1s steps(1) infinite' }}>_</span>
+          </div>
+          <Link
+            to="/login"
+            style={{ fontSize: '11px', color: 'var(--color-muted)', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+          >
+            ← LOGIN
+          </Link>
         </div>
 
         {validating && (
-          <div style={{ color: 'var(--color-muted)', fontSize: '12px', textTransform: 'uppercase' }}>
-            VALIDATING INVITE...
+          <div style={{ color: 'var(--color-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            VALIDATING INVITE LINK...
           </div>
         )}
 
         {!validating && invalidReason && (
           <div>
-            <div style={{ padding: '12px', border: '1px solid var(--color-alert)', color: 'var(--color-alert)', fontSize: '12px', marginBottom: '20px' }}>
+            <div style={{ padding: '12px 14px', border: '1px solid var(--color-alert)', color: 'var(--color-alert)', fontSize: '12px', marginBottom: '20px', lineHeight: 1.6 }}>
               {invalidReason}
             </div>
+            <p style={{ fontSize: '12px', color: 'var(--color-muted)', lineHeight: 1.5 }}>
+              If you believe this is an error, contact your administrator to resend the invitation.
+            </p>
             <Link
               to="/login"
-              style={{ color: 'var(--color-primary)', fontSize: '12px', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+              style={{
+                display: 'inline-block',
+                marginTop: '16px',
+                padding: '8px 16px',
+                border: '1px solid var(--color-primary)',
+                color: 'var(--color-primary)',
+                fontSize: '12px',
+                textDecoration: 'none',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
             >
               ← BACK TO LOGIN
             </Link>
@@ -154,8 +196,12 @@ export function AcceptInvitePage() {
 
         {!validating && invite && (
           <form onSubmit={handleSubmit}>
+            <p style={{ fontSize: '12px', color: 'var(--color-muted)', marginBottom: '4px', lineHeight: 1.5 }}>
+              You've been invited to join Argus XDR. Set your display name and password to create your account.
+            </p>
+
             <div>
-              <label style={labelStyle}>EMAIL (PRE-FILLED)</label>
+              <label style={labelStyle}>EMAIL</label>
               <input type="email" value={invite.email} readOnly style={readonlyStyle} />
             </div>
             <div>
@@ -170,11 +216,12 @@ export function AcceptInvitePage() {
                 onChange={e => setDisplayName(e.target.value)}
                 placeholder="Your name"
                 required
+                autoFocus
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>PASSWORD</label>
+              <label style={labelStyle}>PASSWORD <span style={{ fontWeight: 'normal', color: 'var(--color-muted)' }}>(min 8 chars)</span></label>
               <input
                 type="password"
                 value={password}
@@ -210,6 +257,7 @@ export function AcceptInvitePage() {
                 padding: '10px 20px',
                 border: '1px solid var(--color-primary)',
                 color: submitting ? 'var(--color-muted)' : 'var(--color-primary)',
+                borderColor: submitting ? 'var(--color-muted)' : 'var(--color-primary)',
                 background: 'transparent',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '12px',
@@ -217,9 +265,10 @@ export function AcceptInvitePage() {
                 letterSpacing: '0.06em',
                 cursor: submitting ? 'not-allowed' : 'pointer',
                 opacity: submitting ? 0.5 : 1,
+                width: '100%',
               }}
             >
-              {submitting ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
+              {submitting ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT →'}
             </button>
           </form>
         )}
