@@ -105,3 +105,47 @@ func (b Bindings) Help() []key.Binding {
 		b.Back,
 	}
 }
+
+// Section groups a named set of key bindings for the sectioned help overlay.
+type Section struct {
+	// Name is the human-readable section heading shown in the help overlay.
+	Name string
+	// Bindings is the ordered list of bindings within this section.
+	Bindings []key.Binding
+}
+
+// Sections returns bindings grouped by section for the help overlay.
+// The Global section contains all 13 global bindings. Per-screen sections start
+// empty — the view layer populates them from each screen's KeyHelp() at render time.
+// Sections are returned in a fixed order:
+//
+//	Global, Navigation, Signals, Trace, Alerts, Rules, Users, Audit
+func (b Bindings) Sections() []Section {
+	return []Section{
+		{
+			Name: "Global",
+			Bindings: []key.Binding{
+				b.Quit,
+				b.Help_,
+				b.NextScreen,
+				b.PrevScreen,
+				b.Screen1,
+				b.Screen2,
+				b.Screen3,
+				b.Screen4,
+				b.Screen5,
+				b.Screen6,
+				b.Refresh,
+				b.Submit,
+				b.Back,
+			},
+		},
+		{Name: "Navigation", Bindings: nil},
+		{Name: "Signals", Bindings: nil},
+		{Name: "Trace", Bindings: nil},
+		{Name: "Alerts", Bindings: nil},
+		{Name: "Rules", Bindings: nil},
+		{Name: "Users", Bindings: nil},
+		{Name: "Audit", Bindings: nil},
+	}
+}
