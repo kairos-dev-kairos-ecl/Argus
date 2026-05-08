@@ -14,7 +14,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-05-01 - Completed quick task 260501-h8b: backdrop image + clear navigation flow on all auth pages
+> Last activity: 2026-05-08 - Completed quick task 260508-mt2: TUI Phase 1 — Interface selector + Cobra restructure (selector Bubbletea app, prefs layer, web/tui/reset-ui subcommands, root dispatch)
 
 ---
 
@@ -117,6 +117,9 @@ progress:
 | 6 | Browser console error fixes: audit DTO snake_case, trace query column names, signals datetime filter typo (parseDatetime64→parseDateTime64), settings 401 graceful fallback | 2026-04-28 | bfaf98a, bf74189 | (inline) |
 | 7 | User onboarding first-run setup wizard + invite flow: setup-status endpoint, auto-login after setup, invite migration+service+handlers, rewritten SetupWizard, AcceptInvitePage, UsersPage invite button | 2026-04-30 | 20a44ab, 43fc5e6 | 260430-nxf-implement-user-onboarding-first-run-setu |
 | 8 | Backdrop image + clear navigation flow: Login shows 'FIRST TIME SETUP →' and 'HAVE AN INVITE →' links; SetupWizard has '← BACK TO LOGIN'; AcceptInvitePage has '← LOGIN' header link; backdrop.png on all auth pages | 2026-05-01 | 1ae83ff | 260501-h8b-add-backdrop-image-to-login-setup-pages- |
+| 9 | One-click E2E validation script (argus-e2e-validate.sh): auto-bootstrap admin + API key, 7-scenario L1-L10 signal injection (70 signals), trace validation, JSON report, --skip-llm fallback | 2026-05-01 | 5f60b9c | (inline) |
+| 10 | Interface selector + TUI implementation plan: CONTEXT.md (4 decisions locked) + 4-phase PLAN.md covering CLI selector, Bubbletea TUI foundation, 6 core operator screens, UX polish (~29 net-new Go files, 0 backend changes) | 2026-05-08 | — | 260508-mis-interface-selector-and-tui-implementatio |
+| 11 | TUI Phase 1 — Interface selector + Cobra restructure: selector Bubbletea app, prefs layer (atomic write, 0600), argus web/tui/reset-ui subcommands, root dispatch (pref-check->selector->save->dispatch) | 2026-05-08 | 7dc02f6, fe650ac, c238b81 | 260508-mt2-tui-phase-1-interface-selector-and-cobra |
 
 ### Plans Completed
 
