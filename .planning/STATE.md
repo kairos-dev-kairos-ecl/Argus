@@ -14,7 +14,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-05-08 - Completed quick task 260508-te7: TUI Phase 3 — 6 live operator screens (signals, trace, alerts, rules, users, audit), secure $EDITOR, RBAC, confirm modals
+> Last activity: 2026-05-08 - Completed quick task 260508-tza: TUI Phase 4 — sectioned ? help overlay, --no-unicode SSH fallback, quit confirm polish, keymap consolidation across 6 screens, argus tui --version
 
 ---
 
@@ -122,6 +122,7 @@ progress:
 | 11 | TUI Phase 1 — Interface selector + Cobra restructure: selector Bubbletea app, prefs layer (atomic write, 0600), argus web/tui/reset-ui subcommands, root dispatch (pref-check->selector->save->dispatch) | 2026-05-08 | 7dc02f6, fe650ac, c238b81 | 260508-mt2-tui-phase-1-interface-selector-and-cobra |
 | 12 | TUI Phase 2 — Bubbletea root model + Lipgloss theme: brutalist theme constants, JWT-in-memory AuthState, HTTP APIClient (401 refresh-retry), WSClient (Authorization header on Upgrade), login screen with MFA branch, 6 placeholder screens, help overlay, quit confirm | 2026-05-08 | da8cd2b, 49f1c97, 463c48e | 260508-n7t-tui-phase-2-bubbletea-root-model-lipglos |
 | 13 | TUI Phase 3 — 6 live operator screens: signals (WS stream + filter), trace (expand/collapse tree), alerts (ack/resolve confirm), rules ($EDITOR secure temp file), users (invite + deactivate confirm, admin-only), audit (viewport + filter, admin-only); security grep all PASS | 2026-05-08 | e90f4fe, 007f373, c85f434 | 260508-te7-tui-phase-3-6-live-operator-screens-live |
+| 14 | TUI Phase 4 — UX polish: sectioned ? help overlay (keys/bindings.go single source of truth), --no-unicode SSH/dumb-terminal fallback + auto-detection, q quit confirm polish ("Quit Argus TUI? [y/N]"), keymap consolidation + deviation docs across 6 screens, argus tui --version | 2026-05-08 | 5451341, f75d2c3 | 260508-tza-tui-phase-4-ux-polish-help-overlay-no-un |
 
 ### Plans Completed
 
