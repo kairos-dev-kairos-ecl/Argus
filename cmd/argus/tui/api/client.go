@@ -54,6 +54,11 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 	return c.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
+// Patch performs a PATCH request with body serialized as JSON.
+func (c *Client) Patch(ctx context.Context, path string, body any, out any) error {
+	return c.do(ctx, http.MethodPatch, path, body, out)
+}
+
 // do executes the request with bearer token injection. On 401 it refreshes
 // the token and retries exactly once. If the retry also returns 401 (or the
 // refresh itself fails), state is cleared and ErrUnauthenticated is returned.

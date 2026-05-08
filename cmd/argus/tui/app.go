@@ -59,14 +59,19 @@ type AppModel struct {
 	height int
 
 	// Overlay state.
-	helpVisible  bool
-	quitConfirm  bool
+	helpVisible bool
+	quitConfirm bool
 
 	// Login screen (always resident — handles first boot and re-login).
 	loginScreen screens.LoginModel
 
-	// Placeholder screens for the 6 operator screens (Phase 3 will replace these).
-	placeholders map[Screen]*screens.PlaceholderModel
+	// Operator screens (Phase 3 — live implementations).
+	signalsScreen screens.SignalsModel
+	traceScreen   screens.TraceModel
+	alertsScreen  screens.AlertsModel
+	rulesScreen   screens.RulesModel
+	usersScreen   screens.UsersModel
+	auditScreen   screens.AuditModel
 
 	// Status bar.
 	statusBar components.StatusBar
@@ -79,24 +84,23 @@ func New(cfg Config) *AppModel {
 	authClient := auth.NewClient(cfg.BaseURL)
 	apiClient := api.NewClient(cfg.BaseURL, authState, authClient)
 
-	placeholders := map[Screen]*screens.PlaceholderModel{
-		ScreenSignals: screens.NewPlaceholder("Signals"),
-		ScreenTrace:   screens.NewPlaceholder("Trace"),
-		ScreenAlerts:  screens.NewPlaceholder("Alerts"),
-		ScreenRules:   screens.NewPlaceholder("Rules"),
-		ScreenUsers:   screens.NewPlaceholder("Users"),
-		ScreenAudit:   screens.NewPlaceholder("Audit"),
-	}
+	// Role defaults to empty until login succeeds; screens handle empty role as non-admin.
+	const defaultRole = ""
 
 	return &AppModel{
-		current:      ScreenLogin,
-		authState:    authState,
-		authClient:   authClient,
-		apiClient:    apiClient,
-		keys:         keys.New(),
-		loginScreen:  screens.NewLoginModel(authClient),
-		placeholders: placeholders,
-		statusBar:    components.NewStatusBar(80), // default; updated on WindowSizeMsg
+		current:       ScreenLogin,
+		authState:     authState,
+		authClient:    authClient,
+		apiClient:     apiClient,
+		keys:          keys.New(),
+		loginScreen:   screens.NewLoginModel(authClient),
+		signalsScreen: screens.NewSignalsModel(apiClient),
+		traceScreen:   screens.NewTraceModel(apiClient),
+		alertsScreen:  screens.NewAlertsModel(apiClient),
+		rulesScreen:   screens.NewRulesModel(apiClient),
+		usersScreen:   screens.NewUsersModel(apiClient, defaultRole),
+		auditScreen:   screens.NewAuditModel(apiClient, defaultRole),
+		statusBar:     components.NewStatusBar(80), // default; updated on WindowSizeMsg
 	}
 }
 

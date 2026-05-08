@@ -15,7 +15,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.statusBar = components.NewStatusBar(msg.Width)
-		return m, nil
+		// Forward resize to all screens so they can reflow.
+		var cmds []tea.Cmd
+		cmds = append(cmds, m.delegateUpdate(msg))
+		return m, tea.Batch(cmds...)
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -23,7 +26,23 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screens.LoginSuccessMsg:
 		// Successful login: populate auth state and switch to Signals.
 		m.authState = msg.State
-		// Re-wire the API client with the new state.
+		// Re-create role-gated screens now that we know the role.
+		role := m.authState.Role()
+		m.usersScreen = screens.NewUsersModel(m.apiClient, role)
+		m.auditScreen = screens.NewAuditModel(m.apiClient, role)
+		m.current = ScreenSignals
+		// Kick off init for the signals screen (initial data fetch + WS).
+		return m, m.signalsScreen.Init()
+
+	case screens.SignalOpenTraceMsg:
+		// Signals screen emitted this — switch to trace screen and load the trace.
+		var cmd tea.Cmd
+		m.traceScreen, cmd = m.traceScreen.SetTrace(msg.TraceID)
+		m.current = ScreenTrace
+		return m, cmd
+
+	case screens.TraceGoBackMsg:
+		// Trace screen navigated back — return to signals.
 		m.current = ScreenSignals
 		return m, nil
 	}
@@ -113,14 +132,46 @@ func (m *AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, m.delegateUpdate(msg)
 }
 
-// delegateUpdate sends the message to the currently active screen.
+// delegateUpdate sends the message to the currently active screen and stores
+// the updated screen model back in the AppModel.
 func (m *AppModel) delegateUpdate(msg tea.Msg) tea.Cmd {
-	if m.current == ScreenLogin {
+	switch m.current {
+	case ScreenLogin:
 		updated, cmd := m.loginScreen.UpdateLogin(msg)
 		m.loginScreen = updated
 		return cmd
+
+	case ScreenSignals:
+		updated, cmd := m.signalsScreen.UpdateSignals(msg)
+		m.signalsScreen = updated
+		return cmd
+
+	case ScreenTrace:
+		updated, cmd := m.traceScreen.UpdateTrace(msg)
+		m.traceScreen = updated
+		return cmd
+
+	case ScreenAlerts:
+		updated, cmd := m.alertsScreen.UpdateAlerts(msg)
+		m.alertsScreen = updated
+		return cmd
+
+	case ScreenRules:
+		updated, cmd := m.rulesScreen.UpdateRules(msg)
+		m.rulesScreen = updated
+		return cmd
+
+	case ScreenUsers:
+		updated, cmd := m.usersScreen.UpdateUsers(msg)
+		m.usersScreen = updated
+		return cmd
+
+	case ScreenAudit:
+		updated, cmd := m.auditScreen.UpdateAudit(msg)
+		m.auditScreen = updated
+		return cmd
 	}
-	// Operator placeholder screens are stateless — no update needed.
+
 	return nil
 }
 

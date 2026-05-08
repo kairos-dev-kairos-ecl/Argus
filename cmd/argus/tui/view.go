@@ -58,20 +58,30 @@ func (m *AppModel) renderHeader() string {
 
 // renderActiveScreen delegates to the currently active screen's View().
 func (m *AppModel) renderActiveScreen() string {
-	if m.current == ScreenLogin {
+	switch m.current {
+	case ScreenLogin:
 		return m.loginScreen.View()
+	case ScreenSignals:
+		return m.signalsScreen.View()
+	case ScreenTrace:
+		return m.traceScreen.View()
+	case ScreenAlerts:
+		return m.alertsScreen.View()
+	case ScreenRules:
+		return m.rulesScreen.View()
+	case ScreenUsers:
+		return m.usersScreen.View()
+	case ScreenAudit:
+		return m.auditScreen.View()
 	}
-
-	if p, ok := m.placeholders[m.current]; ok {
-		return p.View()
-	}
-
 	return theme.ErrorText.Render("unknown screen")
 }
 
 // renderHelpContent builds the key bindings list for the help overlay.
 func (m *AppModel) renderHelpContent() string {
 	var sb strings.Builder
+
+	// Global bindings.
 	bindings := m.keys.Help()
 	for _, b := range bindings {
 		if !b.Enabled() {
@@ -83,6 +93,51 @@ func (m *AppModel) renderHelpContent() string {
 		sb.WriteString(theme.Subtle.Render(line))
 		sb.WriteString("\n")
 	}
+
+	// Screen-local bindings.
+	var localBindings []string
+	switch m.current {
+	case ScreenSignals:
+		for _, b := range m.signalsScreen.KeyHelp() {
+			keys := strings.Join(b.Keys(), ", ")
+			localBindings = append(localBindings, fmt.Sprintf("%-16s %s", keys, b.Help().Desc))
+		}
+	case ScreenTrace:
+		for _, b := range m.traceScreen.KeyHelp() {
+			keys := strings.Join(b.Keys(), ", ")
+			localBindings = append(localBindings, fmt.Sprintf("%-16s %s", keys, b.Help().Desc))
+		}
+	case ScreenAlerts:
+		for _, b := range m.alertsScreen.KeyHelp() {
+			keys := strings.Join(b.Keys(), ", ")
+			localBindings = append(localBindings, fmt.Sprintf("%-16s %s", keys, b.Help().Desc))
+		}
+	case ScreenRules:
+		for _, b := range m.rulesScreen.KeyHelp() {
+			keys := strings.Join(b.Keys(), ", ")
+			localBindings = append(localBindings, fmt.Sprintf("%-16s %s", keys, b.Help().Desc))
+		}
+	case ScreenUsers:
+		for _, b := range m.usersScreen.KeyHelp() {
+			keys := strings.Join(b.Keys(), ", ")
+			localBindings = append(localBindings, fmt.Sprintf("%-16s %s", keys, b.Help().Desc))
+		}
+	case ScreenAudit:
+		for _, b := range m.auditScreen.KeyHelp() {
+			keys := strings.Join(b.Keys(), ", ")
+			localBindings = append(localBindings, fmt.Sprintf("%-16s %s", keys, b.Help().Desc))
+		}
+	}
+
+	if len(localBindings) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString(theme.Emphasis.Render("Screen bindings:"))
+		sb.WriteString("\n")
+		for _, line := range localBindings {
+			sb.WriteString(theme.Subtle.Render(line))
+			sb.WriteString("\n")
+		}
+	}
+
 	return sb.String()
 }
-
