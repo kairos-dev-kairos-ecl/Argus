@@ -3,6 +3,7 @@ package components
 import (
 	"github.com/argusxdr/argus/cmd/argus/tui/theme"
 	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -40,6 +41,13 @@ func NewTable(columns []table.Column, rows []table.Row) Table {
 // SetRows updates the table data.
 func (t *Table) SetRows(rows []table.Row) {
 	t.inner.SetRows(rows)
+}
+
+// Update handles key and mouse events for the table (arrow navigation).
+func (t Table) Update(msg tea.Msg) (Table, tea.Cmd) {
+	inner, cmd := t.inner.Update(msg)
+	t.inner = inner
+	return t, cmd
 }
 
 // View renders the table.
