@@ -14,7 +14,7 @@ progress:
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-05-08 - Completed quick task 260508-mt2: TUI Phase 1 — Interface selector + Cobra restructure (selector Bubbletea app, prefs layer, web/tui/reset-ui subcommands, root dispatch)
+> Last activity: 2026-05-08 - Completed quick task 260508-n7t: TUI Phase 2 — Bubbletea root model, Lipgloss theme, JWT-in-memory auth, HTTP+WS API client, login screen with MFA branch, 6 placeholder screens
 
 ---
 
@@ -120,6 +120,7 @@ progress:
 | 9 | One-click E2E validation script (argus-e2e-validate.sh): auto-bootstrap admin + API key, 7-scenario L1-L10 signal injection (70 signals), trace validation, JSON report, --skip-llm fallback | 2026-05-01 | 5f60b9c | (inline) |
 | 10 | Interface selector + TUI implementation plan: CONTEXT.md (4 decisions locked) + 4-phase PLAN.md covering CLI selector, Bubbletea TUI foundation, 6 core operator screens, UX polish (~29 net-new Go files, 0 backend changes) | 2026-05-08 | — | 260508-mis-interface-selector-and-tui-implementatio |
 | 11 | TUI Phase 1 — Interface selector + Cobra restructure: selector Bubbletea app, prefs layer (atomic write, 0600), argus web/tui/reset-ui subcommands, root dispatch (pref-check->selector->save->dispatch) | 2026-05-08 | 7dc02f6, fe650ac, c238b81 | 260508-mt2-tui-phase-1-interface-selector-and-cobra |
+| 12 | TUI Phase 2 — Bubbletea root model + Lipgloss theme: brutalist theme constants, JWT-in-memory AuthState, HTTP APIClient (401 refresh-retry), WSClient (Authorization header on Upgrade), login screen with MFA branch, 6 placeholder screens, help overlay, quit confirm | 2026-05-08 | da8cd2b, 49f1c97, 463c48e | 260508-n7t-tui-phase-2-bubbletea-root-model-lipglos |
 
 ### Plans Completed
 
