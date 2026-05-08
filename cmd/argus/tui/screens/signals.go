@@ -1,3 +1,12 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings (compliant with contract):
+//   /        — open filter
+//   enter    — open trace for selected signal
+//   p        — pause/resume live stream (screen-specific, no contract conflict)
+//   r        — refresh signal list (compliant: r=refresh)
 package screens
 
 import (
@@ -326,12 +335,14 @@ func (m SignalsModel) View() string {
 func (m SignalsModel) Title() string { return "Signals" }
 
 // KeyHelp returns local key bindings for the help overlay.
+// Only screen-local bindings are returned; global bindings (q, ?, 1-6, tab, esc, ctrl+c)
+// are rendered from keys/bindings.go and are NOT duplicated here.
 func (m SignalsModel) KeyHelp() []key.Binding {
 	return []key.Binding{
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter signals")),
 		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open trace")),
 		key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "pause/resume stream")),
-		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh signals")),
 	}
 }
 

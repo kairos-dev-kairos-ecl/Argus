@@ -1,3 +1,15 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings:
+//   tab      — switch between list pane and YAML preview pane [DEVIATION: tab is normally global cycle;
+//              here tab is captured by the rules screen for pane switching; global tab is not reached]
+//   enter    — select rule and open YAML preview (compliant: enter=open)
+//   e        — open selected rule in $EDITOR [DEVIATION: screen-specific, no contract conflict]
+//   t        — toggle rule enabled/disabled [DEVIATION: screen-specific, no contract conflict]
+//   r        — refresh rule list (compliant: r=refresh)
+
 package screens
 
 // Security constraints for $EDITOR invocation (MANDATORY — verified by test):
@@ -529,13 +541,16 @@ func (m RulesModel) View() string {
 // Title returns the screen name.
 func (m RulesModel) Title() string { return "Rules" }
 
-// KeyHelp returns local key bindings.
+// KeyHelp returns local key bindings for the help overlay.
+// Only screen-local bindings are returned; global bindings (q, ?, ctrl+c, esc) are
+// rendered from keys/bindings.go and are NOT duplicated here.
+// Note: tab is captured locally for pane switching (deviation from global tab=cycle).
 func (m RulesModel) KeyHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch pane")),
+		key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch list/preview pane (local)")),
 		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select rule")),
 		key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit in $EDITOR")),
 		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "toggle enabled")),
-		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh rules")),
 	}
 }

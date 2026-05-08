@@ -1,3 +1,13 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings:
+//   up/k     — move cursor up (navigation, no contract conflict)
+//   down/j   — move cursor down
+//   enter/space — expand/collapse layer node (compliant: enter=open/confirm)
+//   b        — back to signals [DEVIATION: Esc also works via global contract; b is an alias for familiarity]
+//   r        — reload trace (compliant: r=refresh)
 package screens
 
 import (

@@ -1,3 +1,16 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings (admin-only):
+//   i        — open invite user modal [DEVIATION: screen-specific, no contract conflict]
+//   d        — deactivate selected user [DEVIATION: screen-specific, no contract conflict]
+//   r        — refresh user list (compliant: r=refresh)
+//
+// In invite modal:
+//   tab      — switch between email/role fields [DEVIATION: tab captured locally for field focus]
+//   enter    — submit invite (compliant: enter=confirm)
+//   esc      — cancel invite (compliant: esc=back)
 package screens
 
 import (

@@ -1,3 +1,12 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings:
+//   a        — acknowledge selected alert
+//   r        — resolve selected alert [DEVIATION: contract has r=refresh; alerts uses r=resolve
+//              as the primary operator action. Capital-R refresh removed in Phase 4 to eliminate conflict.]
+//   /        — open search filter
 package screens
 
 import (
@@ -244,11 +253,8 @@ func (m AlertsModel) handleKey(msg tea.KeyMsg) (AlertsModel, tea.Cmd) {
 		}
 		return m, nil
 
-	case "R":
-		// Capital R = refresh list (lowercase r = resolve selected).
-		m.loading = true
-		m.err = ""
-		return m, tea.Batch(m.fetchAlerts(), m.spinner.Tick)
+	// Note: capital 'R' for refresh was removed in Phase 4 (key conflict with r=resolve).
+	// Use the global 'r' key behaviour (documented in keys/bindings.go) or press '/' to filter.
 	}
 
 	t, cmd := m.table.Update(msg)
@@ -352,7 +358,7 @@ func (m AlertsModel) View() string {
 
 	sb.WriteString(tableView)
 	sb.WriteString("\n")
-	sb.WriteString(theme.Muted.Render("[a] ack  [r] resolve  [/] search  [R] refresh  [?] help"))
+	sb.WriteString(theme.Muted.Render("[a] ack  [r] resolve  [/] search  [?] help"))
 
 	return sb.String()
 }
@@ -360,12 +366,13 @@ func (m AlertsModel) View() string {
 // Title returns the screen name.
 func (m AlertsModel) Title() string { return "Alerts" }
 
-// KeyHelp returns local key bindings.
+// KeyHelp returns local key bindings for the help overlay.
+// Note: only screen-local bindings are listed here; global bindings (q, ?, 1-6, tab, esc, ctrl+c)
+// are rendered from keys/bindings.go and are NOT duplicated here.
 func (m AlertsModel) KeyHelp() []key.Binding {
 	return []key.Binding{
 		key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "acknowledge alert")),
-		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "resolve alert")),
-		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
-		key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "refresh list")),
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "resolve alert (deviation: r=resolve, not refresh)")),
+		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search filter")),
 	}
 }

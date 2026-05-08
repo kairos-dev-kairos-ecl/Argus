@@ -1,3 +1,13 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings (admin-only):
+//   u        — activate user email filter input [DEVIATION: subordinate to /; 'u' is screen-specific shortcut]
+//   a        — activate action filter input [DEVIATION: subordinate to /; 'a' is screen-specific shortcut]
+//   /        — toggle between user filter input and no-filter (compliant: /=filter)
+//   r        — refresh audit log (compliant: r=refresh)
+//   up/down  — scroll viewport (navigation, no contract conflict)
 package screens
 
 import (
