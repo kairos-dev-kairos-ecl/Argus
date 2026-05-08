@@ -369,9 +369,9 @@ call_llm() {
       echo "$resp" | jq -r '.content // "no response"'
       ;;
     ollama)
-      # Get first available model
+      # Pick smallest model by size to avoid accidentally using a large model
       local model
-      model=$(http_get "$LLM_URL/api/tags" | jq -r '.models[0].name // "llama2"')
+      model=$(http_get "$LLM_URL/api/tags" | jq -r '[.models[] | select(.name | test("gemma-4|gemma4"; "i") | not)] | sort_by(.size) | .[0].name // "llama2"')
       local body
       body=$(jq -cn --arg p "$prompt" --arg m "$model" \
         '{model:$m,prompt:$p,stream:false}')
