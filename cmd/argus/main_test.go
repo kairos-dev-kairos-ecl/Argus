@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 
@@ -188,13 +187,11 @@ func TestDispatchRoot_NoPref_SelectorReturnsWeb(t *testing.T) {
 	assert.True(t, webCalled)
 }
 
-// TestTUICmd_PrintsPhase2Message verifies the tui stub message via command output.
-func TestTUICmd_PrintsPhase2Message(t *testing.T) {
-	var buf bytes.Buffer
-	tui.Cmd.SetOut(&buf)
-	t.Cleanup(func() { tui.Cmd.SetOut(nil) })
-
-	err := tui.Cmd.RunE(tui.Cmd, nil)
-	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Phase 2")
+// TestTUICmd_IsWired verifies the tui command has a RunE handler wired (Phase 2+).
+// The actual TUI launches a blocking tea.Program and cannot be executed in unit
+// tests without a real TTY. The dispatch tests above use stubRunE to intercept the
+// RunE call without launching the program, which provides the real coverage.
+func TestTUICmd_IsWired(t *testing.T) {
+	assert.NotNil(t, tui.Cmd.RunE, "tui.Cmd.RunE must be non-nil in Phase 2")
+	assert.Equal(t, "tui", tui.Cmd.Use, "tui.Cmd.Use must be 'tui'")
 }
