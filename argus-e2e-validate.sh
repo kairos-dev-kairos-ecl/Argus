@@ -186,7 +186,8 @@ gen_id() {
 section "Backend Connectivity"
 info "Checking Argus at $ARGUS_URL …"
 
-if ! HEALTH_RESP=$(http_get "$ARGUS_URL/healthz" 2>/dev/null) && \
+if ! HEALTH_RESP=$(http_get "$ARGUS_URL/health" 2>/dev/null) && \
+   ! HEALTH_RESP=$(http_get "$ARGUS_URL/healthz" 2>/dev/null) && \
    ! HEALTH_RESP=$(http_get "$ARGUS_URL/api/v1/health" 2>/dev/null); then
   err "Cannot reach Argus backend at $ARGUS_URL"
   err "Start the backend first: docker compose up -d"
