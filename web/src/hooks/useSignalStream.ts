@@ -98,7 +98,7 @@ export function useSignalStream() {
   const refetchSignals = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await getSignals({ limit: 100, app_id: 'test' })
+      const response = await getSignals({ limit: 100 })
       if (response && Array.isArray(response.signals)) {
         clearSignals()
         response.signals.forEach((signal) => addSignal(signal))
