@@ -31,8 +31,8 @@ func TestUsersModel_Admin_CanLoad(t *testing.T) {
 func TestUsersModel_UsersLoadedMsg(t *testing.T) {
 	m := NewUsersModel(nil, "admin")
 	users := []api.User{
-		{ID: "u1", Email: "admin@argus.io", Role: "admin", CreatedAt: time.Now()},
-		{ID: "u2", Email: "alice@argus.io", Role: "analyst", CreatedAt: time.Now()},
+		{ID: "u1", Email: "admin@argus.io", Role: "admin", CreatedAt: api.ProtoTime{time.Now()}},
+		{ID: "u2", Email: "alice@argus.io", Role: "analyst", CreatedAt: api.ProtoTime{time.Now()}},
 	}
 	updated, _ := m.UpdateUsers(UsersLoadedMsg{Users: users})
 	assert.False(t, updated.loading)
@@ -118,7 +118,7 @@ func TestUsersModel_DeactivateKey_ShowsConfirmModal(t *testing.T) {
 	m := NewUsersModel(nil, "admin")
 	m.loading = false
 	m.users = []api.User{
-		{ID: "u1", Email: "alice@argus.io", Role: "analyst", CreatedAt: time.Now()},
+		{ID: "u1", Email: "alice@argus.io", Role: "analyst", CreatedAt: api.ProtoTime{time.Now()}},
 	}
 	// Note: without a real selected table row the deactivate won't fire.
 	// Just verify key doesn't panic.
@@ -152,8 +152,8 @@ func TestUsersModel_DeactivateAction_RemovesUser(t *testing.T) {
 	m := NewUsersModel(nil, "admin")
 	m.loading = false
 	m.users = []api.User{
-		{ID: "u1", Email: "alice@argus.io", Role: "analyst", CreatedAt: time.Now()},
-		{ID: "u2", Email: "bob@argus.io", Role: "viewer", CreatedAt: time.Now()},
+		{ID: "u1", Email: "alice@argus.io", Role: "analyst", CreatedAt: api.ProtoTime{time.Now()}},
+		{ID: "u2", Email: "bob@argus.io", Role: "viewer", CreatedAt: api.ProtoTime{time.Now()}},
 	}
 
 	msg := UserActionResultMsg{Action: "deactivate", UserID: "u1"}

@@ -31,7 +31,7 @@ func TestSignalsModel_SignalLoadedMsg_PopulatesTable(t *testing.T) {
 		Signals: []api.Signal{
 			{ID: "s1", TraceID: "trace-abc123", AppID: "qwen-prod", Layer: 7,
 				Category: "prompt_injection", Severity: "HIGH", Message: "test msg",
-				Timestamp: now},
+				Timestamp: api.ProtoTime{now}},
 		},
 	}
 
@@ -72,7 +72,7 @@ func TestSignalsModel_SignalReceived_AppendedWhenNotPaused(t *testing.T) {
 	m.loading = false
 	m.paused = false
 
-	sig := api.Signal{ID: "s1", Layer: 3, Timestamp: time.Now()}
+	sig := api.Signal{ID: "s1", Layer: 3, Timestamp: api.ProtoTime{time.Now()}}
 	updated, _ := m.UpdateSignals(SignalReceivedMsg{Signal: sig})
 	assert.Len(t, updated.signals, 1)
 }
@@ -82,7 +82,7 @@ func TestSignalsModel_SignalReceived_IgnoredWhenPaused(t *testing.T) {
 	m.loading = false
 	m.paused = true
 
-	sig := api.Signal{ID: "s1", Layer: 3, Timestamp: time.Now()}
+	sig := api.Signal{ID: "s1", Layer: 3, Timestamp: api.ProtoTime{time.Now()}}
 	updated, _ := m.UpdateSignals(SignalReceivedMsg{Signal: sig})
 	assert.Empty(t, updated.signals)
 }
@@ -90,9 +90,9 @@ func TestSignalsModel_SignalReceived_IgnoredWhenPaused(t *testing.T) {
 func TestSignalsModel_MaxSignalRows(t *testing.T) {
 	signals := make([]api.Signal, maxSignalRows)
 	for i := range signals {
-		signals[i] = api.Signal{ID: "s", Layer: 1, Timestamp: time.Now()}
+		signals[i] = api.Signal{ID: "s", Layer: 1, Timestamp: api.ProtoTime{time.Now()}}
 	}
-	newSig := api.Signal{ID: "new", Layer: 2, Timestamp: time.Now()}
+	newSig := api.Signal{ID: "new", Layer: 2, Timestamp: api.ProtoTime{time.Now()}}
 	result := appendSignal(signals, newSig)
 	assert.Len(t, result, maxSignalRows, "should cap at maxSignalRows")
 	assert.Equal(t, "new", result[0].ID, "newest signal should be first")
@@ -102,7 +102,7 @@ func TestSignalsModel_EnterOnRow_NoTable_NoPanic(t *testing.T) {
 	m := NewSignalsModel(nil)
 	m.loading = false
 	m.signals = []api.Signal{
-		{ID: "s1", TraceID: "trace-abc123xyz", Layer: 7, Timestamp: time.Now()},
+		{ID: "s1", TraceID: "trace-abc123xyz", Layer: 7, Timestamp: api.ProtoTime{time.Now()}},
 	}
 
 	// Verify enter key dispatches without panic (table has no selected row in test).

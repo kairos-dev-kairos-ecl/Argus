@@ -31,9 +31,9 @@ func TestTraceModel_TraceLoadedMsg_BuildsTree(t *testing.T) {
 	msg := TraceLoadedMsg{
 		TraceID: "trace-abc",
 		Signals: []api.Signal{
-			{ID: "s1", Layer: 1, Category: "gpu_util", Message: "high GPU usage", Timestamp: now},
-			{ID: "s2", Layer: 7, Category: "prompt_injection", Message: "injection detected", Timestamp: now},
-			{ID: "s3", Layer: 7, Category: "baseline_drift", Message: "drift detected", Timestamp: now},
+			{ID: "s1", Layer: 1, Category: "gpu_util", Message: "high GPU usage", Timestamp: api.ProtoTime{now}},
+			{ID: "s2", Layer: 7, Category: "prompt_injection", Message: "injection detected", Timestamp: api.ProtoTime{now}},
+			{ID: "s3", Layer: 7, Category: "baseline_drift", Message: "drift detected", Timestamp: api.ProtoTime{now}},
 		},
 	}
 
@@ -70,8 +70,8 @@ func TestTraceModel_NavigationKeys(t *testing.T) {
 	m := NewTraceModel(nil)
 	m.traceID = "trace-abc"
 	m.signals = []api.Signal{
-		{ID: "s1", Layer: 1, Timestamp: time.Now()},
-		{ID: "s2", Layer: 2, Timestamp: time.Now()},
+		{ID: "s1", Layer: 1, Timestamp: api.ProtoTime{time.Now()}},
+		{ID: "s2", Layer: 2, Timestamp: api.ProtoTime{time.Now()}},
 	}
 	m.nodes = buildTraceTree(m.signals)
 
@@ -88,7 +88,7 @@ func TestTraceModel_ExpandCollapse(t *testing.T) {
 	m := NewTraceModel(nil)
 	m.traceID = "trace-abc"
 	m.signals = []api.Signal{
-		{ID: "s1", Layer: 1, Category: "hw", Timestamp: time.Now()},
+		{ID: "s1", Layer: 1, Category: "hw", Timestamp: api.ProtoTime{time.Now()}},
 	}
 	m.nodes = buildTraceTree(m.signals)
 	m.cursor = 0
@@ -140,7 +140,7 @@ func TestTraceModel_View_ShowsSignals(t *testing.T) {
 	m := NewTraceModel(nil)
 	m.traceID = "trace-abc"
 	m.signals = []api.Signal{
-		{ID: "s1", Layer: 1, Category: "hw", Message: "high GPU", Timestamp: time.Now()},
+		{ID: "s1", Layer: 1, Category: "hw", Message: "high GPU", Timestamp: api.ProtoTime{time.Now()}},
 	}
 	m.nodes = buildTraceTree(m.signals)
 	view := m.View()
@@ -160,9 +160,9 @@ func TestTraceModel_KeyHelp_NonEmpty(t *testing.T) {
 
 func TestBuildTraceTree_GroupsByLayer(t *testing.T) {
 	signals := []api.Signal{
-		{ID: "s1", Layer: 1, Category: "hw", Timestamp: time.Now()},
-		{ID: "s2", Layer: 1, Category: "gpu", Timestamp: time.Now()},
-		{ID: "s3", Layer: 7, Category: "infer", Timestamp: time.Now()},
+		{ID: "s1", Layer: 1, Category: "hw", Timestamp: api.ProtoTime{time.Now()}},
+		{ID: "s2", Layer: 1, Category: "gpu", Timestamp: api.ProtoTime{time.Now()}},
+		{ID: "s3", Layer: 7, Category: "infer", Timestamp: api.ProtoTime{time.Now()}},
 	}
 
 	nodes := buildTraceTree(signals)
@@ -180,8 +180,8 @@ func TestBuildTraceTree_GroupsByLayer(t *testing.T) {
 
 func TestTraceModel_VisibleNodes_HidesWhenCollapsed(t *testing.T) {
 	signals := []api.Signal{
-		{ID: "s1", Layer: 1, Category: "hw", Timestamp: time.Now()},
-		{ID: "s2", Layer: 1, Category: "gpu", Timestamp: time.Now()},
+		{ID: "s1", Layer: 1, Category: "hw", Timestamp: api.ProtoTime{time.Now()}},
+		{ID: "s2", Layer: 1, Category: "gpu", Timestamp: api.ProtoTime{time.Now()}},
 	}
 	m := NewTraceModel(nil)
 	m.nodes = buildTraceTree(signals)
@@ -194,7 +194,7 @@ func TestTraceModel_VisibleNodes_HidesWhenCollapsed(t *testing.T) {
 
 func TestTraceModel_VisibleNodes_ShowsWhenExpanded(t *testing.T) {
 	signals := []api.Signal{
-		{ID: "s1", Layer: 1, Category: "hw", Timestamp: time.Now()},
+		{ID: "s1", Layer: 1, Category: "hw", Timestamp: api.ProtoTime{time.Now()}},
 	}
 	m := NewTraceModel(nil)
 	m.nodes = buildTraceTree(signals)

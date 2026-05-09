@@ -35,6 +35,11 @@ func TestAuthState_ClearOnLogout_ZeroesFields(t *testing.T) {
 // TestAuthClient_Login_Success verifies a successful login populates AuthState.
 func TestAuthClient_Login_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/auth/csrf-token" {
+			w.Header().Set("X-CSRF-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		assert.Equal(t, "/api/v1/auth/login", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		w.Header().Set("Content-Type", "application/json")
@@ -64,6 +69,11 @@ func TestAuthClient_Login_Success(t *testing.T) {
 // mfaRequired=true with no finalized access token.
 func TestAuthClient_Login_MFARequired(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/auth/csrf-token" {
+			w.Header().Set("X-CSRF-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"mfa_required": true,
@@ -153,6 +163,11 @@ func TestAuthClient_Logout_ClearsStateOnError(t *testing.T) {
 // does not create new files under ~/.argus/ (only Phase 1's config.yaml may exist).
 func TestAuthClient_NeverWritesTokenToDisk(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/auth/csrf-token" {
+			w.Header().Set("X-CSRF-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"access_token":  "test-access",

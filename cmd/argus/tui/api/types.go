@@ -1,30 +1,58 @@
 // Package api provides HTTP and WebSocket clients for the Argus TUI.
 package api
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
+
+// ProtoTime handles both timestamp shapes that the Argus backend may emit:
+//   - RFC3339 string:              "2024-01-15T10:42:13Z"          (protojson)
+//   - Proto object:                {"seconds":1705315333,"nanos":0} (encoding/json on *timestamppb.Timestamp)
+//
+// Embeds time.Time so all time.Time methods (Format, IsZero, etc.) work
+// transparently on callers — no screen code changes needed.
+type ProtoTime struct{ time.Time }
+
+func (t *ProtoTime) UnmarshalJSON(data []byte) error {
+	// RFC3339 string path
+	if len(data) > 0 && data[0] == '"' {
+		return t.Time.UnmarshalJSON(data)
+	}
+	// Proto object path: {"seconds":N,"nanos":N}
+	var p struct {
+		Seconds int64 `json:"seconds"`
+		Nanos   int32 `json:"nanos"`
+	}
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	t.Time = time.Unix(p.Seconds, int64(p.Nanos)).UTC()
+	return nil
+}
 
 // User represents an Argus user account.
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	MFAEnabled bool     `json:"mfa_enabled"`
+	ID         string    `json:"id"`
+	Email      string    `json:"email"`
+	Role       string    `json:"role"`
+	CreatedAt  ProtoTime `json:"created_at"`
+	MFAEnabled bool      `json:"mfa_enabled"`
 }
 
 // Signal is a minimal DTO for a signal record from the Argus backend.
 // Full field set comes from the proto schema; only essential display fields are
 // included here to avoid over-fetching.
 type Signal struct {
-	ID         string    `json:"signal_id"`
-	TraceID    string    `json:"trace_id"`
-	AppID      string    `json:"app_id"`
-	Layer      int       `json:"layer"`
-	Category   string    `json:"category"`
-	Severity   string    `json:"severity"`
-	Message    string    `json:"message"`
-	Timestamp  time.Time `json:"timestamp"`
-	AnomalyScore float64 `json:"anomaly_score"`
+	ID           string    `json:"signal_id"`
+	TraceID      string    `json:"trace_id"`
+	AppID        string    `json:"app_id"`
+	Layer        int       `json:"layer"`
+	Category     string    `json:"category"`
+	Severity     string    `json:"severity"`
+	Message      string    `json:"message"`
+	Timestamp    ProtoTime `json:"timestamp"`
+	AnomalyScore float64   `json:"anomaly_score"`
 }
 
 // Alert represents a fired detection rule alert.
