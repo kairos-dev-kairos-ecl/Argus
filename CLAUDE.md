@@ -120,7 +120,57 @@ Argus is an open-source, production-grade Extended Detection & Response (XDR) pl
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Auth Client Protocol (any HTTP client calling `/api/v1/auth/*`)
+
+Every HTTP client in this codebase that calls protected auth endpoints **must** follow this three-step protocol. Missing any step produces a 403.
+
+**Step 1 — Cookie jar**
+The `http.Client` must be constructed with a `net/http/cookiejar` so cookies persist across requests within the same session.
+
+**Step 2 — CSRF prefetch before any mutating request**
+Before the first POST/PUT/DELETE to `/api/v1/auth/*`, do:
+```
+GET /api/v1/auth/csrf-token
+```
+The server sets a `csrf_token` cookie (path `/api/v1/auth`, HttpOnly=false) and returns the same value in the `X-CSRF-Token` response header. Capture the header value.
+
+**Step 3 — Double-submit on every mutating request**
+Send both:
+- The `csrf_token` cookie (carried automatically by the cookie jar)
+- `X-CSRF-Token: <token>` request header (exact value from step 2)
+
+The `CSRFMiddleware` (`internal/auth/csrf.go`) constant-time compares them; mismatch or absence → 403.
+
+**Excluded routes (no CSRF needed):**
+- `/api/v1/auth/refresh` — uses HttpOnly refresh cookie, explicitly excluded
+- `/api/v1/auth/mfa/challenge` — public MFA entry point
+- GET `/api/v1/auth/csrf-token` — the token fetch itself (safe method)
+
+**Applies to:** `cmd/argus/tui/auth/client.go`, the e2e validation script, any SDK or test helper that calls login/logout/MFA endpoints directly.
+
+---
+
+### Signal Ingest Authentication (SDK → `/v1/signals`)
+
+Signal ingest uses **API key auth**, not JWT:
+- Header: `X-Argus-API-Key: <key>` (NOT `Authorization: Bearer`)
+- Required scope: `signals:write`
+- Route is in `ExcludedPaths` so JWT middleware does not apply
+
+---
+
+### Route Prefix Map
+
+| Path prefix | Auth type | Notes |
+|-------------|-----------|-------|
+| `POST /v1/signals` | API key (`X-Argus-API-Key`) | `signals:write` scope required |
+| `GET /v1/signals` | None (public) | Query by `app_id`, `layer`, etc. |
+| `GET /api/v1/traces/{id}` | JWT | Returns `.spans[]` not `.signals[]` |
+| `POST /api/v1/auth/login` | CSRF double-submit | Needs cookie jar + prefetch |
+| `GET /api/v1/auth/csrf-token` | None | Sets cookie, returns header |
+| `GET /api/v1/api-keys` | JWT | User sees own keys |
+| `POST /api/v1/api-keys` | JWT + role (admin/analyst) | Returns full key once only |
+
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->

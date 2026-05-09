@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"time"
 )
 
@@ -22,11 +23,15 @@ type Client struct {
 }
 
 // NewClient creates an auth client targeting the given base URL.
+// A cookie jar is required so the csrf_token cookie set by GET /api/v1/auth/csrf-token
+// is automatically carried on subsequent POST requests (double-submit CSRF pattern).
 func NewClient(baseURL string) *Client {
+	jar, _ := cookiejar.New(nil) // error only on nil Options — always nil here
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
+			Jar:     jar,
 		},
 	}
 }
@@ -60,17 +65,45 @@ type refreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// fetchCSRF performs GET /api/v1/auth/csrf-token to prime the CSRF cookie and returns
+// the token value from the X-CSRF-Token response header.
+// The server sets the csrf_token cookie (captured by the jar) and echoes the value in
+// the header. Both must be sent on subsequent mutating requests.
+func (c *Client) fetchCSRF(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/auth/csrf-token", nil)
+	if err != nil {
+		return "", fmt.Errorf("auth: build csrf-token request: %w", err)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("auth: csrf-token request: %w", err)
+	}
+	defer resp.Body.Close()
+	token := resp.Header.Get("X-CSRF-Token")
+	if token == "" {
+		return "", fmt.Errorf("auth: csrf-token response missing X-CSRF-Token header")
+	}
+	return token, nil
+}
+
 // Login authenticates with email and password.
 // On success: returns a populated *AuthState with mfaRequired=false.
 // On MFA requirement: returns a partial *AuthState (RefreshToken holds the mfa_token
 // scratch value), mfaRequired=true, and no access token.
 func (c *Client) Login(ctx context.Context, email, password string) (*AuthState, bool, error) {
+	// Step 1: fetch CSRF token (also sets csrf_token cookie in the jar).
+	csrfToken, err := c.fetchCSRF(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("auth: prefetch csrf token: %w", err)
+	}
+
 	body, err := json.Marshal(loginRequest{Email: email, Password: password})
 	if err != nil {
 		return nil, false, fmt.Errorf("auth: marshal login request: %w", err)
 	}
 
-	resp, err := c.post(ctx, "/api/v1/auth/login", bytes.NewReader(body))
+	// Step 2: POST with X-CSRF-Token header; cookie jar carries the csrf_token cookie.
+	resp, err := c.postWithCSRF(ctx, "/api/v1/auth/login", bytes.NewReader(body), csrfToken)
 	if err != nil {
 		return nil, false, fmt.Errorf("auth: login request: %w", err)
 	}
@@ -214,5 +247,18 @@ func (c *Client) post(ctx context.Context, path string, body io.Reader) (*http.R
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	return c.httpClient.Do(req)
+}
+
+// postWithCSRF sends a POST request with the X-CSRF-Token header set.
+// Use for any mutating auth endpoint that requires the double-submit CSRF pattern.
+// The csrf_token cookie is carried automatically by the client's cookie jar.
+func (c *Client) postWithCSRF(ctx context.Context, path string, body io.Reader, csrfToken string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-CSRF-Token", csrfToken)
 	return c.httpClient.Do(req)
 }
