@@ -465,15 +465,18 @@ func signalToClickHouseRow(batch driver.Batch, sig *v1.ArgusSignal) error {
 	severity := uint8(sig.Severity)
 
 	// ── Temporal ─────────────────────────────────────────────────────────────
-	var timestamp int64
+	// NOTE: clickhouse-go/v2 AppendRow for DateTime64 columns unconditionally
+	// treats int64 as milliseconds (driver source: lib/column/datetime64.go ~L221).
+	// Always pass time.Time so the driver applies the correct column precision.
+	var timestamp time.Time
 	if sig.Timestamp != nil {
-		timestamp = sig.Timestamp.AsTime().UnixNano()
+		timestamp = sig.Timestamp.AsTime()
 	}
 	var durationMs *float32
 	if sig.DurationMs != nil {
 		durationMs = sig.DurationMs
 	}
-	ingestedAt := time.Now().UnixMilli()
+	ingestedAt := time.Now()
 
 	// ── L1 Hardware context ───────────────────────────────────────────────────
 	var (
