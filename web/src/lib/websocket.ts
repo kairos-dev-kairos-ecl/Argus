@@ -21,6 +21,7 @@ export class WebSocketClient {
   private message_handlers: Set<(data: unknown) => void> = new Set()
   private error_handlers: Set<(error: string) => void> = new Set()
   private online_listener: (() => void) | null = null
+  private pending_reject: ((err: Error) => void) | null = null
 
   constructor(url: string) {
     this.url = url
@@ -31,6 +32,20 @@ export class WebSocketClient {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Track reject so disconnect()/onclose-during-CONNECTING can
+      // settle the promise instead of leaking it forever.
+      this.pending_reject = reject
+      const settleResolve = () => {
+        this.pending_reject = null
+        resolve()
+      }
+      const settleReject = (err: Error) => {
+        if (this.pending_reject) {
+          this.pending_reject = null
+          reject(err)
+        }
+      }
+
       try {
         this.ws = new WebSocket(this.url)
 
@@ -38,7 +53,7 @@ export class WebSocketClient {
           this.retry_count = 0
           this.reconnect_delay = 1000
           this.flushMessageQueue()
-          resolve()
+          settleResolve()
         }
 
         this.ws.onmessage = (event) => {
@@ -54,14 +69,26 @@ export class WebSocketClient {
         this.ws.onerror = () => {
           const error = 'WebSocket connection error'
           this.error_handlers.forEach((handler) => handler(error))
+          // If the connect promise hasn't resolved yet, reject it so
+          // awaiters don't hang.
+          settleReject(new Error(error))
         }
 
         this.ws.onclose = () => {
+          // If the close happens before onopen AND we're closing intentionally
+          // (disconnect() called during CONNECTING), reject the pending promise
+          // so `await client.connect()` unblocks cleanly.
+          if (this.is_closing) {
+            settleReject(new Error('WebSocket: disconnected before open'))
+            return
+          }
+
           if (!this.is_closing && this.retry_count < this.max_retries) {
             this.attemptReconnect()
           } else if (this.retry_count >= this.max_retries) {
             const error = 'WebSocket: max retries exceeded'
             this.error_handlers.forEach((handler) => handler(error))
+            settleReject(new Error(error))
           }
         }
 
@@ -69,7 +96,7 @@ export class WebSocketClient {
         this.setupNetworkListener()
       } catch (error) {
         const err = error instanceof Error ? error.message : 'WebSocket connection failed'
-        reject(new Error(err))
+        settleReject(new Error(err))
       }
     })
   }
@@ -80,6 +107,13 @@ export class WebSocketClient {
   disconnect(): void {
     this.is_closing = true
     this.removeNetworkListener()
+
+    // Reject any in-flight connect() promise so awaiters don't hang.
+    if (this.pending_reject) {
+      const reject = this.pending_reject
+      this.pending_reject = null
+      reject(new Error('WebSocket: disconnected before open'))
+    }
 
     if (this.ws) {
       this.ws.close()
