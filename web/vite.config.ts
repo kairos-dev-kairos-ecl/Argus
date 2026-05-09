@@ -9,7 +9,8 @@ export default defineConfig({
     proxy: {
       '/api': { target: 'http://localhost:8080', changeOrigin: true },
       '/v1':  { target: 'http://localhost:8080', changeOrigin: true },
-      '/ws':  { target: 'ws://localhost:8080',   ws: true, changeOrigin: true },
+      '/ws':  { target: 'ws://localhost:8080',   ws: true, changeOrigin: true,
+                rewrite: (path: string) => path.replace('/ws/signals', '/v1/signals/stream') },
     }
   },
   build: {
