@@ -21,8 +21,8 @@ func TestRulesModel_InitialState(t *testing.T) {
 func TestRulesModel_RulesLoadedMsg(t *testing.T) {
 	m := NewRulesModel(nil)
 	rules := []api.Rule{
-		{ID: "r1", Name: "rate_spike", Severity: "HIGH", Enabled: true, YAML: "name: rate_spike"},
-		{ID: "r2", Name: "drift_l7", Severity: "MEDIUM", Enabled: false, YAML: "name: drift_l7"},
+		{ID: "r1", Name: "rate_spike", Tier: 4, Enabled: true, YAML: "name: rate_spike"},
+		{ID: "r2", Name: "drift_l7", Tier: 3, Enabled: false, YAML: "name: drift_l7"},
 	}
 	updated, _ := m.UpdateRules(RulesLoadedMsg{Rules: rules})
 	assert.False(t, updated.loading)

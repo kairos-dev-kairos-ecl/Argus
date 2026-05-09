@@ -267,7 +267,7 @@ func (m SignalsModel) buildRows() []table.Row {
 
 	for _, s := range m.signals {
 		if filterText != "" {
-			haystack := strings.ToLower(s.AppID + " " + s.Category + fmt.Sprintf("l%d", s.Layer))
+			haystack := strings.ToLower(s.Source.AppID + " " + s.Category + fmt.Sprintf("l%d", s.Layer))
 			if !strings.Contains(haystack, filterText) {
 				continue
 			}
@@ -275,9 +275,9 @@ func (m SignalsModel) buildRows() []table.Row {
 
 		ts := s.Timestamp.Format("15:04:05")
 		layer := fmt.Sprintf("[L%d]", s.Layer)
-		sev := abbreviateSeverity(s.Severity)
+		sev := abbreviateSeverityInt(s.Severity)
 		traceShort := shortID(s.TraceID)
-		appShort := truncStr(s.AppID, 14)
+		appShort := truncStr(s.Source.AppID, 14)
 		cat := truncStr(s.Category, 22)
 
 		rows = append(rows, table.Row{ts, layer, sev, traceShort, appShort, cat})
@@ -366,6 +366,25 @@ func abbreviateSeverity(s string) string {
 			return s[:4]
 		}
 		return s
+	}
+}
+
+// abbreviateSeverityInt converts a proto severity integer to a short label.
+// Proto Severity enum: 0=UNKNOWN, 1=INFO, 2=LOW, 3=MEDIUM, 4=HIGH, 5=CRITICAL.
+func abbreviateSeverityInt(n int) string {
+	switch n {
+	case 5:
+		return "CRIT"
+	case 4:
+		return "HI"
+	case 3:
+		return "MD"
+	case 2:
+		return "LO"
+	case 1:
+		return "INFO"
+	default:
+		return "?"
 	}
 }
 

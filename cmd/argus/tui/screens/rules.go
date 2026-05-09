@@ -143,11 +143,13 @@ func (m RulesModel) fetchRules() tea.Cmd {
 	}
 	client := m.apiClient
 	return func() tea.Msg {
-		var rules []api.Rule
-		if err := client.Get(context.Background(), "/api/v1/rules", &rules); err != nil {
+		var resp struct {
+			Rules []api.Rule `json:"rules"`
+		}
+		if err := client.Get(context.Background(), "/api/v1/rules", &resp); err != nil {
 			return RulesLoadedMsg{Err: err}
 		}
-		return RulesLoadedMsg{Rules: rules}
+		return RulesLoadedMsg{Rules: resp.Rules}
 	}
 }
 
@@ -477,7 +479,7 @@ func (m RulesModel) buildRows() []table.Row {
 		if r.Enabled {
 			status = "enabled"
 		}
-		rows = append(rows, table.Row{truncStr(r.Name, 28), abbreviateSeverity(r.Severity), status})
+		rows = append(rows, table.Row{truncStr(r.Name, 28), fmt.Sprintf("T%d", r.Tier), status})
 	}
 	return rows
 }

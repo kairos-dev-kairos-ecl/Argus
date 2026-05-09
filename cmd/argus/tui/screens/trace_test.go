@@ -31,9 +31,9 @@ func TestTraceModel_TraceLoadedMsg_BuildsTree(t *testing.T) {
 	msg := TraceLoadedMsg{
 		TraceID: "trace-abc",
 		Signals: []api.Signal{
-			{ID: "s1", Layer: 1, Category: "gpu_util", Message: "high GPU usage", Timestamp: api.ProtoTime{now}},
-			{ID: "s2", Layer: 7, Category: "prompt_injection", Message: "injection detected", Timestamp: api.ProtoTime{now}},
-			{ID: "s3", Layer: 7, Category: "baseline_drift", Message: "drift detected", Timestamp: api.ProtoTime{now}},
+			{ID: "s1", Layer: 1, Category: "gpu_util", Timestamp: api.ProtoTime{now}},
+			{ID: "s2", Layer: 7, Category: "prompt_injection", Timestamp: api.ProtoTime{now}},
+			{ID: "s3", Layer: 7, Category: "baseline_drift", Timestamp: api.ProtoTime{now}},
 		},
 	}
 
@@ -140,7 +140,7 @@ func TestTraceModel_View_ShowsSignals(t *testing.T) {
 	m := NewTraceModel(nil)
 	m.traceID = "trace-abc"
 	m.signals = []api.Signal{
-		{ID: "s1", Layer: 1, Category: "hw", Message: "high GPU", Timestamp: api.ProtoTime{time.Now()}},
+		{ID: "s1", Layer: 1, Category: "hw", Timestamp: api.ProtoTime{time.Now()}},
 	}
 	m.nodes = buildTraceTree(m.signals)
 	view := m.View()

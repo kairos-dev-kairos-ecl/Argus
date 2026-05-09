@@ -29,8 +29,11 @@ func TestSignalsModel_SignalLoadedMsg_PopulatesTable(t *testing.T) {
 
 	msg := SignalLoadedMsg{
 		Signals: []api.Signal{
-			{ID: "s1", TraceID: "trace-abc123", AppID: "qwen-prod", Layer: 7,
-				Category: "prompt_injection", Severity: "HIGH", Message: "test msg",
+			{ID: "s1", TraceID: "trace-abc123",
+				Source:    api.SignalSource{AppID: "qwen-prod"},
+				Layer:     7,
+				Category:  "prompt_injection",
+				Severity:  4,
 				Timestamp: api.ProtoTime{now}},
 		},
 	}

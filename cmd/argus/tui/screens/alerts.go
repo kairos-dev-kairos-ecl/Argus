@@ -110,11 +110,13 @@ func (m AlertsModel) fetchAlerts() tea.Cmd {
 	}
 	client := m.apiClient
 	return func() tea.Msg {
-		var alerts []api.Alert
-		if err := client.Get(context.Background(), "/api/v1/alerts?limit=200&status=open", &alerts); err != nil {
+		var resp struct {
+			Alerts []api.Alert `json:"alerts"`
+		}
+		if err := client.Get(context.Background(), "/api/v1/alerts?limit=200&status=open", &resp); err != nil {
 			return AlertsLoadedMsg{Err: err}
 		}
-		return AlertsLoadedMsg{Alerts: alerts}
+		return AlertsLoadedMsg{Alerts: resp.Alerts}
 	}
 }
 
@@ -277,7 +279,7 @@ func (m AlertsModel) applyFilter() []api.Alert {
 	}
 	var result []api.Alert
 	for _, a := range m.alerts {
-		if strings.Contains(strings.ToLower(a.RuleName+a.Message+a.Status), text) {
+		if strings.Contains(strings.ToLower(a.Title+a.Category+a.Status), text) {
 			result = append(result, a)
 		}
 	}
@@ -287,10 +289,10 @@ func (m AlertsModel) applyFilter() []api.Alert {
 func (m AlertsModel) buildRows() []table.Row {
 	var rows []table.Row
 	for _, a := range m.filtered {
-		sev := abbreviateSeverity(a.Severity)
-		created := a.CreatedAt.Format("15:04:05")
-		app := truncStr(a.TraceID, 14) // TraceID used as app proxy until API carries app_id
-		summary := truncStr(a.Message, 34)
+		sev := abbreviateSeverityInt(a.Severity)
+		created := a.FirstSeenAt.Format("15:04:05")
+		app := truncStr(a.AppID, 14)
+		summary := truncStr(a.Title, 34)
 		rows = append(rows, table.Row{a.ID, sev, created, app, summary, a.Status})
 	}
 	return rows
@@ -307,10 +309,11 @@ func removeAlert(alerts []api.Alert, id string) []api.Alert {
 }
 
 // criticalCount returns the number of critical alerts.
+// Critical severity = 5 per proto Severity enum (SEVERITY_CRITICAL).
 func criticalCount(alerts []api.Alert) int {
 	count := 0
 	for _, a := range alerts {
-		if strings.ToUpper(a.Severity) == "CRITICAL" {
+		if a.Severity == 5 {
 			count++
 		}
 	}

@@ -125,11 +125,13 @@ func (m AuditModel) fetchAudit() tea.Cmd {
 		if actionFilter != "" {
 			path += "&action=" + actionFilter
 		}
-		var entries []api.AuditEntry
-		if err := client.Get(context.Background(), path, &entries); err != nil {
+		var resp struct {
+			Entries []api.AuditEntry `json:"entries"`
+		}
+		if err := client.Get(context.Background(), path, &resp); err != nil {
 			return AuditLoadedMsg{Err: err}
 		}
-		return AuditLoadedMsg{Entries: entries}
+		return AuditLoadedMsg{Entries: resp.Entries}
 	}
 }
 
@@ -264,7 +266,7 @@ func (m AuditModel) applyFilters() []api.AuditEntry {
 
 	var result []api.AuditEntry
 	for _, e := range m.entries {
-		if userText != "" && !strings.Contains(strings.ToLower(e.UserEmail), userText) {
+		if userText != "" && !strings.Contains(strings.ToLower(e.ActorEmailStr()), userText) {
 			continue
 		}
 		if actionText != "" && !strings.Contains(strings.ToLower(e.Action), actionText) {
@@ -282,10 +284,14 @@ func (m AuditModel) renderEntries() string {
 
 	var sb strings.Builder
 	for _, e := range m.filtered {
-		ts := e.CreatedAt.Format("15:04:05")
-		user := truncStr(e.UserEmail, 22)
+		// Timestamp is an RFC3339 string; extract HH:MM:SS for display.
+		ts := e.Timestamp
+		if len(ts) >= 19 {
+			ts = ts[11:19] // "2006-01-02T15:04:05Z" → "15:04:05"
+		}
+		user := truncStr(e.ActorEmailStr(), 22)
 		action := truncStr(e.Action, 20)
-		resource := truncStr(e.Resource, 30)
+		resource := truncStr(e.ResourceType, 30)
 
 		line := fmt.Sprintf("%-10s  %-22s  %-20s  %s", ts, user, action, resource)
 		sb.WriteString(theme.Muted.Render(line))

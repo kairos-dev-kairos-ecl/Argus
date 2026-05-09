@@ -113,7 +113,6 @@ func (m TraceModel) fetchTrace(traceID string) tea.Cmd {
 				TraceID:  tr.TraceID,
 				Layer:    api.SpanLayerInt[sp.Layer], // "" → 0 for unknowns
 				Category: sp.Message,
-				Message:  sp.Message,
 			})
 		}
 		return TraceLoadedMsg{TraceID: traceID, Signals: signals}
@@ -214,8 +213,8 @@ func buildTraceTree(signals []api.Signal) []traceNode {
 			nodes = append(nodes, traceNode{
 				layer:    layer,
 				signalID: s.ID,
-				message:  s.Message,
-				anomaly:  s.AnomalyScore,
+				message:  s.Category, // Category doubles as message (SpanView.Message = category)
+				anomaly:  s.AnomalyScore(),
 				category: s.Category,
 			})
 		}

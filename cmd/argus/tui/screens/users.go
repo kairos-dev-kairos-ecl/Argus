@@ -61,8 +61,8 @@ const (
 var usersTableColumns = []table.Column{
 	{Title: "EMAIL", Width: 28},
 	{Title: "ROLE", Width: 10},
-	{Title: "MFA", Width: 5},
-	{Title: "CREATED", Width: 12},
+	{Title: "STATUS", Width: 10},
+	{Title: "NAME", Width: 20},
 }
 
 // UsersModel is the Bubbletea model for the Users / IAM screen.
@@ -139,11 +139,13 @@ func (m UsersModel) fetchUsers() tea.Cmd {
 	}
 	client := m.apiClient
 	return func() tea.Msg {
-		var users []api.User
-		if err := client.Get(context.Background(), "/api/v1/users", &users); err != nil {
+		var resp struct {
+			Users []api.User `json:"users"`
+		}
+		if err := client.Get(context.Background(), "/api/v1/users", &resp); err != nil {
 			return UsersLoadedMsg{Err: err}
 		}
-		return UsersLoadedMsg{Users: users}
+		return UsersLoadedMsg{Users: resp.Users}
 	}
 }
 
@@ -352,12 +354,11 @@ func (m UsersModel) handleKey(msg tea.KeyMsg) (UsersModel, tea.Cmd) {
 func (m UsersModel) buildRows() []table.Row {
 	var rows []table.Row
 	for _, u := range m.users {
-		mfa := "no"
-		if u.MFAEnabled {
-			mfa = "yes"
+		status := u.Status
+		if status == "" {
+			status = "active"
 		}
-		created := u.CreatedAt.Format("2006-01-02")
-		rows = append(rows, table.Row{u.Email, u.Role, mfa, created})
+		rows = append(rows, table.Row{u.Email, u.Role, status, truncStr(u.DisplayName, 20)})
 	}
 	return rows
 }

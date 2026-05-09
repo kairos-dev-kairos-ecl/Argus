@@ -1,3 +1,13 @@
+// Keymap (Phase 4 consolidated):
+//
+// Cross-screen contract: Enter=open, Esc=back, /=filter, r=refresh, ?=help (global), q=quit (global)
+//
+// Local bindings (admin-only):
+//   u        — activate user email filter input [DEVIATION: subordinate to /; 'u' is screen-specific shortcut]
+//   a        — activate action filter input [DEVIATION: subordinate to /; 'a' is screen-specific shortcut]
+//   /        — toggle between user filter input and no-filter (compliant: /=filter)
+//   r        — refresh audit log (compliant: r=refresh)
+//   up/down  — scroll viewport (navigation, no contract conflict)
 package screens
 
 import (
@@ -29,10 +39,16 @@ func TestAuditModel_Admin_CanLoad(t *testing.T) {
 
 func TestAuditModel_AuditLoadedMsg(t *testing.T) {
 	m := NewAuditModel(nil, "admin")
+	email := "admin@argus.io"
 	entries := []api.AuditEntry{
-		{ID: "e1", UserEmail: "admin@argus.io", Action: "login_success",
-			Resource: "/api/v1/auth/login", IPAddress: "10.0.0.1",
-			CreatedAt: time.Now()},
+		{
+			ID:           "e1",
+			ActorEmail:   &email,
+			Action:       "login_success",
+			ResourceType: "auth",
+			IPAddress:    "10.0.0.1",
+			Timestamp:    time.Now().UTC().Format(time.RFC3339),
+		},
 	}
 	updated, _ := m.UpdateAudit(AuditLoadedMsg{Entries: entries})
 	assert.False(t, updated.loading)
@@ -84,22 +100,25 @@ func TestAuditModel_FilterActive_EnterExits(t *testing.T) {
 
 func TestAuditModel_ApplyFilters_ByUser(t *testing.T) {
 	m := NewAuditModel(nil, "admin")
+	admin := "admin@argus.io"
+	alice := "alice@argus.io"
 	m.entries = []api.AuditEntry{
-		{UserEmail: "admin@argus.io", Action: "login"},
-		{UserEmail: "alice@argus.io", Action: "login"},
+		{ActorEmail: &admin, Action: "login"},
+		{ActorEmail: &alice, Action: "login"},
 	}
 	m.userFilter.SetValue("alice")
 
 	filtered := m.applyFilters()
 	assert.Len(t, filtered, 1)
-	assert.Equal(t, "alice@argus.io", filtered[0].UserEmail)
+	assert.Equal(t, "alice@argus.io", filtered[0].ActorEmailStr())
 }
 
 func TestAuditModel_ApplyFilters_ByAction(t *testing.T) {
 	m := NewAuditModel(nil, "admin")
+	email := "admin@argus.io"
 	m.entries = []api.AuditEntry{
-		{UserEmail: "admin@argus.io", Action: "login_success"},
-		{UserEmail: "admin@argus.io", Action: "rule_updated"},
+		{ActorEmail: &email, Action: "login_success"},
+		{ActorEmail: &email, Action: "rule_updated"},
 	}
 	m.actionFilter.SetValue("rule")
 
@@ -110,9 +129,11 @@ func TestAuditModel_ApplyFilters_ByAction(t *testing.T) {
 
 func TestAuditModel_ApplyFilters_NoFilter_ReturnsAll(t *testing.T) {
 	m := NewAuditModel(nil, "admin")
+	admin := "admin@argus.io"
+	alice := "alice@argus.io"
 	m.entries = []api.AuditEntry{
-		{UserEmail: "admin@argus.io", Action: "login"},
-		{UserEmail: "alice@argus.io", Action: "login"},
+		{ActorEmail: &admin, Action: "login"},
+		{ActorEmail: &alice, Action: "login"},
 	}
 
 	filtered := m.applyFilters()
@@ -150,8 +171,9 @@ func TestAuditModel_View_Admin_Error(t *testing.T) {
 func TestAuditModel_View_Admin_ShowsEntries(t *testing.T) {
 	m := NewAuditModel(nil, "admin")
 	m.loading = false
+	email := "admin@argus.io"
 	m.entries = []api.AuditEntry{
-		{UserEmail: "admin@argus.io", Action: "login_success", CreatedAt: time.Now()},
+		{ActorEmail: &email, Action: "login_success", Timestamp: time.Now().UTC().Format(time.RFC3339)},
 	}
 	m.filtered = m.entries
 	view := m.View()

@@ -20,8 +20,8 @@ func TestAlertsModel_AlertsLoadedMsg(t *testing.T) {
 	m := NewAlertsModel(nil)
 	msg := AlertsLoadedMsg{
 		Alerts: []api.Alert{
-			{ID: "a1", RuleName: "rule1", Severity: "HIGH", Status: "open",
-				Message: "test alert", CreatedAt: time.Now()},
+			{ID: "a1", Title: "rule1", Severity: 4, Status: "open",
+				Category: "test alert", FirstSeenAt: time.Now()},
 		},
 	}
 
@@ -43,7 +43,7 @@ func TestAlertsModel_AckKey_NoSelectedRow_NoModal(t *testing.T) {
 	m := NewAlertsModel(nil)
 	m.loading = false
 	m.alerts = []api.Alert{
-		{ID: "alrt-001", Severity: "HIGH", Status: "open", CreatedAt: time.Now()},
+		{ID: "alrt-001", Severity: 4, Status: "open", FirstSeenAt: time.Now()},
 	}
 	m.filtered = m.alerts
 
@@ -91,8 +91,8 @@ func TestAlertsModel_AlertActionResult_RemovesAlert(t *testing.T) {
 	m := NewAlertsModel(nil)
 	m.loading = false
 	m.alerts = []api.Alert{
-		{ID: "a1", Severity: "HIGH", Status: "open", CreatedAt: time.Now()},
-		{ID: "a2", Severity: "LOW", Status: "open", CreatedAt: time.Now()},
+		{ID: "a1", Severity: 4, Status: "open", FirstSeenAt: time.Now()},
+		{ID: "a2", Severity: 2, Status: "open", FirstSeenAt: time.Now()},
 	}
 	m.filtered = m.alerts
 
@@ -154,9 +154,9 @@ func TestAlertsModel_KeyHelp_NonEmpty(t *testing.T) {
 
 func TestCriticalCount(t *testing.T) {
 	alerts := []api.Alert{
-		{Severity: "CRITICAL"},
-		{Severity: "HIGH"},
-		{Severity: "critical"}, // case-insensitive
+		{Severity: 5}, // CRITICAL
+		{Severity: 4}, // HIGH
+		{Severity: 5}, // CRITICAL
 	}
 	assert.Equal(t, 2, criticalCount(alerts))
 }
