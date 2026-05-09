@@ -63,6 +63,41 @@ type AuditEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Span is one entry in a TraceResponse.Spans slice.
+// Mirrors internal/ingest.SpanView — layer is the full proto enum string
+// (e.g. "L1_HARDWARE"), not an integer.
+type Span struct {
+	SignalID       string  `json:"signal_id"`
+	Layer          string  `json:"layer"`
+	StartTime      string  `json:"start_time"`
+	DurationMs     float64 `json:"duration_ms"`
+	ParentSignalID string  `json:"parent_signal_id,omitempty"`
+	Status         string  `json:"status"`
+	Message        string  `json:"message"`
+}
+
+// TraceResponse is the JSON envelope from GET /api/v1/traces/{traceId}.
+type TraceResponse struct {
+	TraceID    string `json:"trace_id"`
+	Spans      []Span `json:"spans"`
+	DurationMs int64  `json:"duration_ms"`
+}
+
+// SpanLayerInt maps the proto enum layer string to the integer (1–10) used
+// by the TUI render layer. Unknown values map to 0.
+var SpanLayerInt = map[string]int{
+	"L1_HARDWARE":        1,
+	"L2_MODEL_WEIGHTS":   2,
+	"L3_TOKENIZER":       3,
+	"L4_TRANSFORMER":     4,
+	"L5_OUTPUT_DECODING": 5,
+	"L6_SAFETY":          6,
+	"L7_RAG_RETRIEVAL":   7,
+	"L8_AGENTS":          8,
+	"L9_API_GATEWAY":     9,
+	"L10_APPLICATION":    10,
+}
+
 // WSMsg is the envelope for WebSocket messages from /api/v1/signals/stream.
 type WSMsg struct {
 	Type    string `json:"type"`

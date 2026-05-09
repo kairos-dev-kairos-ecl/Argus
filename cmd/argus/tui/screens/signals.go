@@ -114,7 +114,8 @@ func (m SignalsModel) Init() tea.Cmd {
 	)
 }
 
-// fetchSignals issues a GET /api/v1/signals?limit=100 returning a SignalLoadedMsg.
+// fetchSignals issues a GET /v1/signals?limit=100 returning a SignalLoadedMsg.
+// The route is /v1/signals (no /api prefix) and returns QueryResponse{signals:[...],total_hint:N}.
 func (m SignalsModel) fetchSignals() tea.Cmd {
 	if m.apiClient == nil {
 		return func() tea.Msg {
@@ -123,11 +124,13 @@ func (m SignalsModel) fetchSignals() tea.Cmd {
 	}
 	client := m.apiClient
 	return func() tea.Msg {
-		var signals []api.Signal
-		if err := client.Get(context.Background(), "/api/v1/signals?limit=100&order=desc", &signals); err != nil {
+		var resp struct {
+			Signals []api.Signal `json:"signals"`
+		}
+		if err := client.Get(context.Background(), "/v1/signals?limit=100", &resp); err != nil {
 			return SignalLoadedMsg{Err: err}
 		}
-		return SignalLoadedMsg{Signals: signals}
+		return SignalLoadedMsg{Signals: resp.Signals}
 	}
 }
 

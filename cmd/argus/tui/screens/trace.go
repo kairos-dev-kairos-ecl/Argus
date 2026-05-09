@@ -98,10 +98,23 @@ func (m TraceModel) fetchTrace(traceID string) tea.Cmd {
 	}
 	client := m.apiClient
 	return func() tea.Msg {
-		var signals []api.Signal
-		path := fmt.Sprintf("/api/v1/signals?trace_id=%s&limit=500", traceID)
-		if err := client.Get(context.Background(), path, &signals); err != nil {
+		// GET /api/v1/traces/{traceId} returns TraceResponse{spans:[SpanView]}
+		// SpanView.layer is the proto enum string ("L1_HARDWARE" etc.), not int.
+		path := fmt.Sprintf("/api/v1/traces/%s", traceID)
+		var tr api.TraceResponse
+		if err := client.Get(context.Background(), path, &tr); err != nil {
 			return TraceLoadedMsg{TraceID: traceID, Err: err}
+		}
+		// Convert spans → []api.Signal so buildTraceTree can consume them.
+		signals := make([]api.Signal, 0, len(tr.Spans))
+		for _, sp := range tr.Spans {
+			signals = append(signals, api.Signal{
+				ID:       sp.SignalID,
+				TraceID:  tr.TraceID,
+				Layer:    api.SpanLayerInt[sp.Layer], // "" → 0 for unknowns
+				Category: sp.Message,
+				Message:  sp.Message,
+			})
 		}
 		return TraceLoadedMsg{TraceID: traceID, Signals: signals}
 	}
