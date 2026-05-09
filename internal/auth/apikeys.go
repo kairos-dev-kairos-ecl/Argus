@@ -24,7 +24,7 @@ var (
 type APIKey struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
-	AppID      *uuid.UUID
+	AppID      string // text NOT NULL in DB; defaults to "system" when not specified
 	Name       string
 	KeyPrefix  string
 	KeyHash    string

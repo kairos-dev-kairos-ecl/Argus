@@ -14,9 +14,9 @@ import (
 // ---- Request/Response types ----
 
 type createAPIKeyRequest struct {
-	Name      string    `json:"name"`
-	AppID     *uuid.UUID `json:"app_id"`
-	Scopes    []string  `json:"scopes"`
+	Name      string     `json:"name"`
+	AppID     *string    `json:"app_id"`
+	Scopes    []string   `json:"scopes"`
 	ExpiresAt *time.Time `json:"expires_at"`
 }
 
@@ -75,15 +75,27 @@ func (h *QueryHandler) handleCreateAPIKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Resolve app_id — default to "system" when caller doesn't specify one
+	appID := "system"
+	if req.AppID != nil && *req.AppID != "" {
+		appID = *req.AppID
+	}
+
+	// Ensure scopes is never nil (DB column is NOT NULL DEFAULT '{}')
+	scopes := req.Scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+
 	// Create API key record
 	apiKey := &auth.APIKey{
 		ID:        uuid.New(),
 		UserID:    userID,
-		AppID:     req.AppID,
+		AppID:     appID,
 		Name:      req.Name,
 		KeyPrefix: prefix,
 		KeyHash:   hash,
-		Scopes:    req.Scopes,
+		Scopes:    scopes,
 		ExpiresAt: req.ExpiresAt,
 		CreatedAt: time.Now(),
 	}
