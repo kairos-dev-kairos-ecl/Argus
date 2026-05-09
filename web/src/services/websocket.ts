@@ -63,6 +63,22 @@ export function createSignalSocket(handlers: SignalSocketHandlers): () => void {
 
   return () => {
     closed = true
-    ws?.close()
+    // Capture local reference, null the outer binding BEFORE close().
+    // The onclose/onerror handlers reference the outer `ws` variable;
+    // by nulling it first we ensure handlers that fire after cleanup
+    // (which can happen when close() is called during CONNECTING under
+    // React StrictMode) see ws === null and their `handlers.onStatus?.('closed')`
+    // / setTimeout(connect, ...) paths effectively no-op (closed === true).
+    const local = ws
+    ws = null
+    // Detach handlers so the browser's CONNECTING-abort error doesn't
+    // bubble to onerror / onclose with a misleading state.
+    if (local) {
+      local.onopen = null
+      local.onmessage = null
+      local.onerror = null
+      local.onclose = null
+      try { local.close() } catch { /* ignore — already closing */ }
+    }
   }
 }
