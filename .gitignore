@@ -13,8 +13,8 @@
 bin/
 *.exe
 *.out
-argus
-argus-api
+/argus
+/argus-api
 pipeline.test.*
 
 # Web build
