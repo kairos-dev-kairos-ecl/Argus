@@ -156,6 +156,14 @@ func NewClickHouse(ctx context.Context, dsn string) (*ClickHouse, error) {
 		return nil, fmt.Errorf("failed to apply schema: %w", err)
 	}
 
+	// Apply Phase 7 bloom-filter skip indexes (idempotent, non-fatal).
+	// A failure here does not prevent server startup — queries still work, just slower.
+	if err := ApplySignalSkipIndexes(ctx, conn); err != nil {
+		zap.L().Error("signal skip indexes failed (non-fatal)", zap.Error(err))
+	} else {
+		zap.L().Info("signal skip indexes applied")
+	}
+
 	return &ClickHouse{
 		conn: conn,
 	}, nil
