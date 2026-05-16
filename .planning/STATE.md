@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 2
+current_plan: 4
 status: executing
-last_updated: "2026-05-16T14:40:00.000Z"
+last_updated: "2026-05-16T16:00:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 19
-  completed_plans: 27
+  completed_plans: 28
 ---
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-05-16 - Completed Phase 7 Plan 01: Wave 0 data foundation — ClickHouse bloom-filter skip indexes on session_id/conversation_id + PostgreSQL migration 011 session_baseline_profiles
+> Last activity: 2026-05-16 - Completed Phase 7 Plan 02: Wave 1 reconstruction layer — internal/trace/ package (RunReconstructor, TimelineBuilder, orphan detection, 4 tests passing)
 
 ---
 
 ## Current Status
 
 **Active phase:** Phase 7 — Behavioural Traceability & TUI (executing)
-**Current plan:** 2
+**Current plan:** 4
 **Milestone:** M1 — Foundation & Observability
 
 ---
@@ -142,3 +142,4 @@ progress:
 | 5 | 1 | Design System Tokens Reset (brutalist theme) | 2026-04-26 | a558f44, 673ca7a, 2cb0fff | Complete |
 | 5 | 8 | Incidents MITRE ATLAS Screen (Screen 6) | 2026-04-27 | 1aa51cd, 2db4f8a | Complete |
 | 7 | 1 | Wave 0 Data Foundation — ClickHouse Skip Indexes + PG Migration 011 | 2026-05-16 | 87289ea, 54830f7 | Complete |
+| 7 | 2 | Wave 1 Reconstruction Layer — internal/trace/ RunReconstructor + TimelineBuilder | 2026-05-16 | 3ebf2f7, fa1e17b, 7ffdcda | Complete |

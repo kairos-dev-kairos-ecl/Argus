@@ -147,10 +147,11 @@ Plans:
 ### Phase 7: Behavioural Traceability & TUI
 **Goal:** Make observability real — reconstruct the full lifecycle of every LLM prompt (run) from signal data, compute session-level deviations against baseline, and surface it all via a TUI so both AI researchers and security analysts can see what the model actually did, run-by-run and layer-by-layer.
 
-**Status:** Executing (1/6 plans complete)
+**Status:** Executing (2/6 plans complete)
 
 **Plans:**
-- [x] 07-01-PLAN.md — Wave 0 Data Foundation: ClickHouse bloom-filter skip indexes (session_id, conversation_id) + PostgreSQL migration 011 session_baseline_profiles
+3/6 plans executed
+- [x] 07-03-PLAN.md — Wave 1 Session Baseline: SessionBaselineEngine (async 10-min), SessionProfileStore (dual-write Redis+PG), ComputeSessionDrift (normalised Levenshtein)
 
 **Core mental model:** A "run" is one complete prompt-to-response cycle. Its causality is already encoded in `span_id`/`parent_span_id` in the signals table — no rule inference needed. Deviation is already computed per-signal via `enrich_baseline_deviation`. The work is reconstruction and surfacing, not inference.
 
