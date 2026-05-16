@@ -144,6 +144,30 @@ Plans:
 
 ---
 
+### Phase 7: Behavioural Traceability & TUI
+**Goal:** Make observability real — reconstruct the full lifecycle of every LLM prompt (run) from signal data, compute session-level deviations against baseline, and surface it all via a TUI so both AI researchers and security analysts can see what the model actually did, run-by-run and layer-by-layer.
+
+**Status:** Executing (1/6 plans complete)
+
+**Plans:**
+- [x] 07-01-PLAN.md — Wave 0 Data Foundation: ClickHouse bloom-filter skip indexes (session_id, conversation_id) + PostgreSQL migration 011 session_baseline_profiles
+
+**Core mental model:** A "run" is one complete prompt-to-response cycle. Its causality is already encoded in `span_id`/`parent_span_id` in the signals table — no rule inference needed. Deviation is already computed per-signal via `enrich_baseline_deviation`. The work is reconstruction and surfacing, not inference.
+
+**Requirements:**
+- REQ-P7-01: ClickHouse Bloom filter skip indexes on `session_id` and `conversation_id` — enables sub-50ms session/conversation queries without full partition scans
+- REQ-P7-02: PostgreSQL migration 011 — `session_baseline_profiles` table: `app_id` → layer activation sequence, session duration percentiles (p50/p95), anomaly rate, sample count
+- REQ-P7-03: `internal/trace/` package — `RunReconstructor`: reads `span_id`/`parent_span_id` from ClickHouse, builds typed DAG for a `trace_id`. Nodes carry signal enrichment + populated layer-context fields only. Edges typed: parent_child, temporal. Orphaned spans detected and handled.
+- REQ-P7-04: `internal/trace/` package — `SessionTimeline`: reads all signals for `session_id` or `conversation_id` in timestamp order, groups by layer, derives session aggregates: peak baseline deviation, layer activation sequence, anomaly timeline, session duration.
+- REQ-P7-05: `internal/baseline/` extension — `SessionBaselineEngine`: async 10-min compute (same cadence as signal-level engine). Profiles keyed by `app_id`. `ComputeSessionDrift` via normalised Levenshtein on layer enum sequences (0.0 = identical, 1.0 = completely different). Dual-writes Redis (30m TTL) + PostgreSQL.
+- REQ-P7-06: `GET /api/v1/traces/{trace_id}/graph` — returns typed run DAG: nodes (signal enrichment), edges (typed), metadata (layers present, start/end time, peak deviation). JWT auth, analyst+ role.
+- REQ-P7-07: `GET /api/v1/sessions/{session_id}/timeline` — temporal event sequence across all layers for a session. JWT auth.
+- REQ-P7-08: `GET /api/v1/conversations/{conversation_id}/behaviour` — session summary + drift score vs session baseline + anomaly timeline. JWT auth.
+- REQ-P7-09: `GET /api/v1/alerts/{alert_id}/chain` — walks `alerts.signal_ids[]` through span tree to reconstruct signal chain leading to the alert. JWT auth.
+- REQ-P7-10: `argus behaviour` TUI command (`cmd/argus/tui/behaviour/`) — three views: (1) run list: recent trace_ids for an app_id, each row showing layers activated + peak deviation + duration; (2) run detail: indented span tree coloured by deviation severity (green/yellow/red), populated ctx fields shown per node; (3) run compare: two trace_ids diffed layer-by-layer, deviation delta highlighted. Built with `bubbletea`.
+
+---
+
 ## Requirements Index
 
 | ID | Phase | Description |
@@ -179,3 +203,13 @@ Plans:
 | REQ-P6-07 | 6 | TOTP 2FA flow complete (enroll, verify, backup codes) |
 | REQ-P6-08 | 6 | Session management UI (list, kill remote sessions) |
 | REQ-P6-09 | 6 | CSRF protection on all POST auth endpoints |
+| REQ-P7-01 | 7 | ClickHouse Bloom filter skip indexes on session_id and conversation_id |
+| REQ-P7-02 | 7 | PostgreSQL migration 011 — session_baseline_profiles table |
+| REQ-P7-03 | 7 | internal/trace/ RunReconstructor — span tree DAG from trace_id |
+| REQ-P7-04 | 7 | internal/trace/ SessionTimeline — temporal layer sequence from session/conversation |
+| REQ-P7-05 | 7 | internal/baseline/ SessionBaselineEngine + ComputeSessionDrift |
+| REQ-P7-06 | 7 | GET /api/v1/traces/{trace_id}/graph endpoint |
+| REQ-P7-07 | 7 | GET /api/v1/sessions/{session_id}/timeline endpoint |
+| REQ-P7-08 | 7 | GET /api/v1/conversations/{conversation_id}/behaviour endpoint |
+| REQ-P7-09 | 7 | GET /api/v1/alerts/{alert_id}/chain endpoint |
+| REQ-P7-10 | 7 | argus behaviour TUI — run list, run detail (span tree), run compare |

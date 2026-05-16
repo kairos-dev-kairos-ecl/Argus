@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 1
+current_plan: 2
 status: executing
-last_updated: "2026-04-27T10:07:22.179Z"
+last_updated: "2026-05-16T14:40:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 3
-  total_plans: 30
-  completed_plans: 29
+  total_phases: 7
+  completed_phases: 1
+  total_plans: 19
+  completed_plans: 27
 ---
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-05-09 - Completed quick task 260509-wcz: Fix ClickHouse timestamp corruption — pass time.Time (not int64) for DateTime64 columns so stored timestamps reflect actual signal time (not year 2228+)
+> Last activity: 2026-05-16 - Completed Phase 7 Plan 01: Wave 0 data foundation — ClickHouse bloom-filter skip indexes on session_id/conversation_id + PostgreSQL migration 011 session_baseline_profiles
 
 ---
 
 ## Current Status
 
-**Active phase:** Phase 6 — Security Hardening: Zero-Trust Auth & API Protection (complete)
-**Current plan:** 1
+**Active phase:** Phase 7 — Behavioural Traceability & TUI (executing)
+**Current plan:** 2
 **Milestone:** M1 — Foundation & Observability
 
 ---
@@ -66,7 +66,7 @@ progress:
 - `web/src/` — 22 pages, 20+ components
 - Zustand stores: auth, signal filters, trace view
 - TanStack Query hooks, WebSocket listener
-- **Status:** Executing Phase 05
+- **Status:** Executing Phase 07
 
 ---
 
@@ -95,6 +95,8 @@ progress:
 - **RBAC granularity:** Permission-based (not role-based) for read endpoints to allow admin/analyst to carry same permissions as viewer role.
 - **Tailwind v4 CSS entrypoint:** globals.css (not index.css) is the actual CSS entrypoint imported by main.tsx; both files updated for brutalist theme.
 - **Tailwind v4 theme config:** tailwind.config.js CSS var references used for color tokens — allows live token editing without rebuild.
+- **Phase 7 skip indexes:** bloom_filter(0.01) GRANULARITY 4 for session_id/conversation_id — 1% FP rate for high-cardinality string IDs; non-fatal on failure so server still starts.
+- **session_baseline_profiles expires_at NOT NULL:** Forces callers (SessionBaselineEngine) to supply explicit expiry; prevents accidental indefinite retention.
 
 ---
 
@@ -139,3 +141,4 @@ progress:
 | 6 | 8 | Session Management & CSRF Protection — Wave 6 (FINAL) | 2026-04-24 | 71eb040, 752d3b7, 608f977 | Complete |
 | 5 | 1 | Design System Tokens Reset (brutalist theme) | 2026-04-26 | a558f44, 673ca7a, 2cb0fff | Complete |
 | 5 | 8 | Incidents MITRE ATLAS Screen (Screen 6) | 2026-04-27 | 1aa51cd, 2db4f8a | Complete |
+| 7 | 1 | Wave 0 Data Foundation — ClickHouse Skip Indexes + PG Migration 011 | 2026-05-16 | 87289ea, 54830f7 | Complete |
