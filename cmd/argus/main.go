@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/argusxdr/argus/cmd/argus/selector"
 	"github.com/argusxdr/argus/cmd/argus/tui"
+	"github.com/argusxdr/argus/cmd/argus/tui/behaviour"
 	"github.com/argusxdr/argus/cmd/argus/web"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -108,6 +109,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(web.Cmd)
 	rootCmd.AddCommand(tui.Cmd)
+	rootCmd.AddCommand(behaviour.Cmd)
 	// resetUICmd registers itself in reset_ui.go's init().
 }
 
