@@ -538,32 +538,24 @@ func countChar(s string, c byte) int {
 }
 
 func (h *QueryHandler) handleCSRFToken(w http.ResponseWriter, r *http.Request) {
-	// This handler is called AFTER CSRFMiddleware has set the cookie and header
-	// Extract the csrf_token cookie or generate one if absent
-	cookie, err := r.Cookie("csrf_token")
-	var tokenValue string
-
-	if err != nil || cookie.Value == "" {
-		// Generate new token
-		token, err := auth.GenerateCSRFToken()
-		if err != nil {
-			jsonError(w, "csrf token generation failed", http.StatusInternalServerError)
-			return
+	// CSRFMiddleware (which runs before this handler) has already:
+	//   1. Generated or reused the token
+	//   2. Set the csrf_token cookie on the response (Strict mode)
+	//   3. Set the X-CSRF-Token response header
+	//
+	// Read the token from the response header so we return the exact same value
+	// the middleware set — never generate a second token, which would produce two
+	// different csrf_token cookies and cause a permanent mismatch on POST.
+	tokenValue := w.Header().Get("X-CSRF-Token")
+	if tokenValue == "" {
+		// Fallback: read from request cookie (cookie already existed before this request)
+		if cookie, err := r.Cookie("csrf_token"); err == nil {
+			tokenValue = cookie.Value
 		}
-		tokenValue = token
-
-		// Set cookie
-		http.SetCookie(w, &http.Cookie{
-			Name:     "csrf_token",
-			Value:    tokenValue,
-			Path:     "/api/v1/auth",
-			HttpOnly: false,
-			Secure:   r.TLS != nil,
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   12 * 3600,
-		})
-	} else {
-		tokenValue = cookie.Value
+	}
+	if tokenValue == "" {
+		jsonError(w, "csrf token generation failed", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -413,10 +413,9 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		log.Info("rate limiter wired to query handler")
 	}
 
-	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
-	queryHandler.RegisterRoutes(r)
-
-	// Phase 7: Behavioural traceability endpoints (requires ClickHouse + PostgreSQL)
+	// Phase 7: Behavioural traceability endpoints (requires ClickHouse + PostgreSQL).
+	// Registered BEFORE queryHandler so /api/v1/traces/recent (literal segment) wins
+	// over queryHandler's /api/v1/traces/{traceID} (wildcard) in chi's radix tree.
 	if ch != nil && pgPool != nil {
 		reconstructor := trace.NewRunReconstructor(ch.Conn())
 		timelineBuilder := trace.NewTimelineBuilder(ch.Conn())
@@ -438,6 +437,9 @@ func runAPI(cmd *cobra.Command, args []string) error {
 		})
 		log.Info("phase 7 behaviour endpoints registered")
 	}
+
+	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
+	queryHandler.RegisterRoutes(r)
 
 	// Signal Broadcaster and WebSocket streaming (create first so HTTP receiver can use it)
 	broadcaster := ingest.NewSignalBroadcaster()
