@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 4
+current_plan: 5
 status: executing
-last_updated: "2026-05-16T16:00:00.000Z"
+last_updated: "2026-05-16T14:52:19Z"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 19
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # ArgusXDR — Project State
 
-> Last activity: 2026-05-16 - Completed Phase 7 Plan 02: Wave 1 reconstruction layer — internal/trace/ package (RunReconstructor, TimelineBuilder, orphan detection, 4 tests passing)
+> Last activity: 2026-05-16 - Completed Phase 7 Plan 04: Wave 2 HTTP endpoints — 5 JWT-gated behaviour endpoints (trace graph, session timeline, conversation behaviour, alert chain, recent runs) via internal/api/behaviour/ package
 
 ---
 
 ## Current Status
 
 **Active phase:** Phase 7 — Behavioural Traceability & TUI (executing)
-**Current plan:** 4
+**Current plan:** 5
 **Milestone:** M1 — Foundation & Observability
 
 ---
@@ -97,6 +97,8 @@ progress:
 - **Tailwind v4 theme config:** tailwind.config.js CSS var references used for color tokens — allows live token editing without rebuild.
 - **Phase 7 skip indexes:** bloom_filter(0.01) GRANULARITY 4 for session_id/conversation_id — 1% FP rate for high-cardinality string IDs; non-fatal on failure so server still starts.
 - **session_baseline_profiles expires_at NOT NULL:** Forces callers (SessionBaselineEngine) to supply explicit expiry; prevents accidental indefinite retention.
+- **Phase 7 behaviour endpoints auth:** JWT is applied globally in api.go via AuthMiddleware; behaviour routes use r.Group + RequireRole("analyst","admin") only — no duplicate JWT wrapper.
+- **drift_score null semantics:** Returns null (not 0.0) when no session baseline profile exists — encodes "not computable" vs "identical sequences".
 
 ---
 
@@ -143,3 +145,5 @@ progress:
 | 5 | 8 | Incidents MITRE ATLAS Screen (Screen 6) | 2026-04-27 | 1aa51cd, 2db4f8a | Complete |
 | 7 | 1 | Wave 0 Data Foundation — ClickHouse Skip Indexes + PG Migration 011 | 2026-05-16 | 87289ea, 54830f7 | Complete |
 | 7 | 2 | Wave 1 Reconstruction Layer — internal/trace/ RunReconstructor + TimelineBuilder | 2026-05-16 | 3ebf2f7, fa1e17b, 7ffdcda | Complete |
+| 7 | 3 | Session Baseline Engine + Drift Scoring | 2026-05-16 | (see 07-03-SUMMARY.md) | Complete |
+| 7 | 4 | Wave 2 HTTP Endpoints — internal/api/behaviour/ + api.go wiring | 2026-05-16 | cec2ff2, 382e098 | Complete |
