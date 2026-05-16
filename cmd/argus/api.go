@@ -12,7 +12,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/argusxdr/argus/internal/api/behaviour"
 	"github.com/argusxdr/argus/internal/auth"
+	"github.com/argusxdr/argus/internal/baseline"
 	"github.com/argusxdr/argus/internal/detection/breaker"
 	"github.com/argusxdr/argus/internal/detection/engine"
 	"github.com/argusxdr/argus/internal/detection/loader"
@@ -24,6 +26,7 @@ import (
 	"github.com/argusxdr/argus/internal/resilience"
 	"github.com/argusxdr/argus/internal/secrets"
 	"github.com/argusxdr/argus/internal/storage"
+	"github.com/argusxdr/argus/internal/trace"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -412,6 +415,29 @@ func runAPI(cmd *cobra.Command, args []string) error {
 
 	// Query API — returns 503 on individual endpoints when ClickHouse unavailable
 	queryHandler.RegisterRoutes(r)
+
+	// Phase 7: Behavioural traceability endpoints (requires ClickHouse + PostgreSQL)
+	if ch != nil && pgPool != nil {
+		reconstructor := trace.NewRunReconstructor(ch.Conn())
+		timelineBuilder := trace.NewTimelineBuilder(ch.Conn())
+		sessionStore := baseline.NewSessionProfileStore(redisClient, pgPool, log)
+		behaviourHandler := behaviour.NewBehaviourHandler(
+			ch.Conn(), pgPool, reconstructor, timelineBuilder, sessionStore, log,
+		)
+
+		// Start session baseline engine (async, 10-min cadence) — non-blocking
+		sessionEngine := baseline.NewSessionBaselineEngine(ch.Conn(), pgPool, redisClient, log, nil)
+		if err := sessionEngine.Start(ctx); err != nil {
+			log.Warn("session baseline engine failed to start", zap.Error(err))
+		}
+
+		// Register routes under JWT auth (already applied globally) + analyst/admin role guard.
+		r.Group(func(gr chi.Router) {
+			gr.Use(auth.RequireRole("analyst", "admin"))
+			behaviourHandler.RegisterRoutes(gr)
+		})
+		log.Info("phase 7 behaviour endpoints registered")
+	}
 
 	// Signal Broadcaster and WebSocket streaming (create first so HTTP receiver can use it)
 	broadcaster := ingest.NewSignalBroadcaster()
