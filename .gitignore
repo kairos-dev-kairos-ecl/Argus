@@ -5,8 +5,32 @@
 # Planning & local tooling (GSD workflow artifacts, never committed)
 .planning/
 .claude/
-.claude/worktrees/
+.claire/
 .worktrees/
+
+# ─── Design & Internal Tooling ────────────────────────────────────────────────
+# Figma design exports and reference images — not part of the codebase
+Figma/
+
+# Graph analysis output — local tooling artifact
+graphify-out/
+
+# Internal planning and specification documents
+ARGUS_XDR_PLATFORM_SPEC.md
+Argus-Design.md
+INFISICAL_SETUP.md
+.DELIVERY_SUMMARY.md
+
+# AI tool internal plans
+docs/superpowers/
+
+# ─── Local Artifacts & Test Output ────────────────────────────────────────────
+argus_connector_research_report.md
+argus-validate-results.json
+argus-server.log
+test_sensor.py
+test_harness/validation_results.json
+scripts/live_test.py
 
 # ─── Binaries & Build Outputs ─────────────────────────────────────────────────
 # Go build outputs

@@ -43,13 +43,34 @@ Every signal across all 11 layers shares the same `ArgusSignal` protobuf envelop
 
 ---
 
+## Install
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/kairos-dev-kairos-ecl/Argus/main/install.sh | bash
+```
+
+**Windows (PowerShell — run as Administrator):**
+```powershell
+irm https://raw.githubusercontent.com/kairos-dev-kairos-ecl/Argus/main/install.ps1 | iex
+```
+
+**Docker:**
+```bash
+docker pull ghcr.io/kairos-dev-kairos-ecl/argus:latest
+```
+
+Or grab a binary directly from [Releases](https://github.com/kairos-dev-kairos-ecl/Argus/releases/latest) — Linux amd64/arm64, macOS amd64/arm64, Windows amd64.
+
+---
+
 ## Quick Start
 
 ### Docker Compose (full stack)
 
 ```bash
-git clone https://github.com/argusxdr/argus.git
-cd argus
+git clone https://github.com/kairos-dev-kairos-ecl/Argus.git
+cd Argus
 
 # Start Argus + ClickHouse + PostgreSQL + Redis
 docker compose up -d

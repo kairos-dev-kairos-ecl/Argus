@@ -7,28 +7,42 @@ on:
 
 permissions:
   contents: write
+  packages: write   # for GHCR Docker image push
 
 jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build binaries for all platforms
+  # ─────────────────────────────────────────────────────────────────────────────
   build:
     name: Build ${{ matrix.os }}-${{ matrix.arch }}
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
-          # Linux builds
+          # Linux
           - os: linux
             arch: amd64
             runs-on: ubuntu-latest
+            binary: argus-linux-amd64
           - os: linux
             arch: arm64
             runs-on: ubuntu-latest
-          # macOS builds
+            binary: argus-linux-arm64
+          # macOS
           - os: darwin
             arch: amd64
             runs-on: macos-latest
+            binary: argus-darwin-amd64
           - os: darwin
             arch: arm64
             runs-on: macos-latest
+            binary: argus-darwin-arm64
+          # Windows
+          - os: windows
+            arch: amd64
+            runs-on: ubuntu-latest
+            binary: argus-windows-amd64.exe
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +50,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+          cache: true
 
       - name: Build binary
         env:
@@ -43,17 +58,24 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags "-X main.Version=${{ github.ref_name }} -X main.BuildDate=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-            -o argus-${{ matrix.os }}-${{ matrix.arch }} \
+          go build \
+            -ldflags "-s -w \
+              -X main.Version=${{ github.ref_name }} \
+              -X main.BuildDate=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+              -X main.Commit=${{ github.sha }}" \
+            -o ${{ matrix.binary }} \
             ./cmd/argus
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: argus-${{ matrix.os }}-${{ matrix.arch }}
-          path: argus-${{ matrix.os }}-${{ matrix.arch }}
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
           retention-days: 1
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Generate SHA-256 checksums for all binaries
+  # ─────────────────────────────────────────────────────────────────────────────
   checksums:
     name: Generate Checksums
     runs-on: ubuntu-latest
@@ -63,15 +85,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: binaries
+          merge-multiple: true
 
       - name: Generate checksums
         run: |
           cd binaries
-          for dir in */; do
-            cd "$dir"
-            sha256sum * >> ../checksums.txt
-            cd ..
-          done
+          sha256sum argus-* > checksums.txt
+          echo "Checksums:"
           cat checksums.txt
 
       - name: Upload checksums artifact
@@ -81,10 +101,59 @@ jobs:
           path: binaries/checksums.txt
           retention-days: 1
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build and push Docker image to GitHub Container Registry
+  # ─────────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/argus
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            COMMIT=${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Create GitHub Release with all binaries, checksums, and install scripts
+  # ─────────────────────────────────────────────────────────────────────────────
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: checksums
+    needs: [checksums, docker]
     steps:
       - uses: actions/checkout@v4
 
@@ -92,54 +161,62 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
+          merge-multiple: true
 
-      - name: Organize artifacts
+      - name: Prepare release files
         run: |
           mkdir -p release
-          # Flatten directory structure
-          find release-artifacts -type f -name "argus-*" ! -name "*.txt" -exec cp {} release/ \;
-          cp release-artifacts/checksums/checksums.txt release/
-          ls -la release/
+          cp release-artifacts/argus-* release/ 2>/dev/null || true
+          cp release-artifacts/checksums.txt release/
+          cp install.sh release/
+          cp install.ps1 release/
+          ls -lh release/
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Generate release notes header
+        run: |
+          TAG="${{ github.ref_name }}"
+          cat > release_notes_header.md << 'NOTES'
+          ## Install
+
+          **Linux / macOS:**
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/kairos-dev-kairos-ecl/Argus/main/install.sh | bash
+          ```
+
+          **Windows (PowerShell — run as Administrator):**
+          ```powershell
+          irm https://raw.githubusercontent.com/kairos-dev-kairos-ecl/Argus/main/install.ps1 | iex
+          ```
+
+          **Docker:**
+          ```bash
+          docker pull ghcr.io/kairos-dev-kairos-ecl/argus:latest
+          docker compose up -d   # using the repo's docker-compose.yml
+          ```
+
+          **Manual download:** Pick the binary for your platform from the assets below, then `chmod +x` it (Linux/macOS) or run it directly (Windows).
+
+          | Platform | Binary |
+          |----------|--------|
+          | Linux x86_64 | `argus-linux-amd64` |
+          | Linux ARM64 | `argus-linux-arm64` |
+          | macOS x86_64 | `argus-darwin-amd64` |
+          | macOS Apple Silicon | `argus-darwin-arm64` |
+          | Windows x86_64 | `argus-windows-amd64.exe` |
+
+          Verify your download against `checksums.txt` (SHA-256).
+
+          ---
+
+          NOTES
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           files: release/*
           draft: false
           prerelease: false
           generate_release_notes: true
+          body_path: release_notes_header.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Optional: Binary signing with cosign (requires cosign setup)
-  # Uncomment when cosign keys are configured
-  # sign:
-  #   name: Sign Binaries (cosign)
-  #   runs-on: ubuntu-latest
-  #   needs: release
-  #   if: false # Disabled by default
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #
-  #     - name: Install cosign
-  #       uses: sigstore/cosign-installer@v4
-  #
-  #     - name: Download binaries from release
-  #       run: |
-  #         gh release download ${{ github.ref_name }} -D binaries
-  #       env:
-  #         GH_TOKEN: ${{ github.token }}
-  #
-  #     - name: Sign binaries
-  #       env:
-  #         COSIGN_EXPERIMENTAL: 1
-  #       run: |
-  #         for binary in binaries/argus-*; do
-  #           cosign sign-blob --yes "$binary" > "$binary.sig"
-  #         done
-  #
-  #     - name: Upload signatures
-  #       run: |
-  #         gh release upload ${{ github.ref_name }} binaries/*.sig --clobber
-  #       env:
-  #         GH_TOKEN: ${{ github.token }}

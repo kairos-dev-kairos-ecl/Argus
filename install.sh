@@ -2,15 +2,15 @@
 set -e
 
 # Argus XDR Installation Script
-# Usage: curl -fsSL https://get.argus-xdr.dev | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/kairos-dev-kairos-ecl/Argus/main/install.sh | bash
 # ENV: ARGUS_VERSION, ARGUS_DATA_DIR, ARGUS_PORT, NO_BROWSER
 
 ARGUS_VERSION="${ARGUS_VERSION:-latest}"
 ARGUS_DATA_DIR="${ARGUS_DATA_DIR:-.argus}"
-ARGUS_PORT="${ARGUS_PORT:-9090}"
-ARGUS_GRPC_PORT="${ARGUS_GRPC_PORT:-4317}"
+ARGUS_PORT="${ARGUS_PORT:-8080}"
+ARGUS_GRPC_PORT="${ARGUS_GRPC_PORT:-5001}"
 NO_BROWSER="${NO_BROWSER:-}"
-GITHUB_REPO="argus-xdr/argus"
+GITHUB_REPO="kairos-dev-kairos-ecl/Argus"
 
 # Colors
 RED='\033[0;31m'
@@ -223,10 +223,10 @@ if [ ! -f "$COMPOSE_FILE" ]; then
 version: "3.9"
 services:
   argus:
-    image: argusxdr/argus:latest
+    image: ghcr.io/kairos-dev-kairos-ecl/argus:latest
     ports:
-      - "9090:9090"
-      - "4317:4317"
+      - "8080:8080"
+      - "5001:5001"
     environment:
       ARGUS_POSTGRES_DSN: "postgres://argus:password@postgres:5432/argus"
       ARGUS_CLICKHOUSE_DSN: "clickhouse://clickhouse:9000/default"
