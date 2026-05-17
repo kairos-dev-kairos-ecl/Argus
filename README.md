@@ -1,530 +1,349 @@
 <div align="center">
   <img src="assets/logo.png" alt="Argus XDR Logo" width="180">
-  
+
   # Argus XDR
-  
-  **Production-Grade Extended Detection & Response Platform for LLM Systems**
-  
+
+  **Open-Source Extended Detection & Response for LLM-Integrated Systems**
+
   [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-  [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8?logo=go)](https://golang.org/)
+  [![Go Version](https://img.shields.io/badge/go-1.24+-00ADD8?logo=go)](https://golang.org/)
   [![TypeScript](https://img.shields.io/badge/typescript-5.4+-3178C6?logo=typescript)](https://www.typescriptlang.org/)
   [![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python)](https://www.python.org/)
-  
+
 </div>
 
 ---
 
-Argus is an open-source XDR platform purpose-built for LLM-integrated systems. It provides full-stack signal coverage across a 10-layer LLM system taxonomy (L1 Hardware through L10 Application), correlated threat detection, investigation workflows, and response orchestration.
+Argus is a production-grade XDR platform purpose-built for LLM-integrated systems. It provides full-stack signal coverage across a 10-layer LLM system taxonomy — from GPU hardware (L1) through orchestration (L9) and application behaviour (L10) — with correlated threat detection, behavioural traceability, investigation workflows, and response orchestration.
 
-**Core Value:** Every signal from every layer of an LLM system is captured, normalized into a unified schema, correlated across traces, and surfaced to operators with full detection and investigation capability — so threats, anomalies, and behavioral drift are never invisible.
+**Core value:** Every signal from every layer of an LLM system is captured, normalised into a unified schema, correlated across traces, and surfaced to operators with full detection and investigation capability — so threats, anomalies, and behavioural drift are never invisible.
+
+---
+
+## What Argus Covers
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  LDecision  Policy enforcement · alerts · incident creation  │
+├──────────────────────────────────────────────────────────────┤
+│  L10  Application       User sessions, feature flags, UX     │
+│  L9   Orchestration     Agent coordination, multi-model      │
+│  L8   Data Access       RAG, vector search, retrieval        │
+│  L7   Tool Use          Function calls, plugin execution     │
+│  L6   Integration       External API calls                   │
+│  L5   Output Decoding   Sampling, filtering, streaming       │
+│  L4   Inference         Forward pass, token counts, latency  │
+│  L3   Model Loading     Weights, quantisation, adapters      │
+│  L2   Runtime           ML framework (PyTorch, JAX, etc.)    │
+│  L1   Hardware          GPU/CPU/memory at the system level   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Every signal across all 11 layers shares the same `ArgusSignal` protobuf envelope — type-safe, layer-specific context fields, unified correlation by `trace_id` and `conversation_id`.
+
+---
 
 ## Quick Start
 
-### Local Development (Zero Dependencies)
+### Docker Compose (full stack)
 
 ```bash
-# Build the binary
-go build -o ./argus ./cmd/argus
+git clone https://github.com/argusxdr/argus.git
+cd argus
 
-# Start in dev mode (no external services required)
-./argus server --dev
-
-# In another terminal, test the health endpoint
-curl http://localhost:8080/health
-# → {"status":"ok"}
-
-# Test metrics endpoint
-curl http://localhost:8080/metrics | head -20
-# → prometheus format text
-```
-
-### Docker Compose (Full Stack)
-
-```bash
-# Start all services (Argus, ClickHouse, PostgreSQL, Redis)
+# Start Argus + ClickHouse + PostgreSQL + Redis
 docker compose up -d
 
-# Wait for services to be healthy (~30 seconds)
-docker compose ps
-# All services should show "healthy"
-
-# Test the health endpoint
+# Verify all services are healthy
 curl http://localhost:8080/health
-# → {"status":"ok"}
+# → {"status":"healthy","clickhouse":{"status":"ok"},"postgres":{"status":"ok"},"redis":{"status":"ok"}}
+```
 
-# Test metrics
-curl http://localhost:8080/metrics | head -5
+Open `http://localhost:8080` for the first-run setup wizard. It creates the admin account and your first API key.
 
-# Send a test signal via HTTP
+### Send your first signal
+
+```bash
 curl -X POST http://localhost:8080/v1/signals \
-  -H "Authorization: Bearer dev-test-key" \
+  -H "X-Argus-API-Key: argus_sk_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "signal_id": "test-01",
-    "trace_id": "trace-abc",
-    "layer": "L5_OUTPUT_DECODING",
-    "category": "output.completion",
-    "severity": "INFO",
-    "source": { "app_id": "test-app" },
-    "timestamp": "2026-04-07T12:00:00Z"
+    "signal_id": "sig-001",
+    "trace_id":  "trace-test-001",
+    "layer":     4,
+    "category":  "inference.latency.normal",
+    "severity":  "INFO",
+    "timestamp": "2026-05-18T10:00:00Z",
+    "source":    {"app_id": "my-app"}
   }'
 # → {"accepted":1,"rejected":0}
-
-# Wait for signal to flush
-sleep 3
-
-# Query it back
-curl "http://localhost:8080/v1/signals?app_id=test-app"
-
-# Shutdown
-docker compose down -v
 ```
 
-### Kubernetes (Helm)
+### Python SDK
 
-```bash
-# Add Argus Helm repository (when available)
-# helm repo add argus https://charts.argusxdr.io
-# helm repo update
+```python
+from sdk.client import ArgusClient
+from sdk.signal_builder import SignalBuilder
+import asyncio
 
-# Install the chart
-helm install argus ./deployments/helm \
-  --namespace argus \
-  --create-namespace \
-  --values ./deployments/helm/values.yaml
+async def main():
+    client = ArgusClient(base_url="http://localhost:8080", api_key="argus_sk_...")
+    signal = (
+        SignalBuilder()
+        .layer(4).category("inference.latency.normal").severity("INFO")
+        .trace_id("trace-001").source(app_id="my-app")
+        .l4_context(model_id="gpt-4o", latency_ms=320, prompt_tokens=128, completion_tokens=64)
+        .build()
+    )
+    print(await client.ingest([signal]))  # {"accepted": 1, "rejected": 0}
 
-# Verify deployment
-kubectl get pods -n argus
-kubectl get svc -n argus
-
-# Forward ports for testing
-kubectl port-forward -n argus svc/argus-api 8080:8080
-kubectl port-forward -n argus svc/argus-grpc 5001:5001
-
-# View logs
-kubectl logs -n argus -l app.kubernetes.io/name=argus -f
-
-# Upgrade
-helm upgrade argus ./deployments/helm -n argus
-
-# Uninstall
-helm uninstall argus -n argus
+asyncio.run(main())
 ```
 
-## CLI Commands
-
-### `argus server` — All-in-One Server (PLATFORM-01)
-
-Start all subsystems (gRPC receiver, HTTP receiver, OTLP bridge, query API) in a single process.
-
-```bash
-argus server [FLAGS]
-
-FLAGS:
-  --dev                         Use embedded storage (zero external deps)
-  --config string               Path to config YAML (default: argus.yaml)
-  --grpc-addr string           gRPC listen address (default: localhost:5001)
-  --http-addr string           HTTP listen address (default: localhost:8080)
-  --postgres-dsn string         PostgreSQL connection string
-  --clickhouse-dsn string       ClickHouse connection string
-  --queue-capacity int          Ingest queue capacity (default: 100000)
-  --batch-size int              ClickHouse batch writer size (default: 500)
-  --batch-interval duration     Batch flush interval (default: 2s)
-  --dev                         Enable dev mode
-```
-
-**Production mode:** Requires PostgreSQL, ClickHouse, and Redis running.
-**Dev mode (`--dev`):** Zero-dependency mode using in-memory storage and hardcoded auth key `dev-key-argus`.
-
-### `argus ingest` — Ingest Subsystem Only (PLATFORM-02)
-
-Start only the ingest receivers (gRPC, HTTP, OTLP, queue) without the query API.
-
-```bash
-argus ingest [FLAGS]
-# Same flags as server (except query API endpoints are not registered)
-```
-
-### `argus api` — Query API Subsystem Only (PLATFORM-02)
-
-Start only the query API (GET /v1/signals) without ingest receivers.
-
-```bash
-argus api [FLAGS]
-
-FLAGS:
-  --http-addr string           HTTP listen address (default: localhost:8080)
-  --clickhouse-dsn string       ClickHouse connection string
-```
-
-## Endpoints
-
-### Ingest
-
-- **POST /v1/signals** (HTTP) — Ingest signals via HTTP
-  - Requires: `Authorization: Bearer <API_KEY>` header
-  - Body: Single `ArgusSignal` object or array of objects
-  - Response: `{"accepted": N, "rejected": M}`
-
-- **POST /v1/traces** (HTTP) — Ingest OpenTelemetry traces
-  - Body: OTLP ExportTraceServiceRequest (protobuf or JSON)
-  - No auth required (OTLP is open for compatibility)
-
-- **POST /v1/metrics** (HTTP) — Ingest OpenTelemetry metrics
-  - Body: OTLP ExportMetricsServiceRequest (protobuf or JSON)
-  - No auth required
-
-- **argus.v1.IngestService/StreamSignals** (gRPC) — Stream signals via gRPC
-  - Requires: `Authorization: Bearer <API_KEY>` metadata
-  - Request: Stream of `ArgusSignal` messages
-  - Response: `BatchResult { accepted, rejected }`
-
-### Query
-
-- **GET /v1/signals** — Query signals with cursor pagination (STORE-06)
-  - Query params:
-    - `app_id` (required): Filter by application ID
-    - `layer` (optional): Filter by layer (1-10)
-    - `category` (optional): Filter by category
-    - `severity` (optional): Minimum severity (1-5)
-    - `start` (optional): RFC3339 timestamp lower bound
-    - `end` (optional): RFC3339 timestamp upper bound
-    - `cursor` (optional): Pagination cursor from previous response
-    - `limit` (optional): Results per page (default: 100, max: 1000)
-  - Response: `{"signals": [...], "next_cursor": "...", "total_hint": N}`
-
-### Observability
-
-- **GET /health** — Health check endpoint
-  - Response: `{"status":"ok"}`
-
-- **GET /metrics** — Prometheus metrics endpoint (PLATFORM-05)
-  - Response: Prometheus text format
-  - Key metrics:
-    - `argus_signals_received_total{receiver="grpc"|"http"|"otlp"}`
-    - `argus_signals_dropped_total{reason="..."`
-    - `argus_ingest_queue_depth` (current queue size)
-    - `argus_storage_batch_flush_total` (flush count)
-
-## Configuration
-
-### Config File (argus.yaml)
-
-```yaml
-server:
-  grpc_port: 5001
-  http_port: 8080
-
-storage:
-  clickhouse:
-    addr: "localhost:9000"
-    database: "default"
-    username: "default"
-    password: ""
-    max_open_conns: 10
-    dial_timeout: 5s
-
-  postgres:
-    dsn: "postgres://argus:argus@localhost:5432/argus?sslmode=disable"
-    max_conns: 20
-    min_conns: 5
-
-  redis:
-    addr: "localhost:6379"
-    password: ""
-    db: 0
-
-ingest:
-  queue_capacity: 100000
-  batch_size: 500
-  flush_interval: 2s
-  max_grpc_message_bytes: 10485760  # 10MB
-  max_http_body_bytes: 4194304      # 4MB
-  auth_cache_ttl: 5m
-
-logging:
-  level: "info"   # debug, info, warn, error
-  format: "json"  # json, console
-```
-
-### Environment Variables
-
-All config values can be overridden via environment variables with prefix `ARGUS_`:
-
-```bash
-export ARGUS_STORAGE_CLICKHOUSE_ADDR=clickhouse:9000
-export ARGUS_STORAGE_POSTGRES_DSN=postgres://...
-export ARGUS_STORAGE_REDIS_ADDR=redis:6379
-export ARGUS_SERVER_GRPC_ADDR=0.0.0.0:5001
-export ARGUS_SERVER_HTTP_ADDR=0.0.0.0:8080
-export ARGUS_INGEST_QUEUE_CAPACITY=100000
-export ARGUS_LOGGING_LEVEL=debug
-```
+---
 
 ## Architecture
 
-### Subsystems
-
-1. **Ingest** — Receives signals from SDKs, OpenTelemetry, and webhooks
-   - gRPC receiver (StreamSignals RPC)
-   - HTTP receiver (POST /v1/signals)
-   - OTLP bridge (POST /v1/traces, /v1/metrics)
-   - Queue (100K buffered channel)
-   - Batch writer (500 rows or 2s flush)
-
-2. **Storage** — Persists signals and metadata
-   - ClickHouse: Signal time-series (ReplacingMergeTree, monthly partitions)
-   - PostgreSQL: Config, auth, rules, incidents
-   - Redis: Ephemeral trace correlation, deduplication, rate limiting
-
-3. **Query API** — Exposes signals for investigation and dashboard
-   - GET /v1/signals with cursor pagination (STORE-06)
-   - Filters: app_id, layer, category, severity, timestamp range
-   - Direct ClickHouse queries with FINAL modifier (dedup)
-
-4. **Metrics** — Prometheus-compatible observability
-   - Signals received/dropped by receiver type
-   - Queue depth gauge
-   - Batch flush counts and latencies
-
-## Testing
-
-### Smoke Test (docker-compose)
-
-```bash
-# Run the smoke test script
-bash test/smoke_test.sh
+```
+SDK / Apps (Python · TypeScript · gRPC · HTTP · OTLP)
+         ↓
+  Ingest Receivers  →  Queue (100K)
+         ↓
+  Processing Pipeline (7 stages):
+    SchemaValidator → Normalizer → CorrelationTagger
+    → BaselineScorer → Enricher → DetectionProcessor → BatchWriter
+         ↓                              ↓
+    ClickHouse                    PostgreSQL
+  (signals, traces)          (auth, rules, alerts,
+   monthly partitions          incidents, baselines)
+         ↓
+      Redis (trace correlation, baseline cache, rate limiting)
+         ↓
+    Query API  (/v1/signals · /api/v1/traces · /api/v1/conversations)
+         ↓                    ↓
+   bubbletea TUI        React Dashboard
 ```
 
-The script:
-1. Starts docker compose
-2. Sends 10 signals via gRPC
-3. Sends 10 signals via HTTP
-4. Waits for batch flush
-5. Queries all 20 signals back
-6. Verifies metrics
-7. Shuts down
+**Storage:**
+- **ClickHouse** — time-series signal store, `ReplacingMergeTree`, monthly partitions, bloom_filter skip indexes on `session_id`/`conversation_id`
+- **PostgreSQL** — users, sessions, API keys, detection rules, alerts, incidents, baseline profiles
+- **Redis** — ephemeral trace correlation (30s TTL), baseline cache (5m TTL), rate limiting
 
-### Unit Tests
+**Processing pipeline** runs at GOMAXPROCS×2 goroutines. Baseline scoring uses an async 10-minute computation cycle — it never blocks the ingest hot path.
 
-```bash
-go test ./... -v
-go test -race ./...
-```
+---
 
-### Integration Tests
+## Features
 
-```bash
-# Start docker compose
-docker compose up -d
+### Signal Ingestion
+- gRPC streaming receiver (`IngestService/StreamSignals`)
+- HTTP receiver (`POST /v1/signals`) with protojson encoding
+- OTLP bridge (`POST /v1/traces`, `POST /v1/metrics`) for OpenTelemetry compatibility
+- 100K-signal internal buffer with backpressure to receivers
+- 10K+ signals/sec sustained throughput
 
-# Run tests against real services
-go test -tags integration ./test
+### Detection & Baselines
+- YAML-defined detection rules — data, not code
+- Async baseline engine: per `(app_id, layer, category)` z-score profiles, computed from ≥100 samples
+- Deviation scoring on every signal relative to its historical baseline
+- GeoIP enrichment for source IP fields
 
-# Cleanup
-docker compose down -v
-```
+### Behavioural Traceability
+- Trace reconstruction: all signals sharing a `trace_id` assembled into a typed span tree
+- Conversation timeline: session-scoped event ordering across multiple traces
+- Session baseline engine: drift scoring comparing current conversation sequence to historical pattern
+- API endpoints: `GET /api/v1/traces/recent`, `GET /api/v1/traces/{id}/graph`, `GET /api/v1/conversations/{id}/behaviour`
 
-## Performance Targets
+### Authentication & Security
+- JWT (RS256) with 1-hour access tokens and rotating HttpOnly refresh cookies
+- RBAC: `admin`, `analyst`, `viewer` roles with permission-based enforcement
+- TOTP/MFA with RFC 6238 implementation and one-time backup codes
+- API keys with scope control (`signals:write`) and Redis-cached validation
+- CSRF double-submit cookie protection on all auth mutation endpoints
+- HIBP password breach check on account creation (fail-open on network error)
 
-- **Ingest throughput:** 10K+ signals/sec sustained
-- **Detection latency:** <100ms (from ingestion to alert)
-- **Query latency:** <1s for 100K signal result set (cursor paginated)
-- **Queue capacity:** 100K buffered signals
-- **Batch size:** 500 signals (flush every 2 seconds or sooner)
-- **SDK overhead:** <5ms p99 on instrumented applications (per signal)
+### Operator Interfaces
+- **React Dashboard** (`web/`) — 22 pages: Signals, Traces, Alerts, Rules, Incidents (MITRE ATLAS), Users, Audit, API Keys, IAM, Settings
+- **bubbletea TUI** (`argus behaviour`) — run list, span tree detail, side-by-side run comparison, layer badges, deviation colouring
 
-## Deployment
+### Notifications
+- Dispatcher with adapters: Slack, PagerDuty, Email, Webhook, Syslog
 
-### Docker Compose (Development/Testing)
+---
 
-```bash
-docker compose up -d
-docker compose ps
-docker compose logs -f argus-server
-docker compose down -v
-```
-
-### Helm (Kubernetes/Production)
-
-```bash
-helm install argus ./deployments/helm -n argus --create-namespace
-
-# Scale ingest replicas
-kubectl scale deployment/argus-ingest -n argus --replicas=5
-
-# View HPA status
-kubectl get hpa -n argus
-```
-
-### systemd (Linux VM/Bare Metal)
-
-```bash
-# Create service file
-sudo tee /etc/systemd/system/argus.service > /dev/null <<EOF
-[Unit]
-Description=Argus XDR Server
-After=network.target
-
-[Service]
-Type=simple
-User=argus
-ExecStart=/usr/local/bin/argus server
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable argus
-sudo systemctl start argus
-sudo systemctl status argus
-```
-
-## Troubleshooting
-
-### Connection Errors
-
-```bash
-# ClickHouse unreachable
-./argus server 2>&1 | grep clickhouse
-# Expected: "connecting to ClickHouse", "clickhouse connected"
-
-# PostgreSQL unreachable
-./argus server 2>&1 | grep postgres
-# Expected: "connecting to PostgreSQL", "postgresql connected"
-
-# Redis unreachable (non-fatal, degrades trace correlation)
-./argus server 2>&1 | grep redis
-```
-
-### Queue Backlog
-
-Monitor `argus_ingest_queue_depth` metric:
-
-```bash
-curl http://localhost:8080/metrics | grep argus_ingest_queue_depth
-```
-
-If queue is growing:
-- Scale ingest pods (increase replicas or batch size)
-- Check ClickHouse write performance
-- Check network latency to ClickHouse
-
-### High Dropped Signals
-
-Monitor `argus_signals_dropped_total{reason="queue_full"}`:
-
-```bash
-curl http://localhost:8080/metrics | grep argus_signals_dropped_total
-```
-
-Solutions:
-- Increase `--queue-capacity` flag
-- Scale ingest replicas (Kubernetes)
-- Increase batch size or flush interval
-
-## Development
-
-### Building the Binary
-
-```bash
-go mod tidy
-go build -o ./argus ./cmd/argus
-./argus --help
-```
-
-### Code Structure
+## Project Layout
 
 ```
 .
-├── cmd/argus/              # CLI entry points
-│   ├── main.go            # Cobra root command
-│   ├── server.go          # `argus server` subcommand (all subsystems)
-│   ├── ingest.go          # `argus ingest` subcommand (receivers only)
-│   └── api.go             # `argus api` subcommand (query API only)
-├── gen/go/argus/v1/       # Protobuf generated Go code
-│   ├── signal.pb.go       # ArgusSignal message definition
-│   ├── service.pb.go      # RPC service definitions
-│   └── service_grpc.pb.go # gRPC server/client stubs
+├── cmd/argus/               CLI entry points (Cobra)
+│   ├── main.go              Root command + dispatch
+│   ├── server.go            `argus server` — full stack
+│   ├── api.go               HTTP router + route registration
+│   └── tui/                 bubbletea TUI (selector + behaviour screens)
 ├── internal/
-│   ├── ingest/            # Signal ingestion subsystem
-│   │   ├── queue.go       # Buffered signal queue
-│   │   ├── auth.go        # API key validation
-│   │   ├── receiver_grpc.go      # gRPC ingest receiver
-│   │   ├── receiver_http.go      # HTTP ingest receiver
-│   │   ├── receiver_otlp.go      # OTLP bridge receiver
-│   │   └── receiver_query.go     # Query API handler
-│   ├── storage/           # Data persistence
-│   │   ├── clickhouse.go  # ClickHouse client + batch writer
-│   │   ├── postgres.go    # PostgreSQL client + migrations
-│   │   ├── redis.go       # Redis client (trace correlation)
-│   │   ├── schema.go      # ClickHouse DDL
-│   │   └── migrations/    # PostgreSQL migration SQL files
-│   └── metrics/           # Prometheus metrics
-│       └── metrics.go     # Metric definitions (Ingest, Storage, HTTP)
-├── proto/                 # Protocol Buffer definitions
-│   └── argus/v1/
-│       ├── signal.proto         # Core ArgusSignal message
-│       ├── service.proto        # gRPC service definitions
-│       └── categories.proto     # Signal category taxonomy
-├── deployments/
-│   └── helm/              # Kubernetes Helm chart
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       └── templates/
-├── test/                  # Tests and smoke test script
-│   ├── smoke_test.sh
-│   └── (unit/integration tests)
-├── Dockerfile             # Multi-stage Docker build
-├── docker-compose.yml     # Dev/test stack (Argus + backends)
-└── README.md              # This file
+│   ├── ingest/              Receivers, queue, batch writer, auth
+│   ├── pipeline/            7-stage processing chain
+│   ├── storage/             ClickHouse, PostgreSQL, Redis clients
+│   ├── auth/                JWT, CSRF, RBAC, TOTP, session management
+│   ├── baseline/            Async baseline engine + session drift scoring
+│   ├── trace/               RunReconstructor, TimelineBuilder
+│   ├── api/                 HTTP handlers (behaviour, query, auth, etc.)
+│   ├── detection/           Rule evaluator (Kairos sidecar integration)
+│   ├── notify/              Notification dispatcher + adapters
+│   └── rules/               Built-in YAML detection rules
+├── proto/argus/v1/          Protobuf schema (signal.proto, service.proto)
+├── gen/go/argus/v1/         Generated Go stubs
+├── sdk/
+│   ├── client.py            Python ArgusClient (httpx, async)
+│   ├── signal_builder.py    Fluent SignalBuilder
+│   └── typescript/          TypeScript client + builder
+├── web/                     React + TypeScript dashboard (Vite, shadcn/ui)
+├── migrations/              PostgreSQL migration SQL (golang-migrate)
+├── docs/                    Documentation
+│   ├── getting-started.md
+│   ├── architecture.md
+│   ├── signal-taxonomy.md
+│   ├── configuration.md
+│   └── contributing.md
+├── docker-compose.yml       Full dev stack
+├── Dockerfile               Multi-stage Go build
+└── Makefile                 build, test, lint, proto, docker targets
 ```
 
-### Running Tests
+---
+
+## Configuration
+
+Argus reads `argus.yaml` in the current directory. All keys can be overridden with `ARGUS_`-prefixed environment variables.
+
+```yaml
+server:
+  http_addr: "localhost:8080"
+  grpc_addr: "localhost:5001"
+
+storage:
+  clickhouse:
+    addr:     "localhost:9000"
+    database: "default"
+  postgres:
+    dsn: "postgres://argus:argus@localhost:5432/argus"
+  redis:
+    addr: "localhost:6379"
+
+ingest:
+  queue_capacity: 100000
+  batch_size:     500
+  flush_interval: "2s"
+
+logging:
+  level:  "info"
+  format: "json"
+```
+
+Full reference: [`docs/configuration.md`](docs/configuration.md)
+
+---
+
+## API Reference
+
+### Ingest
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/v1/signals` | `X-Argus-API-Key` | Ingest one or more signals |
+| POST | `/v1/traces` | None | OTLP trace bridge |
+| POST | `/v1/metrics` | None | OTLP metrics bridge |
+| STREAM | gRPC `IngestService/StreamSignals` | Bearer metadata | High-throughput gRPC stream |
+
+### Query
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/v1/signals` | None | Query signals (app_id, layer, severity, time range, cursor) |
+| GET | `/api/v1/traces/recent` | JWT | Recent run list for an app |
+| GET | `/api/v1/traces/{id}/graph` | JWT | Span tree (nodes + edges + meta) |
+| GET | `/api/v1/conversations/{id}/behaviour` | JWT | Timeline + session drift score |
+
+### Auth
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/auth/csrf-token` | None | Fetch CSRF token (sets cookie) |
+| POST | `/api/v1/auth/login` | CSRF | Login → access_token + refresh cookie |
+| POST | `/api/v1/auth/refresh` | Refresh cookie | Rotate tokens |
+| POST | `/api/v1/auth/logout` | JWT | Revoke session |
+
+Full auth protocol: see `CLAUDE.md` → Auth Client Protocol section.
+
+---
+
+## Building from Source
 
 ```bash
-# Unit tests
-go test ./internal/... -v
+# Go binary
+go build -o ./argus ./cmd/argus
+./argus --help
 
-# Integration tests (requires docker compose up)
-go test -tags integration ./test -v
+# Frontend
+cd web && npm install && npm run build
 
-# Race detector
+# Regenerate protobuf stubs (requires buf CLI)
+buf generate
+
+# Run tests
+go test ./...
 go test -race ./...
 
-# Coverage
-go test ./... -cover
+# Lint
+golangci-lint run
 ```
 
-### Debugging
+---
 
-```bash
-# Dev mode with verbose logging
-./argus server --dev 2>&1 | grep -E "starting|listening|queue|shutdown"
+## Performance
 
-# Watch metrics
-watch -n 1 'curl -s http://localhost:8080/metrics | grep "argus_"'
+| Metric | Target |
+|--------|--------|
+| Ingest throughput | 10K+ signals/sec sustained |
+| Ingest latency p99 | <100ms (baseline scoring is async) |
+| Detection latency | <100ms from ingestion to alert |
+| Query latency | <1s for cursor-paginated 100K result set |
+| SDK overhead | <5ms p99 per signal |
+| Queue capacity | 100K buffered signals |
 
-# Inspect ClickHouse data
-docker compose exec clickhouse clickhouse-client --query "SELECT COUNT(*) FROM signals;"
+---
 
-# Inspect PostgreSQL
-docker compose exec postgres psql -U argus -d argus -c "SELECT COUNT(*) FROM api_keys;"
-```
+## Documentation
+
+| Doc | Contents |
+|-----|---------|
+| [`docs/getting-started.md`](docs/getting-started.md) | Step-by-step first signal walkthrough |
+| [`docs/architecture.md`](docs/architecture.md) | Processing pipeline, storage, auth, TUI internals |
+| [`docs/signal-taxonomy.md`](docs/signal-taxonomy.md) | All 11 layers, fields, categories, severity |
+| [`docs/configuration.md`](docs/configuration.md) | Full config reference, environment variables |
+| [`docs/contributing.md`](docs/contributing.md) | Code conventions, PR workflow, security policy |
+| [`docs/worktree-workflow.md`](docs/worktree-workflow.md) | Branch model and development worktree structure |
+
+---
 
 ## Contributing
 
-Argus XDR is open source and welcomes contributions. See CONTRIBUTING.md for guidelines.
+See [`docs/contributing.md`](docs/contributing.md). In short:
+- Branch from `dev`, PR targets `dev`
+- Tests required for all new behaviour
+- Proto changes are breaking — discuss before opening a PR
+- Security issues: email `security@argusxdr.io`, not a public issue
 
-## License
-
-Apache License 2.0 — See LICENSE file for details.
+---
 
 ## Support
 
-- GitHub Issues: https://github.com/argusxdr/argus/issues
-- Discussions: https://github.com/argusxdr/argus/discussions
-- Documentation: https://docs.argusxdr.io
+- **GitHub Issues:** https://github.com/kairos-dev-kairos-ecl/Argus/issues
+- **Discussions:** https://github.com/kairos-dev-kairos-ecl/Argus/discussions
+- **Documentation:** https://github.com/kairos-dev-kairos-ecl/Argus/tree/main/docs
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
